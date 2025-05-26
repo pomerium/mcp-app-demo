@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, useEffect } from 'react'
 import { Button } from './ui/Button'
-import { Settings2, Plus, Loader2, X, Trash2 } from 'lucide-react'
+import { Settings2, Plus, Loader2, X, Trash2, Pencil } from 'lucide-react'
 import {
   ToastProvider,
   ToastViewport,
@@ -33,6 +33,7 @@ export function ServerSettings() {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof ServerFormData, string>>
   >({})
+  const [editingServer, setEditingServer] = useState<Server | null>(null)
 
   const addServer = (e: FormEvent) => {
     e.preventDefault()
@@ -157,79 +158,176 @@ export function ServerSettings() {
     }
   }
 
+  const updateServer = (e: FormEvent) => {
+    e.preventDefault()
+    setFormErrors({})
+
+    if (!editingServer) return
+
+    const formData = new FormData(e.target as HTMLFormElement)
+    const formValues = {
+      name: formData.get('name') as string,
+      url: formData.get('url') as string,
+    }
+
+    const result = serverFormSchema.safeParse(formValues)
+
+    if (!result.success) {
+      const errors: Partial<Record<keyof ServerFormData, string>> = {}
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0] as keyof ServerFormData] = err.message
+        }
+      })
+      setFormErrors(errors)
+      return
+    }
+
+    const { name, url } = result.data
+    const updatedServer = {
+      ...editingServer,
+      name,
+      url,
+    }
+
+    const serverResult = serverSchema.safeParse(updatedServer)
+    if (!serverResult.success) {
+      showNotification(
+        'Validation Error',
+        'Invalid server configuration. Please check your input.',
+      )
+      return
+    }
+
+    setServers((prev) => {
+      const newServers = { ...prev, [editingServer.id]: updatedServer }
+      const serversResult = serversSchema.safeParse(newServers)
+
+      if (!serversResult.success) {
+        showNotification(
+          'Validation Error',
+          'Invalid server configuration. Please check your input.',
+        )
+        return prev
+      }
+      return newServers
+    })
+
+    showNotification('Server Updated', `${name} has been updated successfully.`)
+    setIsOpen(false)
+    setEditingServer(null)
+  }
+
   const showNotification = (title: string, description: string) => {
     setToastMessage({ title, description })
     setShowToast(true)
     setTimeout(() => setShowToast(false), 5000)
   }
 
-  const ServerForm = () => (
-    <form onSubmit={addServer} className="space-y-4">
-      <div className="space-y-2">
-        <Label
-          htmlFor="name"
-          className="text-gray-900 dark:text-gray-100 grid gap-2"
-        >
-          <span>Server Name</span>
-          <input
-            name="name"
-            type="text"
-            className={`w-full px-3 py-2 rounded-md border ${
-              formErrors.name
-                ? 'border-red-500 dark:border-red-400'
-                : 'border-gray-300 dark:border-gray-600'
-            } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
-            placeholder="Production Server"
-            required
-          />
-          {formErrors.name && (
-            <p className="text-sm text-red-500 dark:text-red-400">
-              {formErrors.name}
-            </p>
-          )}
-        </Label>
-      </div>
+  const ServerForm = () => {
+    // Add state to track form values
+    const [formValues, setFormValues] = useState<ServerFormData>({
+      name: editingServer?.name || '',
+      url: editingServer?.url || '',
+    })
 
-      <div className="space-y-2">
-        <Label
-          htmlFor="url"
-          className="text-gray-900 dark:text-gray-100 grid gap-2"
-        >
-          <span>Server URL</span>
-          <input
-            name="url"
-            type="url"
-            className={`w-full px-3 py-2 rounded-md border ${
-              formErrors.url
-                ? 'border-red-500 dark:border-red-400'
-                : 'border-gray-300 dark:border-gray-600'
-            } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
-            placeholder="https://example.com"
-            required
-          />
-          {formErrors.url && (
-            <p className="text-sm text-red-500 dark:text-red-400">
-              {formErrors.url}
-            </p>
-          )}
-        </Label>
-      </div>
+    // Update form values when editingServer changes
+    useEffect(() => {
+      if (editingServer) {
+        setFormValues({
+          name: editingServer.name,
+          url: editingServer.url,
+        })
+      } else {
+        setFormValues({
+          name: '',
+          url: '',
+        })
+      }
+    }, [editingServer])
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setIsOpen(false)
-            setFormErrors({})
-          }}
-        >
-          Cancel
-        </Button>
-        <Button type="submit">Add Server</Button>
-      </div>
-    </form>
-  )
+    return (
+      <form
+        onSubmit={editingServer ? updateServer : addServer}
+        className="space-y-4"
+      >
+        <div className="space-y-2">
+          <Label
+            htmlFor="name"
+            className="text-gray-900 dark:text-gray-100 grid gap-2"
+          >
+            <span>Server Name</span>
+            <input
+              name="name"
+              type="text"
+              value={formValues.name}
+              onChange={(e) =>
+                setFormValues((prev) => ({ ...prev, name: e.target.value }))
+              }
+              className={`w-full px-3 py-2 rounded-md border ${
+                formErrors.name
+                  ? 'border-red-500 dark:border-red-400'
+                  : 'border-gray-300 dark:border-gray-600'
+              } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
+              placeholder="Production Server"
+              required
+            />
+            {formErrors.name && (
+              <p className="text-sm text-red-500 dark:text-red-400">
+                {formErrors.name}
+              </p>
+            )}
+          </Label>
+        </div>
+
+        <div className="space-y-2">
+          <Label
+            htmlFor="url"
+            className="text-gray-900 dark:text-gray-100 grid gap-2"
+          >
+            <span>Server URL</span>
+            <input
+              name="url"
+              type="url"
+              value={formValues.url}
+              onChange={(e) =>
+                setFormValues((prev) => ({ ...prev, url: e.target.value }))
+              }
+              className={`w-full px-3 py-2 rounded-md border ${
+                formErrors.url
+                  ? 'border-red-500 dark:border-red-400'
+                  : 'border-gray-300 dark:border-gray-600'
+              } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
+              placeholder="https://example.com"
+              required
+            />
+            {formErrors.url && (
+              <p className="text-sm text-red-500 dark:text-red-400">
+                {formErrors.url}
+              </p>
+            )}
+          </Label>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setIsOpen(false)
+              setEditingServer(null)
+              setFormErrors({})
+            }}
+          >
+            Cancel
+          </Button>
+          <Button type="submit">
+            {editingServer ? 'Update Server' : 'Add Server'}
+          </Button>
+        </div>
+      </form>
+    )
+  }
 
   return (
     <ToastProvider>
@@ -240,7 +338,16 @@ export function ServerSettings() {
             <h2 className="text-2xl font-semibold">Server Settings</h2>
           </div>
 
-          <Dialog.Root open={isOpen} onOpenChange={setIsOpen}>
+          <Dialog.Root
+            open={isOpen}
+            onOpenChange={(open) => {
+              setIsOpen(open)
+              if (!open) {
+                setEditingServer(null)
+                setFormErrors({})
+              }
+            }}
+          >
             <Dialog.Trigger asChild>
               <Button className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
@@ -252,7 +359,7 @@ export function ServerSettings() {
               <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
               <Dialog.Content className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
                 <Dialog.Title className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-                  Add New Server
+                  {editingServer ? 'Edit Server' : 'Add New Server'}
                 </Dialog.Title>
 
                 <ServerForm />
@@ -309,6 +416,22 @@ export function ServerSettings() {
                       'Connect'
                     )}
                   </Button>
+                  <Dialog.Root>
+                    <Dialog.Trigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0 flex items-center justify-center border border-gray-200 dark:border-gray-700"
+                        onClick={() => {
+                          setEditingServer(server)
+                          setIsOpen(true)
+                        }}
+                      >
+                        <span className="sr-only">Edit server</span>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </Dialog.Trigger>
+                  </Dialog.Root>
                   <Dialog.Root>
                     <Dialog.Trigger asChild>
                       <Button
