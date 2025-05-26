@@ -150,7 +150,13 @@ export function ServerSettings() {
         throw new Error('Invalid server URL')
       }
 
-      const response = await fetch(`${server.url}/api/get-tools`)
+      const response = await fetch(`/api/get-tools`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: server.url }),
+      })
 
       if (!response.ok) {
         throw new Error(`Server responded with status: ${response.status}`)

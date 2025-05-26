@@ -4,7 +4,7 @@ import { experimental_createMCPClient } from 'ai'
 import { getToolsSchema } from '../../lib/schemas'
 
 export const APIRoute = createAPIFileRoute('/api/get-tools')({
-  GET: async ({ request }) => {
+  POST: async ({ request }) => {
     const bearerToken = request.headers.get('Authorization')?.split(' ')[1]
 
     try {
