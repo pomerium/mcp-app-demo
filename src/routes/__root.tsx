@@ -3,6 +3,7 @@ import {
   HeadContent,
   Scripts,
   createRootRoute,
+  Link,
 } from '@tanstack/react-router'
 
 import appCss from '../styles.css?url'
@@ -29,6 +30,23 @@ export const Route = createRootRoute({
       },
     ],
   }),
+
+  notFoundComponent: () => (
+    <div className="flex flex-col items-center justify-center h-full">
+      <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+        404
+      </h1>
+      <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+        Page not found
+      </p>
+      <Link
+        to="/"
+        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+      >
+        Return to Home
+      </Link>
+    </div>
+  ),
 
   component: () => (
     <RootDocument>
