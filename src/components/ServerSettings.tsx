@@ -12,15 +12,20 @@ import {
 import * as Dialog from '@radix-ui/react-dialog'
 import { Label } from '@radix-ui/react-label'
 import { useLocalStorage } from '../hooks/useLocalStorage'
+import {
+  serverSchema,
+  serversSchema,
+  type Server,
+  type Servers,
+} from '../routes/api/chat'
+import { z } from 'zod'
 
-type Server = {
-  id: string
-  name: string
-  url: string
-  status: 'disconnected' | 'connecting' | 'connected' | 'error'
-}
+const serverFormSchema = z.object({
+  name: z.string(),
+  url: z.string().url('Invalid server URL'),
+})
 
-type Servers = Record<string, Server>
+type ServerFormData = z.infer<typeof serverFormSchema>
 
 export function ServerSettings() {
   const [servers, setServers] = useLocalStorage<Servers>('mcp-servers', {})
@@ -30,46 +35,95 @@ export function ServerSettings() {
     description: '',
   })
   const [isOpen, setIsOpen] = useState(false)
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof ServerFormData, string>>
+  >({})
 
   const addServer = (e: React.FormEvent) => {
     e.preventDefault()
+    setFormErrors({})
 
-    // get server info from form data
     const formData = new FormData(e.target as HTMLFormElement)
-    const name = formData.get('name') as string
-    const url = formData.get('url') as string
-
-    if (name && url) {
-      const id = Math.random().toString(36).substring(7)
-      const server: Server = {
-        id,
-        name,
-        url,
-        status: 'disconnected',
-      }
-
-      setServers((prev) => ({ ...prev, [id]: server }))
-      showNotification(
-        'Server Added',
-        `${name} has been added to your servers list.`,
-      )
-      setIsOpen(false)
+    const formValues = {
+      name: formData.get('name') as string,
+      url: formData.get('url') as string,
     }
+
+    const result = serverFormSchema.safeParse(formValues)
+
+    if (!result.success) {
+      const errors: Partial<Record<keyof ServerFormData, string>> = {}
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0] as keyof ServerFormData] = err.message
+        }
+      })
+      setFormErrors(errors)
+      return
+    }
+
+    const { name, url } = result.data
+    const id = Math.random().toString(36).substring(7)
+    const server = {
+      id,
+      name,
+      url,
+      status: 'disconnected',
+    } satisfies Server
+
+    const serverResult = serverSchema.safeParse(server)
+    if (!serverResult.success) {
+      showNotification(
+        'Validation Error',
+        'Invalid server configuration. Please check your input.',
+      )
+      return
+    }
+
+    setServers((prev) => {
+      const newServers = { ...prev, [id]: server }
+      const serversResult = serversSchema.safeParse(newServers)
+
+      if (!serversResult.success) {
+        showNotification(
+          'Validation Error',
+          'Invalid server configuration. Please check your input.',
+        )
+        return prev
+      }
+      return newServers
+    })
+
+    showNotification(
+      'Server Added',
+      `${name} has been added to your servers list.`,
+    )
+    setIsOpen(false)
   }
 
   const connectToServer = async (serverId: string) => {
+    const server = servers[serverId]
+    if (!server) return
+
     setServers((prev) => ({
       ...prev,
       [serverId]: { ...prev[serverId], status: 'connecting' },
     }))
 
     try {
+      // Validate server URL before attempting connection
+      const urlResult = z.string().url().safeParse(server.url)
+      if (!urlResult.success) {
+        throw new Error('Invalid server URL')
+      }
+
+      // Here you would typically make an actual connection attempt
+      // For now, we'll simulate a successful connection
       setServers((prev) => ({
         ...prev,
         [serverId]: { ...prev[serverId], status: 'connected' },
       }))
 
-      const server = servers[serverId]
       showNotification('Connected', `Successfully connected to ${server.name}`)
     } catch (error) {
       setServers((prev) => ({
@@ -79,7 +133,9 @@ export function ServerSettings() {
 
       showNotification(
         'Connection Failed',
-        'Unable to connect to the server. Please try again.',
+        error instanceof Error
+          ? error.message
+          : 'Unable to connect to the server. Please try again.',
       )
     }
   }
@@ -89,6 +145,14 @@ export function ServerSettings() {
     if (server) {
       setServers((prev) => {
         const { [serverId]: _, ...rest } = prev
+        const result = serversSchema.safeParse(rest)
+        if (!result.success) {
+          showNotification(
+            'Validation Error',
+            'Error removing server. Please try again.',
+          )
+          return prev
+        }
         return rest
       })
       showNotification(
@@ -112,14 +176,22 @@ export function ServerSettings() {
           className="text-gray-900 dark:text-gray-100 grid gap-2"
         >
           <span>Server Name</span>
-
           <input
             name="name"
             type="text"
-            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+            className={`w-full px-3 py-2 rounded-md border ${
+              formErrors.name
+                ? 'border-red-500 dark:border-red-400'
+                : 'border-gray-300 dark:border-gray-600'
+            } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
             placeholder="Production Server"
             required
           />
+          {formErrors.name && (
+            <p className="text-sm text-red-500 dark:text-red-400">
+              {formErrors.name}
+            </p>
+          )}
         </Label>
       </div>
 
@@ -132,10 +204,19 @@ export function ServerSettings() {
           <input
             name="url"
             type="url"
-            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+            className={`w-full px-3 py-2 rounded-md border ${
+              formErrors.url
+                ? 'border-red-500 dark:border-red-400'
+                : 'border-gray-300 dark:border-gray-600'
+            } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
             placeholder="https://example.com"
             required
           />
+          {formErrors.url && (
+            <p className="text-sm text-red-500 dark:text-red-400">
+              {formErrors.url}
+            </p>
+          )}
         </Label>
       </div>
 
@@ -143,7 +224,10 @@ export function ServerSettings() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => setIsOpen(false)}
+          onClick={() => {
+            setIsOpen(false)
+            setFormErrors({})
+          }}
         >
           Cancel
         </Button>
