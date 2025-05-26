@@ -22,6 +22,43 @@ import {
 } from '../lib/schemas'
 import { z } from 'zod'
 
+const StatusIndicator = ({ status }: { status: Server['status'] }) => {
+  const getStatusColor = () => {
+    switch (status) {
+      case 'connected':
+        return 'bg-green-500'
+      case 'connecting':
+        return 'bg-orange-500'
+      case 'error':
+        return 'bg-red-500'
+      default:
+        return 'bg-gray-400'
+    }
+  }
+
+  const getStatusText = () => {
+    switch (status) {
+      case 'connected':
+        return 'Connected'
+      case 'connecting':
+        return 'Connecting'
+      case 'error':
+        return 'Error'
+      default:
+        return 'Disconnected'
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`w-2 h-2 rounded-full ${getStatusColor()}`} />
+      <span className="text-sm text-gray-600 dark:text-gray-300">
+        {getStatusText()}
+      </span>
+    </div>
+  )
+}
+
 export function ServerSettings() {
   const [servers, setServers] = useLocalStorage<Servers>('mcp-servers', {})
   const [showToast, setShowToast] = useState(false)
@@ -113,8 +150,13 @@ export function ServerSettings() {
         throw new Error('Invalid server URL')
       }
 
-      // Here you would typically make an actual connection attempt
-      // For now, we'll simulate a successful connection
+      const response = await fetch(`${server.url}/api/get-tools`)
+
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`)
+      }
+
+      // If we get here, the connection was successful
       setServers((prev) => ({
         ...prev,
         [serverId]: { ...prev[serverId], status: 'connected' },
@@ -134,6 +176,17 @@ export function ServerSettings() {
           : 'Unable to connect to the server. Please try again.',
       )
     }
+  }
+
+  const disconnectFromServer = (serverId: string) => {
+    setServers((prev) => ({
+      ...prev,
+      [serverId]: { ...prev[serverId], status: 'disconnected' },
+    }))
+    showNotification(
+      'Disconnected',
+      `Disconnected from ${servers[serverId].name}`,
+    )
   }
 
   const removeServer = (serverId: string) => {
@@ -384,21 +437,23 @@ export function ServerSettings() {
               className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
             >
               <div className="flex items-center justify-between">
-                <div>
+                <div className="space-y-1">
                   <h3 className="font-medium text-gray-900 dark:text-gray-100">
                     {server.name}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     {server.url}
                   </p>
+                  <StatusIndicator status={server.status} />
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
-                    onClick={() => connectToServer(server.id)}
-                    disabled={
-                      server.status === 'connecting' ||
+                    onClick={() =>
                       server.status === 'connected'
+                        ? disconnectFromServer(server.id)
+                        : connectToServer(server.id)
                     }
+                    disabled={server.status === 'connecting'}
                     variant={
                       server.status === 'connected' ? 'outline' : 'primary'
                     }
@@ -411,7 +466,7 @@ export function ServerSettings() {
                         Connecting
                       </>
                     ) : server.status === 'connected' ? (
-                      'Connected'
+                      'Disconnect'
                     ) : (
                       'Connect'
                     )}
