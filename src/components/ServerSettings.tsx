@@ -15,17 +15,12 @@ import { useLocalStorage } from '../hooks/useLocalStorage'
 import {
   serverSchema,
   serversSchema,
+  serverFormSchema,
   type Server,
   type Servers,
-} from '../routes/api/chat'
+  type ServerFormData,
+} from '../lib/schemas'
 import { z } from 'zod'
-
-const serverFormSchema = z.object({
-  name: z.string(),
-  url: z.string().url('Invalid server URL'),
-})
-
-type ServerFormData = z.infer<typeof serverFormSchema>
 
 export function ServerSettings() {
   const [servers, setServers] = useLocalStorage<Servers>('mcp-servers', {})

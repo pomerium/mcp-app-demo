@@ -1,11 +1,7 @@
 import { json } from '@tanstack/react-start'
 import { createAPIFileRoute } from '@tanstack/react-start/api'
 import { experimental_createMCPClient } from 'ai'
-import { z } from 'zod'
-
-export const getToolsSchema = z.object({
-  url: z.string().url('Invalid URL format'),
-})
+import { getToolsSchema } from '../../lib/schemas'
 
 export const APIRoute = createAPIFileRoute('/api/get-tools')({
   GET: async ({ request }) => {
