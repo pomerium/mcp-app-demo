@@ -1,4 +1,3 @@
-import React from 'react'
 import { cn } from '../lib/utils'
 import type { Message } from '../mcp/client'
 import { formatTimestamp } from '../lib/utils'
