@@ -4,13 +4,24 @@ import { ChatInput } from './ChatInput'
 import { useChat } from 'ai/react'
 import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
+import { useLocalStorage } from '../hooks/useLocalStorage'
 
 // This value would typically come from authentication
 const USER_EMAIL = 'user@example.com'
 
+type Server = {
+  id: string
+  name: string
+  url: string
+  status: 'disconnected' | 'connecting' | 'connected' | 'error'
+}
+
+type Servers = Record<string, Server>
+
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
+  const [servers] = useLocalStorage<Servers>('mcp-servers', {})
 
   const initialMessage = useMemo<Message>(
     () => ({
@@ -24,6 +35,9 @@ export function Chat() {
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
       initialMessages: hasStartedChat ? [] : [initialMessage],
+      body: {
+        servers,
+      },
     })
 
   // Auto-scroll to the bottom when messages change
