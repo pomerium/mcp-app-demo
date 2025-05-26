@@ -51,7 +51,7 @@ export function Chat() {
     if (!hasStartedChat) {
       setHasStartedChat(true)
     }
-    handleSubmit(new Event('submit') as any)
+    handleSubmit(new Event('submit'))
   }
 
   return (
