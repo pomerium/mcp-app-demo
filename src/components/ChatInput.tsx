@@ -49,7 +49,7 @@ export function ChatInput({
 
   return (
     <form
-      className="flex items-end gap-2 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 backdrop-blur-sm"
+      className="flex items-end gap-2 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 backdrop-blur-sm shadow-sm"
       onSubmit={handleSubmit}
     >
       <div className="relative flex-1">
