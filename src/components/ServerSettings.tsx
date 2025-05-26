@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Button } from './ui/Button'
-import { Settings2, Plus, Loader2, X } from 'lucide-react'
+import { Settings2, Plus, Loader2, X, Trash2 } from 'lucide-react'
 import {
   ToastProvider,
   ToastViewport,
@@ -11,6 +11,7 @@ import {
 } from './ui/toast'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Label } from '@radix-ui/react-label'
+import { useLocalStorage } from '../hooks/useLocalStorage'
 
 type Server = {
   id: string
@@ -19,65 +20,80 @@ type Server = {
   status: 'disconnected' | 'connecting' | 'connected' | 'error'
 }
 
+type Servers = Record<string, Server>
+
 export function ServerSettings() {
-  const [servers, setServers] = useState<Server[]>([])
+  const [servers, setServers] = useLocalStorage<Servers>('mcp-servers', {})
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState({
     title: '',
     description: '',
   })
-  const [newServer, setNewServer] = useState({ name: '', url: '' })
   const [isOpen, setIsOpen] = useState(false)
 
   const addServer = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (newServer.name && newServer.url) {
+    // get server info from form data
+    const formData = new FormData(e.target as HTMLFormElement)
+    const name = formData.get('name') as string
+    const url = formData.get('url') as string
+
+    if (name && url) {
+      const id = Math.random().toString(36).substring(7)
       const server: Server = {
-        id: Math.random().toString(36).substring(7),
-        name: newServer.name,
-        url: newServer.url,
+        id,
+        name,
+        url,
         status: 'disconnected',
       }
 
-      setServers((prev) => [...prev, server])
+      setServers((prev) => ({ ...prev, [id]: server }))
       showNotification(
         'Server Added',
-        `${newServer.name} has been added to your servers list.`,
+        `${name} has been added to your servers list.`,
       )
-      setNewServer({ name: '', url: '' })
       setIsOpen(false)
     }
   }
 
   const connectToServer = async (serverId: string) => {
-    setServers((prev) =>
-      prev.map((server) =>
-        server.id === serverId ? { ...server, status: 'connecting' } : server,
-      ),
-    )
+    setServers((prev) => ({
+      ...prev,
+      [serverId]: { ...prev[serverId], status: 'connecting' },
+    }))
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      setServers((prev) => ({
+        ...prev,
+        [serverId]: { ...prev[serverId], status: 'connected' },
+      }))
 
-      setServers((prev) =>
-        prev.map((server) =>
-          server.id === serverId ? { ...server, status: 'connected' } : server,
-        ),
-      )
-
-      const server = servers.find((s) => s.id === serverId)
-      showNotification('Connected', `Successfully connected to ${server?.name}`)
+      const server = servers[serverId]
+      showNotification('Connected', `Successfully connected to ${server.name}`)
     } catch (error) {
-      setServers((prev) =>
-        prev.map((server) =>
-          server.id === serverId ? { ...server, status: 'error' } : server,
-        ),
-      )
+      setServers((prev) => ({
+        ...prev,
+        [serverId]: { ...prev[serverId], status: 'error' },
+      }))
 
       showNotification(
         'Connection Failed',
         'Unable to connect to the server. Please try again.',
+      )
+    }
+  }
+
+  const removeServer = (serverId: string) => {
+    const server = servers[serverId]
+    if (server) {
+      setServers((prev) => {
+        const { [serverId]: _, ...rest } = prev
+        return rest
+      })
+      showNotification(
+        'Server Removed',
+        `${server.name} has been removed from your servers list.`,
       )
     }
   }
@@ -91,37 +107,36 @@ export function ServerSettings() {
   const ServerForm = () => (
     <form onSubmit={addServer} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="name" className="text-gray-900 dark:text-gray-100">
-          Server Name
+        <Label
+          htmlFor="name"
+          className="text-gray-900 dark:text-gray-100 grid gap-2"
+        >
+          <span>Server Name</span>
+
+          <input
+            name="name"
+            type="text"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+            placeholder="Production Server"
+            required
+          />
         </Label>
-        <input
-          id="name"
-          type="text"
-          value={newServer.name}
-          onChange={(e) =>
-            setNewServer((prev) => ({ ...prev, name: e.target.value }))
-          }
-          className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-          placeholder="Production Server"
-          required
-        />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="url" className="text-gray-900 dark:text-gray-100">
-          Server URL
+        <Label
+          htmlFor="url"
+          className="text-gray-900 dark:text-gray-100 grid gap-2"
+        >
+          <span>Server URL</span>
+          <input
+            name="url"
+            type="url"
+            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+            placeholder="https://example.com"
+            required
+          />
         </Label>
-        <input
-          id="url"
-          type="url"
-          value={newServer.url}
-          onChange={(e) =>
-            setNewServer((prev) => ({ ...prev, url: e.target.value }))
-          }
-          className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-          placeholder="https://example.com"
-          required
-        />
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
@@ -177,7 +192,7 @@ export function ServerSettings() {
         </div>
 
         <div className="space-y-4">
-          {servers.map((server) => (
+          {Object.values(servers).map((server) => (
             <div
               key={server.id}
               className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
@@ -191,33 +206,74 @@ export function ServerSettings() {
                     {server.url}
                   </p>
                 </div>
-                <Button
-                  onClick={() => connectToServer(server.id)}
-                  disabled={
-                    server.status === 'connecting' ||
-                    server.status === 'connected'
-                  }
-                  variant={
-                    server.status === 'connected' ? 'outline' : 'primary'
-                  }
-                  className="min-w-[100px]"
-                >
-                  {server.status === 'connecting' ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Connecting
-                    </>
-                  ) : server.status === 'connected' ? (
-                    'Connected'
-                  ) : (
-                    'Connect'
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => connectToServer(server.id)}
+                    disabled={
+                      server.status === 'connecting' ||
+                      server.status === 'connected'
+                    }
+                    variant={
+                      server.status === 'connected' ? 'outline' : 'primary'
+                    }
+                    size="sm"
+                    className="min-w-[100px] h-9"
+                  >
+                    {server.status === 'connecting' ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Connecting
+                      </>
+                    ) : server.status === 'connected' ? (
+                      'Connected'
+                    ) : (
+                      'Connect'
+                    )}
+                  </Button>
+                  <Dialog.Root>
+                    <Dialog.Trigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0 flex items-center justify-center border border-gray-200 dark:border-gray-700 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                      >
+                        <span className="sr-only">Remove Server</span>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </Dialog.Trigger>
+                    <Dialog.Portal>
+                      <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                      <Dialog.Content className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                        <Dialog.Title className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
+                          Remove Server
+                        </Dialog.Title>
+                        <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+                          Are you sure you want to remove {server.name}? This
+                          action cannot be undone.
+                        </Dialog.Description>
+                        <div className="flex justify-end gap-2">
+                          <Dialog.Close asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </Dialog.Close>
+                          <Dialog.Close asChild>
+                            <Button
+                              variant="primary"
+                              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
+                              onClick={() => removeServer(server.id)}
+                            >
+                              Remove Server
+                            </Button>
+                          </Dialog.Close>
+                        </div>
+                      </Dialog.Content>
+                    </Dialog.Portal>
+                  </Dialog.Root>
+                </div>
               </div>
             </div>
           ))}
 
-          {servers.length === 0 && (
+          {Object.keys(servers).length === 0 && (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
               <p>No servers configured yet.</p>
               <p className="text-sm">Click "Add Server" to get started.</p>
