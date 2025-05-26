@@ -46,11 +46,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
           <Header />
-          <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
-            <main className="flex-1 overflow-hidden">
-              <div className="mx-auto max-w-4xl h-full">{children}</div>
-            </main>
-          </div>
+          <main className="flex-1 overflow-auto">
+            <div className="mx-auto max-w-4xl h-full">{children}</div>
+          </main>
         </div>
         <Scripts />
       </body>

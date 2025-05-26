@@ -13,7 +13,7 @@ import { Button } from './ui/Button'
 
 const Header: React.FC = () => {
   return (
-    <header className="bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex justify-between items-center">
+    <header className="sticky top-0 z-50 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex justify-between items-center">
       <div className="flex items-center gap-2">
         <MessageSquareText className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
         <h1 className="text-xl font-semibold">PomChat</h1>
