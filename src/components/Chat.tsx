@@ -58,7 +58,7 @@ export function Chat() {
                 isLoading={
                   isLoading &&
                   message.role === 'assistant' &&
-                  message === messages[messages.length - 1]
+                  message === messages.at(-1)
                 }
               />
             ))}
