@@ -161,20 +161,11 @@ export function ServerSettings() {
         ...prev,
         [serverId]: { ...prev[serverId], status: 'connected' },
       }))
-
-      showNotification('Connected', `Successfully connected to ${server.name}`)
     } catch (error) {
       setServers((prev) => ({
         ...prev,
         [serverId]: { ...prev[serverId], status: 'error' },
       }))
-
-      showNotification(
-        'Connection Failed',
-        error instanceof Error
-          ? error.message
-          : 'Unable to connect to the server. Please try again.',
-      )
     }
   }
 
@@ -183,10 +174,6 @@ export function ServerSettings() {
       ...prev,
       [serverId]: { ...prev[serverId], status: 'disconnected' },
     }))
-    showNotification(
-      'Disconnected',
-      `Disconnected from ${servers[serverId].name}`,
-    )
   }
 
   const removeServer = (serverId: string) => {
@@ -460,16 +447,7 @@ export function ServerSettings() {
                     size="sm"
                     className="min-w-[100px] h-9"
                   >
-                    {server.status === 'connecting' ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Connecting
-                      </>
-                    ) : server.status === 'connected' ? (
-                      'Disconnect'
-                    ) : (
-                      'Connect'
-                    )}
+                    {server.status === 'connected' ? 'Disconnect' : 'Connect'}
                   </Button>
                   <Dialog.Root>
                     <Dialog.Trigger asChild>
