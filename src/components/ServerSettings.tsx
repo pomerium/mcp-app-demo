@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Button } from './ui/Button'
 import { Settings2, Plus, Loader2, X, Trash2 } from 'lucide-react'
 import {
@@ -39,7 +39,7 @@ export function ServerSettings() {
     Partial<Record<keyof ServerFormData, string>>
   >({})
 
-  const addServer = (e: React.FormEvent) => {
+  const addServer = (e: FormEvent) => {
     e.preventDefault()
     setFormErrors({})
 
