@@ -1,21 +1,30 @@
 import { json } from '@tanstack/react-start'
 import { createAPIFileRoute } from '@tanstack/react-start/api'
 import { experimental_createMCPClient } from 'ai'
+import { z } from 'zod'
+
+export const getToolsSchema = z.object({
+  url: z.string().url('Invalid URL format'),
+})
 
 export const APIRoute = createAPIFileRoute('/api/get-tools')({
   GET: async ({ request }) => {
     const bearerToken = request.headers.get('Authorization')?.split(' ')[1]
-    const { url } = await request.json()
-
-    if (!url) {
-      return json({ error: 'URL is required' }, { status: 400 })
-    }
-
-    if (!bearerToken) {
-      return json({ error: 'Authorization token is required' }, { status: 401 })
-    }
 
     try {
+      const body = await request.json()
+      const result = getToolsSchema.safeParse(body)
+
+      if (!result.success) {
+        return json({ error: result.error.errors }, { status: 400 })
+      }
+
+      const { url } = result.data
+
+      if (!bearerToken) {
+        return json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
       const client = await experimental_createMCPClient({
         transport: {
           type: 'sse',
@@ -26,12 +35,13 @@ export const APIRoute = createAPIFileRoute('/api/get-tools')({
         },
       })
 
-      const tools = client.tools || {}
+      const tools = client.tools ?? {}
       await client.close()
 
       return json({ tools })
     } catch (error) {
       console.error('Error creating MCP client:', error)
+
       return json({ error: 'Failed to connect to MCP server' }, { status: 500 })
     }
   },
