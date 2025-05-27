@@ -5,7 +5,7 @@ import { useChat } from 'ai/react'
 import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
 import { useLocalStorage } from '../hooks/useLocalStorage'
-import { type Servers } from '../routes/api/chat'
+import { type Servers } from '../lib/schemas'
 
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)

@@ -10,7 +10,22 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
 
     try {
       const body = await request.json()
-      const result = chatRequestSchema.safeParse(body)
+
+      // Ensure messages have the correct structure before validation
+      const formattedBody = {
+        ...body,
+        messages: body.messages.map((msg: any) => ({
+          ...msg,
+          parts: [
+            {
+              type: 'text',
+              text: msg.content,
+            },
+          ],
+        })),
+      }
+
+      const result = chatRequestSchema.safeParse(formattedBody)
 
       if (!result.success) {
         console.error('Validation error:', result.error.errors)
@@ -41,11 +56,20 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
           // }
         })) satisfies Tool[]
 
-      // Format the conversation history into a single input string
+      // Format the conversation history into a single input string with proper message parts
       const input = messages
+        .map((msg) => ({
+          role: msg.role,
+          parts: [
+            {
+              type: 'text',
+              text: msg.content,
+            },
+          ],
+        }))
         .map(
           (msg) =>
-            `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`,
+            `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.parts[0].text}`,
         )
         .join('\n\n')
 
