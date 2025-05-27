@@ -14,6 +14,10 @@ export const serverSchema = z.object({
   name: z.string(),
   url: z.string().url('Invalid server URL'),
   status: ServerStatusEnum,
+  tools: z.record(z.any()).optional(),
+  toolStates: z
+    .record(z.object({ enabled: z.boolean(), allow: z.string() }))
+    .optional(),
 })
 
 // Servers record schema
@@ -54,3 +58,14 @@ export const serverFormSchema = z.object({
 export type Server = z.infer<typeof serverSchema>
 export type Servers = z.infer<typeof serversSchema>
 export type ServerFormData = z.infer<typeof serverFormSchema>
+
+export const allowOptions = {
+  ask: {
+    label: 'Always ask permission',
+    description: 'Your approval is required every time',
+  },
+  unsupervised: {
+    label: 'Allow unsupervised',
+    description: 'Your approval is not required',
+  },
+} as const

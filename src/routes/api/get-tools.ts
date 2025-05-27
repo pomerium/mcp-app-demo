@@ -31,7 +31,7 @@ export const APIRoute = createAPIFileRoute('/api/get-tools')({
         },
       })
 
-      const tools = client.tools ?? {}
+      const tools = await client.tools()
       await client.close()
 
       return json({ tools })
