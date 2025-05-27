@@ -14,7 +14,7 @@ type StreamEvent =
   | {
       type: 'tool'
       toolType: string
-      serverLabel?: string
+      serverLabel: string
       tools?: any[]
       itemId?: string
     }
@@ -159,7 +159,7 @@ export function Chat() {
               if ('type' in event && event.type === 'tool') {
                 return (
                   <ToolCallMessage
-                    key={`tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || idx}`}
+                    key={`tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`}
                     name={event.serverLabel || ''}
                     args={{
                       status: event.toolType,
