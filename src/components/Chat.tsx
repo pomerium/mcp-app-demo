@@ -131,7 +131,8 @@ export function Chat() {
     if (!hasStartedChat) {
       setHasStartedChat(true)
     }
-    setStreamBuffer([
+    setStreamBuffer((prev) => [
+      ...prev,
       {
         type: 'user',
         id: generateMessageId(),
