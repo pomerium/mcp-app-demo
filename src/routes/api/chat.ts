@@ -1,8 +1,8 @@
 import { createAPIFileRoute } from '@tanstack/react-start/api'
-import { experimental_createMCPClient, streamText } from 'ai'
-import { openai } from '@ai-sdk/openai'
 import { chatRequestSchema } from '../../lib/schemas'
-import type { Server } from '../../lib/schemas'
+import OpenAI from 'openai'
+import type { Tool } from 'openai/resources/responses/responses.mjs'
+import { streamText } from '../../lib/streaming'
 
 export const APIRoute = createAPIFileRoute('/api/chat')({
   POST: async ({ request }) => {
@@ -22,47 +22,42 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
 
       const { messages, servers } = result.data
 
-      const mcpClients = await Promise.all(
-        Object.values(servers).map(async (server: Server) => {
-          if (server.status !== 'connected') return null
+      if (messages.length === 0) {
+        return new Response(JSON.stringify({ error: 'No messages provided' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
 
-          return await experimental_createMCPClient({
-            transport: {
-              type: 'sse',
-              url: server.url,
-              headers: {
-                Authorization: `Bearer ${bearerToken}`,
-              },
-            },
-          })
-        }),
-      )
+      const tools = Object.entries(servers)
+        .filter(([_, server]) => server.status === 'connected')
+        .map(([_id, server]) => ({
+          type: 'mcp',
+          server_label: server.name,
+          server_url: server.url,
+          require_approval: 'never',
+          // headers: {
+          //   Authorization: `Bearer ${bearerToken}`,
+          // }
+        })) satisfies Tool[]
 
-      // Filter out null clients and combine their tools
-      const validClients = mcpClients.filter(
-        (client): client is NonNullable<typeof client> => client !== null,
-      )
-      const allTools = validClients.reduce((acc, client) => {
-        if (client.tools) {
-          return { ...acc, ...client.tools }
-        }
-        return acc
-      }, {})
+      // Format the conversation history into a single input string
+      const input = messages
+        .map(
+          (msg) =>
+            `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`,
+        )
+        .join('\n\n')
 
-      const response = await streamText({
-        model: openai('gpt-4'),
-        messages,
-        tools: allTools,
-        onError: async (event) => {
-          console.error('Streaming error:', event.error)
-          await Promise.all(validClients.map((client) => client.close()))
-        },
-        onFinish: async () => {
-          await Promise.all(validClients.map((client) => client.close()))
-        },
+      const client = new OpenAI()
+      const answer = await client.responses.create({
+        model: 'gpt-4.1',
+        tools,
+        input,
+        stream: true,
       })
 
-      return response.toDataStreamResponse()
+      return streamText(answer)
     } catch (error) {
       console.error('Error in chat route:', error)
       return new Response(JSON.stringify({ error: 'Internal server error' }), {
