@@ -70,5 +70,8 @@
   },
   "overrides": {
     "@tanstack/react-router": "^1.121.2"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.41.1"
   }
 }
