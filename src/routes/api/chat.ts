@@ -35,7 +35,7 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
         })
       }
 
-      const { messages, servers } = result.data
+      const { messages, servers, model } = result.data
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {

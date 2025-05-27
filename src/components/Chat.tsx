@@ -19,6 +19,9 @@ type StreamEvent =
       itemId?: string
     }
   | { type: 'user'; id: string; content: string }
+import { ModelSelect } from './ModelSelect'
+import { Button } from './ui/button'
+import { ChevronDown } from 'lucide-react'
 
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -26,6 +29,7 @@ export function Chat() {
   const [servers] = useLocalStorage<Servers>('mcp-servers', {})
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('gpt-4.1')
 
   const initialMessage = useMemo<Message>(
     () => ({
@@ -41,6 +45,7 @@ export function Chat() {
       initialMessages: hasStartedChat ? [] : [initialMessage],
       body: {
         servers,
+        model: selectedModel,
       },
       onResponse: (response) => {
         const reader = response.body?.getReader()
@@ -152,6 +157,12 @@ export function Chat() {
 
   return (
     <div className="flex flex-col h-full relative">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+        <label>
+          <span className="sr-only">Model</span>
+          <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
+        </label>
+      </div>
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4">
           <div className="space-y-4">

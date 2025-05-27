@@ -41,6 +41,7 @@ export const chatRequestSchema = z.object({
   id: z.string(),
   messages: z.array(messageSchema),
   servers: serversSchema,
+  model: z.string(),
 })
 
 // Get tools request schema
