@@ -1,8 +1,8 @@
 import { Wrench } from 'lucide-react'
 
-type ToolCallMessageProps = {
+type ToolCallMessageProps<T = Record<string, unknown>> = {
   name: string
-  args: Record<string, any>
+  args: T
 }
 
 export function ToolCallMessage({ name, args }: ToolCallMessageProps) {
