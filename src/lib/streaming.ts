@@ -30,16 +30,64 @@ export function streamText(
       }
 
       for await (const chunk of answer) {
-        if (
-          chunk.type === 'response.output_text.delta' &&
-          typeof chunk.delta === 'string'
-        ) {
-          buffer += chunk.delta
+        // Handle tool-related chunks
+        switch (chunk.type) {
+          case 'response.output_item.added':
+            if (chunk.item.type === 'mcp_list_tools') {
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'tool_added',
+                    serverLabel: chunk.item.server_label,
+                    tools: chunk.item.tools,
+                  })}\n`,
+                ),
+              )
+            }
+            break
+          case 'response.mcp_list_tools.in_progress':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'tool_in_progress',
+                  itemId: chunk.item_id,
+                })}\n`,
+              ),
+            )
+            break
+          case 'response.mcp_list_tools.completed':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'tool_completed',
+                  itemId: chunk.item_id,
+                })}\n`,
+              ),
+            )
+            break
+          case 'response.output_item.done':
+            if (chunk.item.type === 'mcp_list_tools') {
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'tool_done',
+                    serverLabel: chunk.item.server_label,
+                    tools: chunk.item.tools,
+                  })}\n`,
+                ),
+              )
+            }
+            break
+          case 'response.output_text.delta':
+            if (typeof chunk.delta === 'string') {
+              buffer += chunk.delta
 
-          // Flush on sentence boundaries or when buffer gets large
-          if (buffer.length > 40 || /[.!?\n]$/.test(chunk.delta)) {
-            flush()
-          }
+              // Flush on sentence boundaries or when buffer gets large
+              if (buffer.length > 40 || /[.!?\n]$/.test(chunk.delta)) {
+                flush()
+              }
+            }
+            break
         }
       }
 
