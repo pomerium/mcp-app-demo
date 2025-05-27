@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
 } from './ui/dropdown-menu'
 import { ThemeToggle } from './ThemeToggle'
-import { Button } from './ui/Button'
+import { Button } from './ui/button'
 
 const Header: React.FC = () => {
   return (

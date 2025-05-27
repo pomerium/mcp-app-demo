@@ -1,6 +1,6 @@
 import { useState, type FormEvent, useEffect } from 'react'
-import { Button } from './ui/Button'
-import { Settings2, Plus, Loader2, X, Trash2, Pencil } from 'lucide-react'
+import { Button } from './ui/button'
+import { Settings2, Plus, X, MoreHorizontal } from 'lucide-react'
 import {
   ToastProvider,
   ToastViewport,
@@ -10,6 +10,16 @@ import {
   ToastClose,
 } from './ui/toast'
 import * as Dialog from '@radix-ui/react-dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog'
 import { Label } from '@radix-ui/react-label'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import {
@@ -21,6 +31,14 @@ import {
   type ServerFormData,
 } from '../lib/schemas'
 import { z } from 'zod'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from './ui/dropdown-menu'
+import { ServerToolsModal } from './ServerToolsModal'
 
 const StatusIndicator = ({ status }: { status: Server['status'] }) => {
   const getStatusColor = () => {
@@ -71,6 +89,10 @@ export function ServerSettings() {
     Partial<Record<keyof ServerFormData, string>>
   >({})
   const [editingServer, setEditingServer] = useState<Server | null>(null)
+  const [toolsModalServerId, setToolsModalServerId] = useState<string | null>(
+    null,
+  )
+  const [serverToRemove, setServerToRemove] = useState<Server | null>(null)
 
   const addServer = (e: FormEvent) => {
     e.preventDefault()
@@ -162,10 +184,22 @@ export function ServerSettings() {
         throw new Error(`Server responded with status: ${response.status}`)
       }
 
-      // If we get here, the connection was successful
+      const data = await response.json()
+      const toolStates = Object.fromEntries(
+        Object.keys(data.tools || {}).map((k) => [
+          k,
+          { enabled: true, allow: 'unsupervised' },
+        ]),
+      )
+
       setServers((prev) => ({
         ...prev,
-        [serverId]: { ...prev[serverId], status: 'connected' },
+        [serverId]: {
+          ...prev[serverId],
+          status: 'connected',
+          tools: data.tools,
+          toolStates,
+        },
       }))
     } catch (error) {
       setServers((prev) => ({
@@ -178,7 +212,12 @@ export function ServerSettings() {
   const disconnectFromServer = (serverId: string) => {
     setServers((prev) => ({
       ...prev,
-      [serverId]: { ...prev[serverId], status: 'disconnected' },
+      [serverId]: {
+        ...prev[serverId],
+        status: 'disconnected',
+        tools: undefined,
+        toolStates: undefined,
+      },
     }))
   }
 
@@ -201,6 +240,7 @@ export function ServerSettings() {
         'Server Removed',
         `${server.name} has been removed from your servers list.`,
       )
+      setServerToRemove(null)
     }
   }
 
@@ -377,7 +417,7 @@ export function ServerSettings() {
 
   return (
     <ToastProvider>
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="p-6 sm:px-4 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Settings2 className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
@@ -440,77 +480,86 @@ export function ServerSettings() {
                   <StatusIndicator status={server.status} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() =>
-                      server.status === 'connected'
-                        ? disconnectFromServer(server.id)
-                        : connectToServer(server.id)
-                    }
-                    disabled={server.status === 'connecting'}
-                    variant={
-                      server.status === 'connected' ? 'outline' : 'primary'
-                    }
-                    size="sm"
-                    className="min-w-[100px] h-9"
-                  >
-                    {server.status === 'connected' ? 'Disconnect' : 'Connect'}
-                  </Button>
-                  <Dialog.Root>
-                    <Dialog.Trigger asChild>
+                  {server.status !== 'connected' && (
+                    <Button
+                      onClick={() => connectToServer(server.id)}
+                      disabled={server.status === 'connecting'}
+                      variant="primary"
+                      size="sm"
+                      className="min-w-[100px] h-9"
+                    >
+                      Connect
+                    </Button>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        size="sm"
                         className="h-9 w-9 p-0 flex items-center justify-center border border-gray-200 dark:border-gray-700"
+                      >
+                        <span className="sr-only">Server menu</span>
+                        <MoreHorizontal className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => setToolsModalServerId(server.id)}
+                      >
+                        Tools and settings
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
                         onClick={() => {
                           setEditingServer(server)
                           setIsOpen(true)
                         }}
                       >
-                        <span className="sr-only">Edit server</span>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </Dialog.Trigger>
-                  </Dialog.Root>
-                  <Dialog.Root>
-                    <Dialog.Trigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 w-9 p-0 flex items-center justify-center border border-gray-200 dark:border-gray-700 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => disconnectFromServer(server.id)}
+                        className="text-red-600"
                       >
-                        <span className="sr-only">Remove Server</span>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </Dialog.Trigger>
-                    <Dialog.Portal>
-                      <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-                      <Dialog.Content className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-md rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
-                        <Dialog.Title className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">
-                          Remove Server
-                        </Dialog.Title>
-                        <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-                          Are you sure you want to remove {server.name}? This
-                          action cannot be undone.
-                        </Dialog.Description>
-                        <div className="flex justify-end gap-2">
-                          <Dialog.Close asChild>
-                            <Button variant="outline">Cancel</Button>
-                          </Dialog.Close>
-                          <Dialog.Close asChild>
-                            <Button
-                              variant="primary"
-                              className="bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
-                              onClick={() => removeServer(server.id)}
-                            >
-                              Remove Server
-                            </Button>
-                          </Dialog.Close>
-                        </div>
-                      </Dialog.Content>
-                    </Dialog.Portal>
-                  </Dialog.Root>
+                        Disconnect
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setServerToRemove(server)
+                        }}
+                        className="text-red-600"
+                      >
+                        Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
+              {toolsModalServerId === server.id && (
+                <ServerToolsModal
+                  open={toolsModalServerId === server.id}
+                  onOpenChange={(open) =>
+                    open
+                      ? setToolsModalServerId(server.id)
+                      : setToolsModalServerId(null)
+                  }
+                  serverName={server.name}
+                  serverUrl={server.url}
+                  tools={servers[server.id]?.tools || {}}
+                  toolStates={servers[server.id]?.toolStates || {}}
+                  onToolStateChange={(tool, state) =>
+                    setServers((prev) => ({
+                      ...prev,
+                      [server.id]: {
+                        ...prev[server.id],
+                        toolStates: {
+                          ...prev[server.id].toolStates,
+                          [tool]: state,
+                        },
+                      },
+                    }))
+                  }
+                />
+              )}
             </div>
           ))}
 
@@ -533,6 +582,30 @@ export function ServerSettings() {
         </Toast>
       )}
       <ToastViewport />
+
+      <AlertDialog
+        open={!!serverToRemove}
+        onOpenChange={(open) => !open && setServerToRemove(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Server</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove {serverToRemove?.name}? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => serverToRemove && removeServer(serverToRemove.id)}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ToastProvider>
   )
 }
