@@ -6,6 +6,7 @@ import {
   Link,
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ModelProvider } from '../contexts/ModelContext'
 
 import appCss from '../styles.css?url'
 import Header from '../components/Header'
@@ -54,9 +55,11 @@ export const Route = createRootRoute({
 
   component: () => (
     <QueryClientProvider client={queryClient}>
-      <RootDocument>
-        <Outlet />
-      </RootDocument>
+      <ModelProvider>
+        <RootDocument>
+          <Outlet />
+        </RootDocument>
+      </ModelProvider>
     </QueryClientProvider>
   ),
 })
