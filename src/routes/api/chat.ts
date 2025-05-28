@@ -75,7 +75,7 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
 
       const client = new OpenAI()
       const answer = await client.responses.create({
-        model: 'gpt-4.1',
+        model,
         tools,
         input,
         stream: true,
