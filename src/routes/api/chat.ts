@@ -7,7 +7,7 @@ import { streamText } from '../../lib/streaming'
 export const APIRoute = createAPIFileRoute('/api/chat')({
   POST: async ({ request }) => {
     const bearerToken = request.headers.get('Authorization')?.split(' ')[1]
-
+    
     try {
       const body = await request.json()
 
@@ -51,9 +51,9 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
           server_label: server.name,
           server_url: server.url,
           require_approval: 'never',
-          // headers: {
-          //   Authorization: `Bearer ${bearerToken}`,
-          // }
+          headers: {
+             Authorization: `Bearer ${bearerToken}`,
+          }
         })) satisfies Tool[]
 
       // Format the conversation history into a single input string with proper message parts
