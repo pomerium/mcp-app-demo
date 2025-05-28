@@ -5,9 +5,14 @@ import {
   createRootRoute,
   Link,
 } from '@tanstack/react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ModelProvider } from '../contexts/ModelContext'
 
 import appCss from '../styles.css?url'
 import Header from '../components/Header'
+
+// Create a client
+const queryClient = new QueryClient()
 
 export const Route = createRootRoute({
   head: () => ({
@@ -49,9 +54,13 @@ export const Route = createRootRoute({
   ),
 
   component: () => (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
+    <QueryClientProvider client={queryClient}>
+      <ModelProvider>
+        <RootDocument>
+          <Outlet />
+        </RootDocument>
+      </ModelProvider>
+    </QueryClientProvider>
   ),
 })
 

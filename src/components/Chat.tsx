@@ -7,6 +7,7 @@ import type { Message } from 'ai'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
+import { useModel } from '../contexts/ModelContext'
 
 // Streamed event type
 type StreamEvent =
@@ -19,13 +20,13 @@ type StreamEvent =
       itemId?: string
     }
   | { type: 'user'; id: string; content: string }
-
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [servers] = useLocalStorage<Servers>('mcp-servers', {})
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
+  const { selectedModel } = useModel()
 
   const initialMessage = useMemo<Message>(
     () => ({
@@ -41,6 +42,7 @@ export function Chat() {
       initialMessages: hasStartedChat ? [] : [initialMessage],
       body: {
         servers,
+        model: selectedModel,
       },
       onResponse: (response) => {
         const reader = response.body?.getReader()

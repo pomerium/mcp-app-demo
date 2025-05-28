@@ -10,22 +10,32 @@ import {
 } from './ui/dropdown-menu'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from './ui/button'
+import { ModelSelect } from './ModelSelect'
+import { useModel } from '../contexts/ModelContext'
+import { useRouteMatch } from '../hooks/useRouteMatch'
 
 const Header: React.FC = () => {
+  const { selectedModel, setSelectedModel } = useModel()
+  const isSettingsPage = useRouteMatch('/settings')
+
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex justify-between items-center">
       <div className="flex items-center gap-2">
         <MessageSquareText className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
         <h1 className="text-xl font-semibold">PomChat</h1>
-        <Link
-          to="/"
-          className="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Chat
-        </Link>
+
+        <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
       </div>
       <div className="flex items-center gap-2">
+        {isSettingsPage && (
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-sm text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Chat
+          </Link>
+        )}
         <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
