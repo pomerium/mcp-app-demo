@@ -20,10 +20,6 @@ type StreamEvent =
       itemId?: string
     }
   | { type: 'user'; id: string; content: string }
-import { ModelSelect } from './ModelSelect'
-import { Button } from './ui/button'
-import { ChevronDown } from 'lucide-react'
-
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
