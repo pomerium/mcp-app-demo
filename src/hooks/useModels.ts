@@ -1,11 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-
-type Model = {
-  id: string
-  object: string
-  created: number
-  owned_by: string
-}
+import type { Model } from 'openai/resources/models.mjs'
 
 export function useModels() {
   return useQuery<Model[]>({
