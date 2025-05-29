@@ -18,8 +18,11 @@ type StreamEvent =
       serverLabel: string
       tools?: any[]
       itemId?: string
+      toolName?: string
+      arguments?: unknown
     }
   | { type: 'user'; id: string; content: string }
+
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
@@ -57,6 +60,29 @@ export function Chat() {
           if (line.startsWith('t:')) {
             try {
               const toolState = JSON.parse(line.slice(2))
+
+              if ('delta' in toolState) {
+                try {
+                  toolState.delta =
+                    'delta' in toolState && toolState.delta !== ''
+                      ? JSON.parse(toolState.delta)
+                      : {}
+                } catch (e) {
+                  console.error('Failed to parse delta:', toolState.delta)
+                  toolState.delta = {}
+                }
+              }
+
+              try {
+                toolState.arguments =
+                  'arguments' in toolState && toolState.arguments !== ''
+                    ? JSON.parse(toolState.arguments)
+                    : {}
+              } catch (e) {
+                console.error('Failed to parse arguments:', toolState.arguments)
+                toolState.arguments = {}
+              }
+
               setStreamBuffer((prev) => [
                 ...prev,
                 {
@@ -65,6 +91,9 @@ export function Chat() {
                   serverLabel: toolState.serverLabel,
                   tools: toolState.tools,
                   itemId: toolState.itemId,
+                  delta: toolState.delta,
+                  arguments: toolState.arguments,
+                  toolName: toolState.toolName,
                 },
               ])
             } catch (e) {
@@ -122,6 +151,10 @@ export function Chat() {
       },
     })
 
+  // What to render: if streaming or streamBuffer has content, use streamBuffer; else, use messages
+  const renderEvents: (StreamEvent | Message)[] =
+    streaming || streamBuffer.length > 0 ? [...streamBuffer] : messages
+
   // Auto-scroll to the bottom when messages or streamBuffer change
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -144,14 +177,6 @@ export function Chat() {
     handleSubmit(new Event('submit'))
   }
 
-  // What to render: if streaming or streamBuffer has content, use streamBuffer; else, use messages
-  let renderEvents: (StreamEvent | Message)[]
-  if (streaming || streamBuffer.length > 0) {
-    renderEvents = [...streamBuffer]
-  } else {
-    renderEvents = messages
-  }
-
   return (
     <div className="flex flex-col h-full relative">
       <div className="flex-1 overflow-y-auto">
@@ -163,10 +188,7 @@ export function Chat() {
                   <ToolCallMessage
                     key={`tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`}
                     name={event.serverLabel || ''}
-                    args={{
-                      status: event.toolType,
-                      tools: event.tools,
-                    }}
+                    args={event}
                   />
                 )
               } else if ('type' in event && event.type === 'assistant') {

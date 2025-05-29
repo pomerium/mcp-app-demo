@@ -32,19 +32,6 @@ export function streamText(
       for await (const chunk of answer) {
         // Handle tool-related chunks
         switch (chunk.type) {
-          case 'response.output_item.added':
-            if (chunk.item.type === 'mcp_list_tools') {
-              controller.enqueue(
-                encoder.encode(
-                  `t:${JSON.stringify({
-                    type: 'tool_added',
-                    serverLabel: chunk.item.server_label,
-                    tools: chunk.item.tools,
-                  })}\n`,
-                ),
-              )
-            }
-            break
           case 'response.mcp_list_tools.in_progress':
             controller.enqueue(
               encoder.encode(
@@ -87,6 +74,96 @@ export function streamText(
                 flush()
               }
             }
+            break
+          case 'response.mcp_call.failed':
+            console.error('[TOOL CALL FAILED]', chunk)
+
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'mcp_call_failed',
+                  itemId: chunk.item_id,
+                })}\n`,
+              ),
+            )
+            break
+
+          case 'response.mcp_call.created':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'mcp_call_created',
+                  itemId: chunk.item_id,
+                  toolName: chunk.tool.name,
+                  arguments: chunk.tool.input,
+                })}\n`,
+              ),
+            )
+            break
+
+          case 'response.mcp_call.in_progress':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'mcp_call_in_progress',
+                  itemId: chunk.item_id,
+                })}\n`,
+              ),
+            )
+            break
+
+          case 'response.mcp_call_arguments.delta':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'mcp_call_arguments_delta',
+                  itemId: chunk.item_id,
+                  delta: chunk.delta,
+                })}\n`,
+              ),
+            )
+            break
+
+          case 'response.mcp_call_arguments.done':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'mcp_call_arguments_done',
+                  itemId: chunk.item_id,
+                  arguments: chunk.arguments,
+                })}\n`,
+              ),
+            )
+            break
+
+          case 'response.mcp_call.completed':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'mcp_call_completed',
+                  itemId: chunk.item_id,
+                })}\n`,
+              ),
+            )
+            break
+
+          case 'response.output_item.added':
+            if (chunk.item.type === 'mcp_call') {
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'mcp_call',
+                    itemId: chunk.item.id,
+                    toolName: chunk.item.name,
+                    serverLabel: chunk.item.server_label,
+                    arguments: chunk.item.arguments,
+                  })}\n`,
+                ),
+              )
+            }
+            break
+
+          default:
             break
         }
       }
