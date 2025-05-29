@@ -62,7 +62,15 @@ export function Chat() {
               const toolState = JSON.parse(line.slice(2))
 
               if ('delta' in toolState) {
-                toolState.delta = JSON.parse(toolState.delta)
+                try {
+                  toolState.delta =
+                    'delta' in toolState && toolState.delta !== ''
+                      ? JSON.parse(toolState.delta)
+                      : {}
+                } catch (e) {
+                  console.error('Failed to parse delta:', toolState.delta)
+                  toolState.delta = {}
+                }
               }
 
               try {
