@@ -88,6 +88,18 @@ export function streamText(
               }
             }
             break
+          case 'response.mcp_call.failed':
+            console.error('[TOOL CALL FAILED]', chunk)
+
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'mcp_call_failed',
+                  itemId: chunk.item_id,
+                })}\n`,
+              ),
+            )
+            break
         }
       }
 
