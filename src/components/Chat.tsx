@@ -243,7 +243,7 @@ export function Chat() {
               } else if ('type' in event && event.type === 'reasoning') {
                 return (
                   <ReasoningMessage
-                    key={`reasoning-${event.effort}-${event.summary || ''}`}
+                    key={`reasoning-${idx}-${event.effort}-${event.summary || ''}`}
                     effort={event.effort}
                     summary={event.summary}
                     model={event.model}
