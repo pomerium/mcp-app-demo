@@ -36,7 +36,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from './ui/dropdown-menu'
 import { ServerToolsModal } from './ServerToolsModal'
 
@@ -177,7 +176,7 @@ export function ServerSettings() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url: server.url }),
+        body: JSON.stringify({ url: server.url, name: server.name }),
       })
 
       if (!response.ok) {
@@ -502,12 +501,6 @@ export function ServerSettings() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => setToolsModalServerId(server.id)}
-                      >
-                        Tools and settings
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => {
                           setEditingServer(server)
