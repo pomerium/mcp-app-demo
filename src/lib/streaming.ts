@@ -21,7 +21,6 @@ export function streamText(
       }
 
       let buffer = ''
-      let reasoningSummaryBuffer = ''
 
       const flush = () => {
         if (buffer) {
@@ -208,18 +207,12 @@ export function streamText(
 
           case 'response.reasoning_summary_text.delta':
             if (typeof chunk.delta === 'string') {
-              reasoningSummaryBuffer += chunk.delta
-            }
-            break
-
-          case 'response.reasoning_summary_text.done':
-            if (reasoningSummaryBuffer) {
               controller.enqueue(
                 encoder.encode(
                   `t:${JSON.stringify({
-                    type: 'reasoning',
+                    type: 'reasoning_summary_delta',
+                    delta: chunk.delta,
                     effort: chunk.effort,
-                    summary: reasoningSummaryBuffer,
                     model: chunk.model,
                     serviceTier: chunk.service_tier,
                     temperature: chunk.temperature,
@@ -227,8 +220,22 @@ export function streamText(
                   })}\n`,
                 ),
               )
-              reasoningSummaryBuffer = ''
             }
+            break
+
+          case 'response.reasoning_summary_text.done':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'reasoning_summary_done',
+                  effort: chunk.effort,
+                  model: chunk.model,
+                  serviceTier: chunk.service_tier,
+                  temperature: chunk.temperature,
+                  topP: chunk.top_p,
+                })}\n`,
+              ),
+            )
             break
 
           default:
