@@ -88,6 +88,13 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         input,
         stream: true,
         user: userId,
+        ...(model.startsWith('o3') || model.startsWith('o4')
+          ? {
+              reasoning: {
+                summary: 'detailed',
+              },
+            }
+          : {}),
       })
 
       return streamText(answer)

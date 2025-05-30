@@ -7,6 +7,7 @@ import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
 import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
+import { ReasoningMessage } from './ReasoningMessage'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 
@@ -23,6 +24,15 @@ type StreamEvent =
       arguments?: unknown
     }
   | { type: 'user'; id: string; content: string }
+  | {
+      type: 'reasoning'
+      effort: string
+      summary: string | null
+      model?: string
+      serviceTier?: string
+      temperature?: number
+      topP?: number
+    }
 
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -74,6 +84,22 @@ export function Chat() {
           if (line.startsWith('t:')) {
             try {
               const toolState = JSON.parse(line.slice(2))
+
+              if (toolState.type === 'reasoning') {
+                setStreamBuffer((prev) => [
+                  ...prev,
+                  {
+                    type: 'reasoning',
+                    effort: toolState.effort,
+                    summary: toolState.summary,
+                    model: toolState.model,
+                    serviceTier: toolState.serviceTier,
+                    temperature: toolState.temperature,
+                    topP: toolState.topP,
+                  },
+                ])
+                return
+              }
 
               if ('delta' in toolState) {
                 try {
@@ -212,6 +238,19 @@ export function Chat() {
                     key={`tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`}
                     name={event.serverLabel || ''}
                     args={event}
+                  />
+                )
+              } else if ('type' in event && event.type === 'reasoning') {
+                return (
+                  <ReasoningMessage
+                    key={`reasoning-${event.effort}-${event.summary || ''}`}
+                    effort={event.effort}
+                    summary={event.summary}
+                    model={event.model}
+                    serviceTier={event.serviceTier}
+                    temperature={event.temperature}
+                    topP={event.topP}
+                    isLoading={streaming && idx === renderEvents.length - 1}
                   />
                 )
               } else if ('type' in event && event.type === 'assistant') {
