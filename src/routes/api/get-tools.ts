@@ -1,7 +1,7 @@
 import { json } from '@tanstack/react-start'
 import { createAPIFileRoute } from '@tanstack/react-start/api'
-import { experimental_createMCPClient } from 'ai'
 import { getToolsSchema } from '../../lib/schemas'
+import OpenAI from 'openai'
 
 export const APIRoute = createAPIFileRoute('/api/get-tools')({
   POST: async ({ request }) => {
@@ -15,29 +15,34 @@ export const APIRoute = createAPIFileRoute('/api/get-tools')({
         return json({ error: result.error.errors }, { status: 400 })
       }
 
-      const { url } = result.data
+      const { url, name } = result.data
 
       if (!bearerToken) {
         return json({ error: 'Unauthorized' }, { status: 401 })
       }
 
-      const client = await experimental_createMCPClient({
-        transport: {
-          type: 'sse',
-          url,
+      const mcpServer = [
+        {
+          type: 'mcp' as const,
+          server_label: name,
+          server_url: url,
+          require_approval: 'never' as const,
           headers: {
             Authorization: `Bearer ${bearerToken}`,
           },
         },
+      ]
+
+      const client = new OpenAI()
+      await client.responses.create({
+        model: 'gpt-4o',
+        tools: mcpServer,
+        input: 'List available tools',
       })
 
-      const tools = await client.tools()
-      await client.close()
-
-      return json({ tools })
+      return json({ connected: true })
     } catch (error) {
       console.error('Error creating MCP client:', error)
-
       return json({ error: 'Failed to connect to MCP server' }, { status: 500 })
     }
   },

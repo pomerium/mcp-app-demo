@@ -47,11 +47,22 @@ export const chatRequestSchema = z.object({
 // Get tools request schema
 export const getToolsSchema = z.object({
   url: z.string().url('Invalid URL format'),
+  name: z
+    .string()
+    .regex(
+      /^[a-zA-Z][a-zA-Z0-9_-]*$/,
+      'Name must start with a letter and can only contain letters, numbers, dashes, and underscores',
+    ),
 })
 
 // Server form schema
 export const serverFormSchema = z.object({
-  name: z.string(),
+  name: z
+    .string()
+    .regex(
+      /^[a-zA-Z][a-zA-Z0-9_-]*$/,
+      'Name must start with a letter and can only contain letters, numbers, dashes, and underscores',
+    ),
   url: z.string().url('Invalid server URL'),
 })
 
