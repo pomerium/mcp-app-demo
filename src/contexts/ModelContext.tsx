@@ -1,5 +1,6 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
+import { useLocalStorage } from '../hooks/useLocalStorage'
 
 type ModelContextType = {
   selectedModel: string
@@ -9,7 +10,10 @@ type ModelContextType = {
 const ModelContext = createContext<ModelContextType | undefined>(undefined)
 
 export function ModelProvider({ children }: { children: ReactNode }) {
-  const [selectedModel, setSelectedModel] = useState('gpt-4.1')
+  const [selectedModel, setSelectedModel] = useLocalStorage(
+    'selectedModel',
+    'gpt-4.1',
+  )
 
   return (
     <ModelContext.Provider value={{ selectedModel, setSelectedModel }}>
