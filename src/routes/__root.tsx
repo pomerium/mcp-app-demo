@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ModelProvider } from '../contexts/ModelContext'
 
 import appCss from '../styles.css?url'
+import pomeriumIcon from "../../public/Pomerium-icon.svg"
 import Header from '../components/Header'
 
 // Create a client
@@ -33,6 +34,10 @@ export const Route = createRootRoute({
         rel: 'stylesheet',
         href: appCss,
       },
+      {
+        rel: "icon",
+        href: pomeriumIcon
+      }
     ],
   }),
 
@@ -71,7 +76,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+        <div className="flex flex-col h-screen bg-background text-gray-900 dark:text-gray-100 transition-colors">
           <Header />
           <main className="flex-1 overflow-auto">
             <div className="mx-auto max-w-4xl h-full">{children}</div>
