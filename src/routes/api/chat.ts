@@ -87,6 +87,13 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
         tools,
         input,
         stream: true,
+        ...(model.startsWith('o3') || model.startsWith('o4')
+          ? {
+              reasoning: {
+                summary: 'detailed',
+              },
+            }
+          : {}),
       })
 
       return streamText(answer)
