@@ -8,6 +8,7 @@ import type { Message } from 'ai'
 import { type Servers, type ToolItem } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
+import { ReasoningMessage } from './ReasoningMessage'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
@@ -34,6 +35,15 @@ type StreamEvent =
         | 'arguments_done'
     }
   | { type: 'user'; id: string; content: string }
+  | {
+      type: 'reasoning'
+      effort: string
+      summary: string | null
+      model?: string
+      serviceTier?: string
+      temperature?: number
+      topP?: number
+    }
 
 // Helper function to map tool types to status
 const getToolStatus = (
@@ -111,6 +121,84 @@ export function Chat() {
         if (line.startsWith('t:')) {
           try {
             const toolState = JSON.parse(line.slice(2))
+
+            // Handle reasoning summary streaming
+            if (toolState.type === 'reasoning_summary_delta') {
+              setStreamBuffer((prev) => {
+                // Find the last reasoning message
+                const last = prev[prev.length - 1]
+                if (last && last.type === 'reasoning' && !last.done) {
+                  // Append delta to summary
+                  return [
+                    ...prev.slice(0, -1),
+                    {
+                      ...last,
+                      summary: (last.summary || '') + toolState.delta,
+                      effort: toolState.effort || last.effort,
+                      model: toolState.model || last.model,
+                      serviceTier: toolState.serviceTier || last.serviceTier,
+                      temperature: toolState.temperature ?? last.temperature,
+                      topP: toolState.topP ?? last.topP,
+                    },
+                  ]
+                } else {
+                  // Start a new reasoning message
+                  return [
+                    ...prev,
+                    {
+                      type: 'reasoning',
+                      summary: toolState.delta,
+                      effort: toolState.effort || '',
+                      model: toolState.model,
+                      serviceTier: toolState.serviceTier,
+                      temperature: toolState.temperature,
+                      topP: toolState.topP,
+                      done: false,
+                    },
+                  ]
+                }
+              })
+              return
+            }
+
+            if (toolState.type === 'reasoning_summary_done') {
+              setStreamBuffer((prev) => {
+                // Mark the last reasoning message as done
+                const last = prev[prev.length - 1]
+                if (last && last.type === 'reasoning' && !last.done) {
+                  return [
+                    ...prev.slice(0, -1),
+                    {
+                      ...last,
+                      done: true,
+                      effort: toolState.effort || last.effort,
+                      model: toolState.model || last.model,
+                      serviceTier: toolState.serviceTier || last.serviceTier,
+                      temperature: toolState.temperature ?? last.temperature,
+                      topP: toolState.topP ?? last.topP,
+                    },
+                  ]
+                }
+                return prev
+              })
+              return
+            }
+
+            if (toolState.type === 'reasoning') {
+              setStreamBuffer((prev) => [
+                ...prev,
+                {
+                  type: 'reasoning',
+                  effort: toolState.effort,
+                  summary: toolState.summary,
+                  model: toolState.model,
+                  serviceTier: toolState.serviceTier,
+                  temperature: toolState.temperature,
+                  topP: toolState.topP,
+                },
+              ])
+              return
+            }
 
             if ('delta' in toolState) {
               try {
@@ -323,6 +411,19 @@ export function Chat() {
                     />
                   )
                 }
+              } else if ('type' in event && event.type === 'reasoning') {
+                return (
+                  <ReasoningMessage
+                    key={`reasoning-${idx}-${event.effort}-${event.summary || ''}`}
+                    effort={event.effort}
+                    summary={event.summary}
+                    model={event.model}
+                    serviceTier={event.serviceTier}
+                    temperature={event.temperature}
+                    topP={event.topP}
+                    isLoading={streaming && idx === renderEvents.length - 1}
+                  />
+                )
               } else if ('type' in event && event.type === 'assistant') {
                 const assistantEvent = event as Extract<
                   StreamEvent,
