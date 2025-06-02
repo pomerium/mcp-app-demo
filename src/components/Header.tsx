@@ -13,7 +13,7 @@ import { Button } from './ui/button'
 import { ModelSelect } from './ModelSelect'
 import { useModel } from '../contexts/ModelContext'
 import { useRouteMatch } from '../hooks/useRouteMatch'
-import pomeriumIcon from "../../public/Pomerium-icon.svg?url"
+import pomeriumIcon from "/Pomerium-icon.svg?url"
 
 const Header: React.FC = () => {
   const { selectedModel, setSelectedModel } = useModel()
