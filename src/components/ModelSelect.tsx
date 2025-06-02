@@ -26,7 +26,7 @@ export function ModelSelect({ value, onValueChange }: ModelSelectProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-[240px] justify-between">
+        <Button variant="outline" className="w-fit max-w-[100px] md:max-w-[240px] justify-between">
           <span className="truncate block max-w-[160px] overflow-hidden whitespace-nowrap">
             {value || 'Select a model'}
           </span>

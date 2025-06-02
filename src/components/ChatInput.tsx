@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Send } from 'lucide-react'
+import { Textarea } from './ui/textarea'
 
 type ChatInputProps = {
   onSendMessage: (message: string) => void
@@ -49,11 +50,11 @@ export function ChatInput({
 
   return (
     <form
-      className="flex items-end gap-2 p-4 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 backdrop-blur-sm shadow-sm"
+      className="flex items-end gap-2 p-4 border-t border-gray-200 dark:border-gray-800 bg-background backdrop-blur-sm shadow-t-sm"
       onSubmit={handleSubmit}
     >
-      <div className="relative flex-1">
-        <textarea
+      <div className="relative flex-1 flex items-center">
+        <Textarea
           ref={textareaRef}
           value={value}
           onChange={onChange}
@@ -62,14 +63,15 @@ export function ChatInput({
           required
           disabled={disabled}
           rows={1}
-          className="w-full resize-none bg-gray-100 dark:bg-gray-800 rounded-lg border-0 px-4 py-3 pr-12 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 disabled:opacity-50 transition-all"
+          className="w-full resize-none rounded-lg border-0 pr-12 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 disabled:opacity-50 transition-all"
         />
         <Button
           type="submit"
-          className="absolute right-2 bottom-3 flex h-8 w-8 items-center justify-center p-0"
+          variant="default"
+          className="absolute right-2 size-8"
           aria-label="Send message"
         >
-          <Send className="h-5 w-5" />
+          <Send className="size-4" />
         </Button>
       </div>
     </form>
