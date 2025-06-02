@@ -9,7 +9,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ModelProvider } from '../contexts/ModelContext'
 
 import appCss from '../styles.css?url'
-import pomeriumIcon from "/Pomerium-icon.svg?url"
 import Header from '../components/Header'
 
 // Create a client
@@ -36,7 +35,7 @@ export const Route = createRootRoute({
       },
       {
         rel: "icon",
-        href: pomeriumIcon
+        href: "/pomerium-icon.svg"
       }
     ],
   }),
