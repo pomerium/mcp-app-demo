@@ -36,7 +36,7 @@ jobs:
           TS=$(date +%Y%m%d%H%M%S)
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
           echo "timestamp=${TS}" >> $GITHUB_OUTPUT
-          echo "name=pomerium" >> $GITHUB_OUTPUT
+          echo "name=pomerium-mcp-app-demo" >> $GITHUB_OUTPUT
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "sha-tag=${SHA_TAG}" >> $GITHUB_OUTPUT
 
