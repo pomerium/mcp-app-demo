@@ -1,6 +1,6 @@
-import { useState, type FormEvent, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
-import { Settings2, Plus, X, MoreHorizontal } from 'lucide-react'
+import { Settings2 } from 'lucide-react'
 import {
   ToastProvider,
   ToastViewport,
@@ -9,35 +9,11 @@ import {
   ToastDescription,
   ToastClose,
 } from './ui/toast'
-import * as Dialog from '@radix-ui/react-dialog'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from './ui/alert-dialog'
-import { Label } from '@radix-ui/react-label'
-import { useLocalStorage } from '../hooks/useLocalStorage'
-import {
-  serverSchema,
-  serversSchema,
-  serverFormSchema,
+  pomeriumRoutesResponseSchema,
   type Server,
   type Servers,
-  type ServerFormData,
 } from '../lib/schemas'
-import { z } from 'zod'
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from './ui/dropdown-menu'
-import { ServerToolsModal } from './ServerToolsModal'
 
 const StatusIndicator = ({ status }: { status: Server['status'] }) => {
   const getStatusColor = () => {
@@ -77,341 +53,82 @@ const StatusIndicator = ({ status }: { status: Server['status'] }) => {
 }
 
 export function ServerSettings() {
-  const [servers, setServers] = useLocalStorage<Servers>('mcp-servers', {})
+  const [servers, setServers] = useState<Servers>({})
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState({
     title: '',
     description: '',
   })
-  const [isOpen, setIsOpen] = useState(false)
-  const [formErrors, setFormErrors] = useState<
-    Partial<Record<keyof ServerFormData, string>>
-  >({})
-  const [editingServer, setEditingServer] = useState<Server | null>(null)
-  const [toolsModalServerId, setToolsModalServerId] = useState<string | null>(
-    null,
-  )
-  const [serverToRemove, setServerToRemove] = useState<Server | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const addServer = (e: FormEvent) => {
-    e.preventDefault()
-    setFormErrors({})
-
-    const formData = new FormData(e.target as HTMLFormElement)
-    const formValues = {
-      name: formData.get('name') as string,
-      url: formData.get('url') as string,
-    }
-
-    const result = serverFormSchema.safeParse(formValues)
-
-    if (!result.success) {
-      const errors: Partial<Record<keyof ServerFormData, string>> = {}
-      result.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0] as keyof ServerFormData] = err.message
-        }
-      })
-      setFormErrors(errors)
-      return
-    }
-
-    const { name, url } = result.data
-    const id = Math.random().toString(36).substring(7)
-    const server = {
-      id,
-      name,
-      url,
-      status: 'disconnected',
-    } satisfies Server
-
-    const serverResult = serverSchema.safeParse(server)
-    if (!serverResult.success) {
-      showNotification(
-        'Validation Error',
-        'Invalid server configuration. Please check your input.',
-      )
-      return
-    }
-
-    setServers((prev) => {
-      const newServers = { ...prev, [id]: server }
-      const serversResult = serversSchema.safeParse(newServers)
-
-      if (!serversResult.success) {
-        showNotification(
-          'Validation Error',
-          'Invalid server configuration. Please check your input.',
-        )
-        return prev
+  // Fetch servers from Pomerium MCP endpoint
+  const fetchPomeriumServers = async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/.pomerium/mcp/routes')
+      if (!response.ok) {
+        throw new Error(`Failed to fetch servers: ${response.status}`)
       }
-      return newServers
-    })
 
-    showNotification(
-      'Server Added',
-      `${name} has been added to your servers list.`,
-    )
-    setIsOpen(false)
+      const data = await response.json()
+      const result = pomeriumRoutesResponseSchema.safeParse(data)
+
+      if (!result.success) {
+        throw new Error('Invalid server data format')
+      }
+
+      // Convert Pomerium server info to our local server format
+      const newServers: Servers = {}
+      result.data.servers.forEach((serverInfo) => {
+        const id = serverInfo.url // Use URL as unique identifier
+        // Extract hostname from URL as fallback name if name is not provided
+        const fallbackName =
+          new URL(serverInfo.url).hostname.split('.')[0] || 'Unknown Server'
+        const server: Server = {
+          id,
+          name: serverInfo.name || fallbackName,
+          description: serverInfo.description,
+          logo_url: serverInfo.logo_url,
+          url: serverInfo.url,
+          status: serverInfo.connected ? 'connected' : 'disconnected',
+          connected: serverInfo.connected,
+        }
+        newServers[id] = server
+      })
+
+      setServers(newServers)
+      showNotification('Servers Updated', 'Server list refreshed successfully.')
+    } catch (error) {
+      showNotification(
+        'Error',
+        `Failed to fetch servers: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      )
+    } finally {
+      setIsLoading(false)
+    }
   }
+
+  // Load servers on component mount
+  useEffect(() => {
+    fetchPomeriumServers()
+  }, [])
 
   const connectToServer = async (serverId: string) => {
     const server = servers[serverId]
     if (!server) return
 
-    setServers((prev) => ({
-      ...prev,
-      [serverId]: { ...prev[serverId], status: 'connecting' },
-    }))
+    // Use Pomerium MCP connection flow
+    const currentUrl = window.location.href
+    const connectUrl = `${server.url}/.pomerium/mcp/connect?redirect_url=${encodeURIComponent(currentUrl)}`
 
-    try {
-      // Validate server URL before attempting connection
-      const urlResult = z.string().url().safeParse(server.url)
-      if (!urlResult.success) {
-        throw new Error('Invalid server URL')
-      }
-
-      const response = await fetch(`/api/get-tools`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: server.url, name: server.name }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      const toolStates = Object.fromEntries(
-        Object.keys(data.tools || {}).map((k) => [
-          k,
-          { enabled: true, allow: 'unsupervised' },
-        ]),
-      )
-
-      setServers((prev) => ({
-        ...prev,
-        [serverId]: {
-          ...prev[serverId],
-          status: 'connected',
-          tools: data.tools,
-          toolStates,
-        },
-      }))
-    } catch (error) {
-      setServers((prev) => ({
-        ...prev,
-        [serverId]: { ...prev[serverId], status: 'error' },
-      }))
-    }
-  }
-
-  const disconnectFromServer = (serverId: string) => {
-    setServers((prev) => ({
-      ...prev,
-      [serverId]: {
-        ...prev[serverId],
-        status: 'disconnected',
-        tools: undefined,
-        toolStates: undefined,
-      },
-    }))
-  }
-
-  const removeServer = (serverId: string) => {
-    const server = servers[serverId]
-    if (server) {
-      setServers((prev) => {
-        const { [serverId]: _, ...rest } = prev
-        const result = serversSchema.safeParse(rest)
-        if (!result.success) {
-          showNotification(
-            'Validation Error',
-            'Error removing server. Please try again.',
-          )
-          return prev
-        }
-        return rest
-      })
-      showNotification(
-        'Server Removed',
-        `${server.name} has been removed from your servers list.`,
-      )
-      setServerToRemove(null)
-    }
-  }
-
-  const updateServer = (e: FormEvent) => {
-    e.preventDefault()
-    setFormErrors({})
-
-    if (!editingServer) return
-
-    const formData = new FormData(e.target as HTMLFormElement)
-    const formValues = {
-      name: formData.get('name') as string,
-      url: formData.get('url') as string,
-    }
-
-    const result = serverFormSchema.safeParse(formValues)
-
-    if (!result.success) {
-      const errors: Partial<Record<keyof ServerFormData, string>> = {}
-      result.error.errors.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0] as keyof ServerFormData] = err.message
-        }
-      })
-      setFormErrors(errors)
-      return
-    }
-
-    const { name, url } = result.data
-    const updatedServer = {
-      ...editingServer,
-      name,
-      url,
-    }
-
-    const serverResult = serverSchema.safeParse(updatedServer)
-    if (!serverResult.success) {
-      showNotification(
-        'Validation Error',
-        'Invalid server configuration. Please check your input.',
-      )
-      return
-    }
-
-    setServers((prev) => {
-      const newServers = { ...prev, [editingServer.id]: updatedServer }
-      const serversResult = serversSchema.safeParse(newServers)
-
-      if (!serversResult.success) {
-        showNotification(
-          'Validation Error',
-          'Invalid server configuration. Please check your input.',
-        )
-        return prev
-      }
-      return newServers
-    })
-
-    showNotification('Server Updated', `${name} has been updated successfully.`)
-    setIsOpen(false)
-    setEditingServer(null)
+    // Redirect to the connection URL - this will handle the OAuth flow
+    window.location.href = connectUrl
   }
 
   const showNotification = (title: string, description: string) => {
     setToastMessage({ title, description })
     setShowToast(true)
     setTimeout(() => setShowToast(false), 5000)
-  }
-
-  const ServerForm = () => {
-    // Add state to track form values
-    const [formValues, setFormValues] = useState<ServerFormData>({
-      name: editingServer?.name || '',
-      url: editingServer?.url || '',
-    })
-
-    // Update form values when editingServer changes
-    useEffect(() => {
-      if (editingServer) {
-        setFormValues({
-          name: editingServer.name,
-          url: editingServer.url,
-        })
-      } else {
-        setFormValues({
-          name: '',
-          url: '',
-        })
-      }
-    }, [editingServer])
-
-    return (
-      <form
-        onSubmit={editingServer ? updateServer : addServer}
-        className="space-y-4"
-      >
-        <div className="space-y-2">
-          <Label
-            htmlFor="name"
-            className="text-gray-900 dark:text-gray-100 grid gap-2"
-          >
-            <span>Server Name</span>
-            <input
-              name="name"
-              type="text"
-              value={formValues.name}
-              onChange={(e) =>
-                setFormValues((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className={`w-full px-3 py-2 rounded-md border ${
-                formErrors.name
-                  ? 'border-red-500 dark:border-red-400'
-                  : 'border-gray-300 dark:border-gray-600'
-              } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
-              placeholder="Production Server"
-              required
-            />
-            {formErrors.name && (
-              <p className="text-sm text-red-500 dark:text-red-400">
-                {formErrors.name}
-              </p>
-            )}
-          </Label>
-        </div>
-
-        <div className="space-y-2">
-          <Label
-            htmlFor="url"
-            className="text-gray-900 dark:text-gray-100 grid gap-2"
-          >
-            <span>Server URL</span>
-            <input
-              name="url"
-              type="url"
-              value={formValues.url}
-              onChange={(e) =>
-                setFormValues((prev) => ({ ...prev, url: e.target.value }))
-              }
-              className={`w-full px-3 py-2 rounded-md border ${
-                formErrors.url
-                  ? 'border-red-500 dark:border-red-400'
-                  : 'border-gray-300 dark:border-gray-600'
-              } bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400`}
-              placeholder="https://example.com"
-              required
-            />
-            {formErrors.url && (
-              <p className="text-sm text-red-500 dark:text-red-400">
-                {formErrors.url}
-              </p>
-            )}
-          </Label>
-        </div>
-
-        <div className="flex justify-end gap-2 pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setIsOpen(false)
-              setEditingServer(null)
-              setFormErrors({})
-            }}
-          >
-            Cancel
-          </Button>
-          <Button type="submit">
-            {editingServer ? 'Update Server' : 'Add Server'}
-          </Button>
-        </div>
-      </form>
-    )
   }
 
   return (
@@ -423,143 +140,78 @@ export function ServerSettings() {
             <h2 className="text-2xl font-semibold">Server Settings</h2>
           </div>
 
-          <Dialog.Root
-            open={isOpen}
-            onOpenChange={(open) => {
-              setIsOpen(open)
-              if (!open) {
-                setEditingServer(null)
-                setFormErrors({})
-              }
-            }}
+          <Button
+            onClick={fetchPomeriumServers}
+            disabled={isLoading}
+            variant="outline"
+            className="flex items-center gap-2"
           >
-            <Dialog.Trigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add Server
-              </Button>
-            </Dialog.Trigger>
-
-            <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-              <Dialog.Content className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
-                <Dialog.Title className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
-                  {editingServer ? 'Edit Server' : 'Add New Server'}
-                </Dialog.Title>
-
-                <ServerForm />
-
-                <Dialog.Close asChild>
-                  <button
-                    className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-                    aria-label="Close"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </Dialog.Close>
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
+            <Settings2 className="h-4 w-4" />
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
         </div>
 
         <div className="space-y-4">
-          {Object.values(servers).map((server) => (
-            <div
-              key={server.id}
-              className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                    {server.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {server.url}
-                  </p>
-                  <StatusIndicator status={server.status} />
-                </div>
-                <div className="flex items-center gap-2">
-                  {server.status !== 'connected' && (
-                    <Button
-                      onClick={() => connectToServer(server.id)}
-                      disabled={server.status === 'connecting'}
-                      variant="primary"
-                      size="sm"
-                      className="min-w-[100px] h-9"
-                    >
-                      Connect
-                    </Button>
-                  )}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+          {Object.values(servers)
+            .sort((a, b) => a.url.localeCompare(b.url))
+            .map((server) => (
+              <div
+                key={server.id}
+                className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    {server.logo_url && (
+                      <img
+                        src={server.logo_url}
+                        alt={`${server.name} logo`}
+                        className="w-8 h-8 rounded flex-shrink-0"
+                      />
+                    )}
+                    <div className="space-y-1 flex-1">
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                        {server.name}
+                      </h3>
+                      {server.description && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {server.description}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        {server.url}
+                      </p>
+                      <StatusIndicator status={server.status} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {server.status !== 'connected' && (
                       <Button
-                        variant="ghost"
-                        className="h-9 w-9 p-0 flex items-center justify-center border border-gray-200 dark:border-gray-700"
+                        onClick={() => connectToServer(server.id)}
+                        disabled={server.status === 'connecting'}
+                        variant="default"
+                        size="sm"
+                        className="min-w-[100px] h-9"
                       >
-                        <span className="sr-only">Server menu</span>
-                        <MoreHorizontal className="h-5 w-5" />
+                        Connect
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setEditingServer(server)
-                          setIsOpen(true)
-                        }}
-                      >
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => disconnectFromServer(server.id)}
-                        className="text-red-600"
-                      >
-                        Disconnect
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setServerToRemove(server)
-                        }}
-                        className="text-red-600"
-                      >
-                        Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                  </div>
                 </div>
               </div>
-              {toolsModalServerId === server.id && (
-                <ServerToolsModal
-                  open={toolsModalServerId === server.id}
-                  onOpenChange={(open) =>
-                    open
-                      ? setToolsModalServerId(server.id)
-                      : setToolsModalServerId(null)
-                  }
-                  serverName={server.name}
-                  serverUrl={server.url}
-                  tools={servers[server.id]?.tools || {}}
-                  toolStates={servers[server.id]?.toolStates || {}}
-                  onToolStateChange={(tool, state) =>
-                    setServers((prev) => ({
-                      ...prev,
-                      [server.id]: {
-                        ...prev[server.id],
-                        toolStates: {
-                          ...prev[server.id].toolStates,
-                          [tool]: state,
-                        },
-                      },
-                    }))
-                  }
-                />
-              )}
-            </div>
-          ))}
+            ))}
 
-          {Object.keys(servers).length === 0 && (
+          {Object.keys(servers).length === 0 && !isLoading && (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-              <p>No servers configured yet.</p>
-              <p className="text-sm">Click "Add Server" to get started.</p>
+              <p>No servers available.</p>
+              <p className="text-sm">
+                Servers are managed by your Pomerium configuration.
+              </p>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <p>Loading servers...</p>
             </div>
           )}
         </div>
@@ -575,30 +227,6 @@ export function ServerSettings() {
         </Toast>
       )}
       <ToastViewport />
-
-      <AlertDialog
-        open={!!serverToRemove}
-        onOpenChange={(open) => !open && setServerToRemove(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Server</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove {serverToRemove?.name}? This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => serverToRemove && removeServer(serverToRemove.id)}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </ToastProvider>
   )
 }
