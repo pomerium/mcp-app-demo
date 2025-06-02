@@ -8,16 +8,39 @@ export const ServerStatusEnum = z.enum([
   'error',
 ])
 
-// Server schema
+// Tool state schema
+export const toolStateSchema = z.object({
+  enabled: z.boolean(),
+  allow: z.string(),
+})
+
+export const toolSchema = z.any()
+
+// Pomerium MCP server info schema (from /.pomerium/mcp/routes)
+export const pomeriumServerInfoSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  logo_url: z.string().optional(),
+  url: z.string().url('Invalid server URL'),
+  connected: z.boolean(),
+})
+
+// Pomerium MCP routes response schema
+export const pomeriumRoutesResponseSchema = z.object({
+  servers: z.array(pomeriumServerInfoSchema),
+})
+
+// Server schema (local state)
 export const serverSchema = z.object({
   id: z.string(),
   name: z.string(),
+  description: z.string().optional(),
+  logo_url: z.string().optional(),
   url: z.string().url('Invalid server URL'),
   status: ServerStatusEnum,
-  tools: z.record(z.any()).optional(),
-  toolStates: z
-    .record(z.object({ enabled: z.boolean(), allow: z.string() }))
-    .optional(),
+  connected: z.boolean().optional().default(false),
+  tools: z.record(toolStateSchema).optional(),
+  toolStates: z.record(toolStateSchema).optional(),
 })
 
 // Servers record schema
@@ -45,7 +68,7 @@ export const chatRequestSchema = z.object({
 })
 
 // Get tools request schema
-export const getToolsSchema = z.object({
+export const getToolsRequestSchema = z.object({
   url: z.string().url('Invalid URL format'),
   name: z
     .string()
@@ -53,6 +76,15 @@ export const getToolsSchema = z.object({
       /^[a-zA-Z][a-zA-Z0-9_-]*$/,
       'Name must start with a letter and can only contain letters, numbers, dashes, and underscores',
     ),
+})
+
+// Get tools response schema
+export const getToolsResponseSchema = z.object({
+  status: z.enum(['ok', 'error', 'redirect']),
+  redirectUrl: z.string().optional(),
+  tools: z.record(toolStateSchema).optional(),
+  toolStates: z.record(toolStateSchema).optional(),
+  error: z.string().optional(),
 })
 
 // Server form schema
@@ -67,9 +99,14 @@ export const serverFormSchema = z.object({
 })
 
 // Types
+export type PomeriumServerInfo = z.infer<typeof pomeriumServerInfoSchema>
+export type PomeriumRoutesResponse = z.infer<
+  typeof pomeriumRoutesResponseSchema
+>
 export type Server = z.infer<typeof serverSchema>
 export type Servers = z.infer<typeof serversSchema>
 export type ServerFormData = z.infer<typeof serverFormSchema>
+export type ToolState = z.infer<typeof toolStateSchema>
 
 export const allowOptions = {
   ask: {
