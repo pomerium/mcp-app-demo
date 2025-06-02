@@ -1,6 +1,6 @@
 import { json } from '@tanstack/react-start'
 import { createAPIFileRoute } from '@tanstack/react-start/api'
-import { getToolsSchema } from '../../lib/schemas'
+import { getToolsRequestSchema } from '../../lib/schemas'
 import OpenAI from 'openai'
 
 export const APIRoute = createAPIFileRoute('/api/get-tools')({
@@ -9,7 +9,7 @@ export const APIRoute = createAPIFileRoute('/api/get-tools')({
 
     try {
       const body = await request.json()
-      const result = getToolsSchema.safeParse(body)
+      const result = getToolsRequestSchema.safeParse(body)
 
       if (!result.success) {
         return json({ error: result.error.errors }, { status: 400 })
