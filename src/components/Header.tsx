@@ -13,7 +13,6 @@ import { Button } from './ui/button'
 import { ModelSelect } from './ModelSelect'
 import { useModel } from '../contexts/ModelContext'
 import { useRouteMatch } from '../hooks/useRouteMatch'
-import pomeriumIcon from "/Pomerium-icon.svg?url"
 
 const Header: React.FC = () => {
   const { selectedModel, setSelectedModel } = useModel()
@@ -78,7 +77,7 @@ const Header: React.FC = () => {
         </DropdownMenu>
         <a href="https://pomerium.com" target='_blank'>
           <img 
-            src={isDark ? pomeriumIcon : "/pomerium-icon.png"} 
+            src={isDark ? "/pomerium-icon.svg" : "/pomerium-icon.png"} 
             alt="Pomerium Logo" 
             className='w-8 hover:-translate-y-0.5 transition-all' 
           />
