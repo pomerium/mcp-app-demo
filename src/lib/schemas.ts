@@ -38,7 +38,7 @@ export const serverSchema = z.object({
   logo_url: z.string().optional(),
   url: z.string().url('Invalid server URL'),
   status: ServerStatusEnum,
-  connected: z.boolean().optional().default(false),
+  connected: z.boolean().default(false),
   tools: z.record(toolStateSchema).optional(),
   toolStates: z.record(toolStateSchema).optional(),
 })
