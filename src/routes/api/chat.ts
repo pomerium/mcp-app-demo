@@ -7,7 +7,7 @@ import { streamText } from '../../lib/streaming'
 export const APIRoute = createAPIFileRoute('/api/chat')({
   POST: async ({ request }) => {
     const bearerToken = request.headers.get('Authorization')?.split(' ')[1]
-    
+
     try {
       const body = await request.json()
 
@@ -44,18 +44,26 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
         })
       }
 
+      // Function to sanitize server labels for OpenAI API requirements
+      const sanitizeServerLabel = (name: string): string => {
+        return name
+          .replace(/[^a-zA-Z0-9\-_]/g, '_') // Replace invalid chars with underscore
+          .replace(/^[^a-zA-Z]/, 'server_') // Ensure it starts with a letter
+          .replace(/_{2,}/g, '_') // Replace multiple underscores with single one
+      }
+
       const tools = Object.entries(servers)
         .filter(([_, server]) => server.status === 'connected')
         .map(([_id, server]) => ({
           type: 'mcp',
-          server_label: server.name,
+          server_label: sanitizeServerLabel(server.name),
           server_url: server.url,
           require_approval: 'never',
           headers: {
-             Authorization: `Bearer ${bearerToken}`,
-          }
+            Authorization: `Bearer ${bearerToken}`,
+          },
         })) satisfies Tool[]
-
+      console.debug('Using tools:', tools)
       // Format the conversation history into a single input string with proper message parts
       const input = messages
         .map((msg) => ({

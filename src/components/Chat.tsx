@@ -1,10 +1,10 @@
 import { useRef, useEffect, useMemo, useState } from 'react'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
+import { ServerSelector } from './ServerSelector'
 import { useChat } from 'ai/react'
 import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
-import { useLocalStorage } from '../hooks/useLocalStorage'
 import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { useModel } from '../contexts/ModelContext'
@@ -26,7 +26,8 @@ type StreamEvent =
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
-  const [servers] = useLocalStorage<Servers>('mcp-servers', {})
+  const [servers, setServers] = useState<Servers>({})
+  const [selectedServers, setSelectedServers] = useState<string[]>([])
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
   const { selectedModel } = useModel()
@@ -40,13 +41,23 @@ export function Chat() {
     [],
   )
 
+  // Create a memoized body object that updates when selectedServers or model change
+  const chatBody = useMemo(
+    () => ({
+      servers: Object.fromEntries(
+        selectedServers
+          .map((serverId) => [serverId, servers[serverId]])
+          .filter(([_, server]) => server),
+      ),
+      model: selectedModel,
+    }),
+    [selectedServers, servers, selectedModel],
+  )
+
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
       initialMessages: hasStartedChat ? [] : [initialMessage],
-      body: {
-        servers,
-        model: selectedModel,
-      },
+      body: chatBody,
       onResponse: (response) => {
         const reader = response.body?.getReader()
         if (!reader) return
@@ -174,7 +185,16 @@ export function Chat() {
         content: prompt,
       },
     ])
+
     handleSubmit(new Event('submit'))
+  }
+
+  const handleServerToggle = (serverId: string) => {
+    setSelectedServers((prev) =>
+      prev.includes(serverId)
+        ? prev.filter((id) => id !== serverId)
+        : [...prev, serverId],
+    )
   }
 
   return (
@@ -254,6 +274,13 @@ export function Chat() {
         </div>
       </div>
       <div className="sticky bottom-0 left-0 right-0">
+        <ServerSelector
+          servers={servers}
+          onServersChange={setServers}
+          selectedServers={selectedServers}
+          onServerToggle={handleServerToggle}
+          disabled={hasStartedChat}
+        />
         <ChatInput
           onSendMessage={onSendMessage}
           disabled={isLoading || streaming}
