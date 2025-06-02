@@ -63,7 +63,7 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
             Authorization: `Bearer ${bearerToken}`,
           },
         })) satisfies Tool[]
-      console.debug('Using tools:', tools)
+
       // Format the conversation history into a single input string with proper message parts
       const input = messages
         .map((msg) => ({

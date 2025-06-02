@@ -117,7 +117,29 @@ export function ServerSelector({
   )
 
   if (serverList.length === 0 && !isLoading) {
-    return null
+    return (
+      <div className="border-t border-gray-200 dark:border-gray-800 bg-background p-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Available Servers
+          </span>
+          <Button
+            onClick={fetchPomeriumServers}
+            disabled={isLoading}
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+          >
+            <RefreshCw
+              className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`}
+            />
+          </Button>
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+          No MCP servers are currently configured in this Pomerium cluster.
+        </div>
+      </div>
+    )
   }
 
   return (
