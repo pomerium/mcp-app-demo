@@ -37,7 +37,7 @@ export function Chat() {
   const initialMessage = useMemo<Message>(
     () => ({
       id: generateMessageId(),
-      content: `Hello ${user?.name?.split(' ')[0] || ''}! I'm your AI assistant. How can I help you today?`,
+      content: `Hello ${user?.name?.split(' ')[0] ?? 'there'}! I'm your AI assistant. How can I help you today?`,
       role: 'assistant',
     }),
     [user?.name],
