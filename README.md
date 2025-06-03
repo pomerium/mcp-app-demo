@@ -142,6 +142,44 @@ sequenceDiagram
   P ->> S: Proxy request to MCP Server, Bearer (TI)
 ```
 
+### 3. Calling internal MCP server from your app
+
+Some inference APIs, such as the [OpenAI API](https://platform.openai.com/docs/guides/tools-remote-mcp) and [Claude API](https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector), now support direct invocation of MCP servers. This trend is expected to grow, and many agentic frameworks are adding support for MCP server calls. You can also implement MCP tool calls manually in your app using LLM function calling capabilities. All these approaches require providing an `Authorization: Bearer` token for the MCP server so that requests can be securely routed through Pomerium.
+
+If you are building your own internal application and need to obtain such a token, Pomerium offers a _client MCP mode_ for routes. By setting the `mcp.pass_upstream_access_token` option, Pomerium will supply your upstream application with an `Authorization: Bearer` token representing the current user session. You can then pass this token to external LLMs or agentic frameworks, allowing them to access MCP servers behind Pomerium according to your authorization policy.
+
+The following flow illustrates this process, assuming the user is already authenticated with Pomerium:
+
+```mermaid
+sequenceDiagram
+  actor U as User
+  participant C as Your App Backend
+  participant P as Pomerium
+  participant S as MCP Server
+  participant I as LLM API
+  U ->> P: GET https://mcp-app-demo.your-domain.com
+  P ->> C: GET http://mcp-app-demo:3000 Authorization: Bearer (TE)
+  C ->> I: call tool https://mcp-server.your-domain Authorization: Bearer (TE)
+  I ->> P: GET https://mcp-server.your-domain Authorization: Bearer (TE)
+  C ->> P: GET https://mcp-server
+```
+
+Example route configuration:
+
+```yaml
+routes:
+  - from: https://mcp-app-demo.your-domain.com
+    to: http://mcp-app-demo:3000
+    mcp:
+      pass_upstream_access_token: true
+    policy: {} # define your policy here
+  - from: https://mcp-server.your-domain.com
+    to: http://mcp-server.int:8080/mcp
+    name: My MCP Server
+    mcp: {}
+    policy: {} # define your policy here
+```
+
 # Development
 
 To run this application in development mode:
