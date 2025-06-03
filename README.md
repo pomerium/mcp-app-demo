@@ -48,7 +48,7 @@ Now you may ask some questions like "What were our sales by year", and see how O
 
 In this scenario, the interaction only happens between remote MCP Client (i.e. Claude.ai), Pomerium, and your MCP server that is secured by Pomerium.
 
-```mermaid-js
+```mermaid
 sequenceDiagram
   actor U as User
   participant P as Pomerium
