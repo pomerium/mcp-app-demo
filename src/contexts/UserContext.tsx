@@ -2,12 +2,7 @@ import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 import { getBrowserUser } from '@pomerium/js-sdk'
 import { useQuery } from '@tanstack/react-query'
-
-type UserInfo = {
-  email: string
-  name: string
-  picture: string
-}
+import type { UserInfo } from 'node_modules/@pomerium/js-sdk/lib/esm/types/utils'
 
 type UserContextType = {
   user: UserInfo | undefined
