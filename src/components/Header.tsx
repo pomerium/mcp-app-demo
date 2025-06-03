@@ -12,9 +12,11 @@ import { ThemeToggle } from './ThemeToggle'
 import { Button } from './ui/button'
 import { ModelSelect } from './ModelSelect'
 import { useModel } from '../contexts/ModelContext'
+import { useUser } from '../contexts/UserContext'
 
 const Header: React.FC = () => {
   const { selectedModel, setSelectedModel } = useModel()
+  const { user, isLoading } = useUser()
   const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
@@ -46,7 +48,7 @@ const Header: React.FC = () => {
             <div className="px-2 py-1.5">
               <p className="text-sm font-medium">User Account</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                user@example.com
+                {isLoading ? 'Loading...' : user?.email}
               </p>
             </div>
             <DropdownMenuSeparator />
@@ -80,17 +82,26 @@ const Header: React.FC = () => {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="secondary"
-                size="sm"
-                className="size-10 flex items-center justify-center rounded-full"
+                className="size-10 flex justify-center items-center rounded-full"
               >
-                <User className="h-5 w-5 text-secondary-foreground" />
+                <span className="sr-only">User menu</span>
+                {user?.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name}
+                    aria-hidden={true}
+                    className="size-8 rounded-full"
+                  />
+                ) : (
+                  <User className="size-4" />
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-2 py-1.5">
-                <p className="text-sm font-medium">User Account</p>
+                <p className="text-sm font-medium">{user?.name}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  user@example.com
+                  {user?.email}
                 </p>
               </div>
               <DropdownMenuSeparator />

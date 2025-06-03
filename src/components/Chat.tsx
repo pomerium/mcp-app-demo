@@ -8,6 +8,7 @@ import type { Message } from 'ai'
 import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { useModel } from '../contexts/ModelContext'
+import { useUser } from '../contexts/UserContext'
 
 // Streamed event type
 type StreamEvent =
@@ -31,14 +32,15 @@ export function Chat() {
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
   const { selectedModel } = useModel()
+  const { user } = useUser()
 
   const initialMessage = useMemo<Message>(
     () => ({
       id: generateMessageId(),
-      content: "👋 Hello! I'm your AI assistant. How can I help you today?",
+      content: `Hello ${user?.name?.split(' ')[0] ?? 'there'}! I'm your AI assistant. How can I help you today?`,
       role: 'assistant',
     }),
-    [],
+    [user?.name],
   )
 
   // Create a memoized body object that updates when selectedServers or model change
