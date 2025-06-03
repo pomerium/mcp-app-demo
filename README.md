@@ -222,6 +222,16 @@ Content-Type: application/json
 }
 ```
 
+## 5. Ensuring your current user has authenticated with an upstream OAuth2 provider
+
+If your target MCP server shows `connected: false`, the user needs to authenticate with the required upstream OAuth2 provider.  
+To do this, redirect the user's browser to the special `/.pomerium/mcp/connect` path on the MCP server route (for example: `https://db-mcp.your-domain.com/.pomerium/mcp/connect`).  
+Include a `redirect_url` query parameter that points back to your application's page—this is where the user should return after authentication, and where you can reload the MCP server list and their connection status.
+
+**Note:** For security, the `redirect_url` must be a host that matches one of your MCP Client routes.
+
+After the user completes authentication, the MCP server's `connected` status should become `true`.
+
 # Development
 
 To run this application in development mode:
