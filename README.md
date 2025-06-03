@@ -93,7 +93,7 @@ This approach ensures that:
 sequenceDiagram
   actor U as User
   participant C as MCP Client
-  participant U as Upstream OAuth
+  participant O as Upstream OAuth
   participant P as Pomerium
   participant S as MCP Server
   U ->> C: Adds a server URL
@@ -102,12 +102,12 @@ sequenceDiagram
   C ->> U: Redirect to sign-in URL
   U ->> P: Sign-in
   P ->> U: Redirect to upstream OAuth
-  U ->> U: Authenticate with upstream OAuth
-  U ->> P: Return upstream OAuth token (TI)
+  U ->> O: Authenticate with upstream OAuth
+  O ->> P: Return upstream OAuth token (TI)
   P ->> C: Redirect to client
   C ->> P: Obtain Token (TE)
   C ->> P: GET https://mcp-server Authorization: Bearer (TE)
-  P ->> U: Refresh (TI) if necessary
+  P ->> O: Refresh (TI) if necessary
   P ->> S: Proxy request to MCP Server, Bearer (TI)
 ```
 
