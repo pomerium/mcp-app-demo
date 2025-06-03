@@ -44,13 +44,17 @@ Now you may ask some questions like "What were our sales by year", and see how O
 
 # How does it work
 
-## When a remote MCP Client wants to access your MCP server behind Pomerium
+Pomerium acts as a secure gateway between Model Context Protocol (MCP) clients and servers. It provides authentication and authorization for local HTTP MCP servers, using OAuth 2.1 flows. This setup is especially useful when your MCP server needs to access upstream APIs that require OAuth tokens (such as Notion, Google Drive, GitHub, etc.).
 
-### Access to a shared resource
+It also enables you to build internal applications that use agentic frameworks or LLM APIs capable of invoking MCP servers, as demonstrated in this repository.
 
-In this scenario, an external MCP client (such as Claude.ai) needs to access an internal MCP server that is protected by Pomerium. Pomerium acts as a secure gateway, handling authentication and authorization for incoming requests.
+To understand this setup, let's look at how an MCP client communicates with MCP servers that are protected by Pomerium.
 
-This approach lets you safely expose internal MCP servers (for example, those connected to a database) to external clients, while ensuring that only authorized access is allowed and without exposing sensitive resources directly to the internet.
+## 1. Exposing an Internal MCP Server to a Remote Client
+
+Suppose you want to allow an external MCP client (like Claude.ai) to access your internal MCP server, but you want to keep it secure. Pomerium sits in front of your server and manages authentication and authorization for all incoming requests.
+
+This means you can safely share access to internal resources (like a database) with external clients, without exposing them directly to the internet.
 
 ```mermaid
 sequenceDiagram
@@ -69,25 +73,25 @@ sequenceDiagram
   P ->> S: Proxy request to MCP Server
 ```
 
-### If MCP Server requires OAuth
+## 2. MCP Server Needs Upstream OAuth
 
-When your MCP server needs an OAuth token from an upstream provider (such as GitHub, Google Drive, Notion, Salesforce, etc.), Pomerium handles the entire OAuth flow on your behalf. Here’s how it works:
+If your MCP server needs to access an upstream service that requires OAuth (for example, GitHub or Google Drive), Pomerium can handle the OAuth flow for you. Here’s how the process works:
 
-1. The user adds a server URL in the MCP client (e.g., Claude.ai).
-2. The client registers with Pomerium and initiates authentication.
-3. Pomerium provides a sign-in URL, and the user is redirected to sign in by the MCP client.
-4. After signing in to Pomerium, the user is redirected to the upstream OAuth provider for authentication.
-5. The user authenticates with the upstream provider, which returns an internal OAuth token (TI) to Pomerium.
-6. Pomerium completes the sign-in process and redirects the user back to the client.
-7. The client obtains an external token (TE) from Pomerium.
-8. When the client makes requests to the MCP server, it uses the external token (TE).
-9. Pomerium transparently refreshes the upstream OAuth token (TI) if needed and proxies the request to the MCP server, providing the internal token (TI) in the `Authorization` header.
+1. The user adds the MCP server URL in the client (e.g., Claude.ai).
+2. The client registers with Pomerium and starts authentication.
+3. Pomerium gives the client a sign-in URL, which is shown to the user.
+4. The user signs in to Pomerium, then is redirected to the upstream OAuth provider.
+5. The user authenticates with the upstream provider. The provider returns an internal OAuth token (TI) to Pomerium.
+6. Pomerium finishes the sign-in and redirects the user back to the client.
+7. The client receives an external token (TE) from Pomerium.
+8. The client uses TE to make requests to the MCP server.
+9. Pomerium refreshes the upstream token (TI) as needed and proxies requests to the MCP server, passing TI in the `Authorization` header.
 
-This approach ensures that:
+**Key benefits:**
 
-- External clients (like Claude.ai) never see your upstream provider’s OAuth tokens or have any knowledge of your upstream OAuth.
-- Your MCP server always receives a valid upstream token with each request.
-- The MCP server can remain stateless and does not need to manage OAuth flows or tokens directly.
+- External clients (like Claude.ai) never see your upstream OAuth tokens.
+- Your MCP server always receives a valid upstream token.
+- The MCP server can remain stateless and does not need to manage OAuth flows or tokens.
 
 ```mermaid
 sequenceDiagram
