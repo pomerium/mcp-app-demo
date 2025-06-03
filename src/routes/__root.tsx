@@ -26,7 +26,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'PomChat',
+        title: 'Pomerium Chat',
       },
     ],
     links: [
@@ -35,9 +35,9 @@ export const Route = createRootRoute({
         href: appCss,
       },
       {
-        rel: "icon",
-        href: "/pomerium-icon.svg"
-      }
+        rel: 'icon',
+        href: '/pomerium-icon.svg',
+      },
     ],
   }),
 

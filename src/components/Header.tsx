@@ -70,7 +70,7 @@ const Header: React.FC = () => {
           />
         </a>
         <Link to="/">
-          <h1 className="text-xl font-bold text-white">PomChat</h1>
+          <h1 className="text-xl font-bold text-white">Pomerium</h1>
         </Link>
         <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
       </div>
