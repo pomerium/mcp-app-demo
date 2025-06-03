@@ -56,6 +56,16 @@ Suppose you want to allow an external MCP client (like Claude.ai) to access your
 
 This means you can safely share access to internal resources (like a database) with external clients, without exposing them directly to the internet.
 
+You configure your Pomerium Route as usual with an additional `mcp` property that signifies that this route represents a Model Context Protocol server route.
+
+```yaml
+routes:
+  - from: https://my-mcp-server.your-domain.com
+    to: http://my-mcp-server.int:8080/mcp
+    name: My MCP Server
+    mcp: {}
+```
+
 ```mermaid
 sequenceDiagram
   actor U as User
@@ -92,6 +102,23 @@ If your MCP server needs to access an upstream service that requires OAuth (for 
 - External clients (like Claude.ai) never see your upstream OAuth tokens.
 - Your MCP server always receives a valid upstream token.
 - The MCP server can remain stateless and does not need to manage OAuth flows or tokens.
+
+**Route configuration:**
+
+```yaml
+routes:
+  - from: https://github.your-domain
+    to: http://github-mcp.int:8080/mcp
+    name: GitHub
+    mcp:
+      upstream_oauth2:
+        client_id: xxxxxxxxxxxx
+        client_secret: yyyyyyyyy
+        scopes: ['read:user', 'user:email']
+        endpoint:
+          auth_url: 'https://github.com/login/oauth/authorize'
+          token_url: 'https://github.com/login/oauth/access_token'
+```
 
 ```mermaid
 sequenceDiagram
