@@ -1,0 +1,40 @@
+services:
+  # PostgreSQL database is required for Pomerium to interact with external MCP Clients such as claude.ai
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pomerium
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  #
+  # Pomerium is a secure access management solution that provides identity-aware access to applications and services.
+  # It acts as a reverse proxy, managing authentication and authorization for web applications.
+  pomerium:
+    image: pomerium/pomerium:main
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - ./pomerium-config.yaml:/pomerium/config.yaml
+      - pomerium-autocert:/data/autocert
+  #
+  # MCP App Demo is a sample application that demonstrates the capabilities of Pomerium's Model Context Protocol integration (this repo).
+  #
+  mcp-app-demo:
+    restart: unless-stopped
+    image: pomerium/mcp-app-demo:main
+    environment:
+      __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: mcp-app-demo
+    env_file: .env
+    expose:
+      - 3000
+    ports:
+      - 3000:3000
+volumes:
+  postgres-data:
+  pomerium-autocert:

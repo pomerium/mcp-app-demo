@@ -1,0 +1,40 @@
+#
+# This is a sample Pomerium (https://pomerium.com) configuration file for integrating with the Model Context Protocol (MCP) servers and clients.
+#
+
+# acquire TLS certificates automatically from Let's Encrypt
+autocert: true
+
+#
+# Pomerium needs to store data in a database to manage sessions, policies, and other stateful information.
+#
+databroker_storage_type: postgres
+databroker_storage_connection_string: postgresql://postgres:postgres@postgres:5432/pomerium?sslmode=disable
+
+# Enable MCP support
+runtime_flags:
+  mcp: true
+
+# Configure routes. Change YOUR-DOMAIN to a valid domain you control.
+#
+routes:
+  # this creates a route for the MCP App Demo application (this repo)
+  - from: https://mcp-app-demo.YOUR-DOMAIN
+    to: http://mcp-app-demo:3000
+    mcp:
+      pass_upstream_access_token: true
+    policy:
+      - allow:
+          or:
+            - domain:
+                is: pomerium.com
+  # this creates a route for the sample MCP database server
+  - from: https://db-mcp.YOUR-DOMAIN
+    to: http://db-northwind:8080/mcp
+    name: Northwind DB
+    mcp: {}
+    policy:
+      - allow:
+          or:
+            - domain:
+                is: YOUR-DOMAIN
