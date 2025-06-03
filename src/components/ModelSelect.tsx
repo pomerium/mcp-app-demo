@@ -20,13 +20,18 @@ export function ModelSelect({ value, onValueChange }: ModelSelectProps) {
   const { data: models, isLoading } = useModels()
 
   if (isLoading) {
-    return <div>Loading models...</div>
+    return (
+      <div className="text-sm text-primary-foreground">Loading models...</div>
+    )
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-fit max-w-[100px] md:max-w-[240px] justify-between">
+        <Button
+          variant="outline"
+          className="w-fit max-w-[100px] md:max-w-[240px] justify-between"
+        >
           <span className="truncate block max-w-[160px] overflow-hidden whitespace-nowrap">
             {value || 'Select a model'}
           </span>

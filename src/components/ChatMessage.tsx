@@ -28,7 +28,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       {!isUserMessage && (
         <div
           className={cn(
-            'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300',
+            'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
             isLoading && 'animate-[pulse_1.5s_ease-in-out_infinite] opacity-80',
           )}
         >
@@ -45,10 +45,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       >
         <div
           className={cn(
-            'rounded-2xl px-4 py-2 text-sm w-full',
-            isUserMessage
-              ? 'bg-indigo-600 text-white dark:bg-indigo-500'
-              : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
+            'rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
           )}
         >
           <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
@@ -91,7 +88,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       </div>
 
       {isUserMessage && (
-        <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300">
+        <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100">
           <User className="h-5 w-5" />
         </div>
       )}
