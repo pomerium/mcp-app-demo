@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ModelProvider } from '../contexts/ModelContext'
+import { UserProvider } from '../contexts/UserContext'
 
 import appCss from '../styles.css?url'
 import Header from '../components/Header'
@@ -59,11 +60,13 @@ export const Route = createRootRoute({
 
   component: () => (
     <QueryClientProvider client={queryClient}>
-      <ModelProvider>
-        <RootDocument>
-          <Outlet />
-        </RootDocument>
-      </ModelProvider>
+      <UserProvider>
+        <ModelProvider>
+          <RootDocument>
+            <Outlet />
+          </RootDocument>
+        </ModelProvider>
+      </UserProvider>
     </QueryClientProvider>
   ),
 })
