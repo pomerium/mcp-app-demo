@@ -21,13 +21,13 @@ OPENAI_API_KEY=your_api_key_here
 
 ### Pomerium Config
 
-Update `pomerium-config.yaml` and replace **YOUR-DOMAIN** with the subdomain you control. Create A DNS records for relevant hosts (or **`*.YOUR-DOMAIN`**).
+Update [`pomerium-config.yaml`](./pomerium-config.yaml) and replace **YOUR-DOMAIN** with the subdomain you control. Create A DNS records for relevant hosts (or **`*.YOUR-DOMAIN`**).
 
 By default, the access policy limits access to users with emails in **YOUR-DOMAIN**. See [policy language reference](https://www.pomerium.com/docs/internals/ppl) if you need to adjust it.
 
 ### Docker Compose
 
-See `docker-compose.yaml` file in this repo.
+See [`docker-compose.yaml`](./docker-compose.yaml) file in this repo.
 
 ```bash
 docker compose up -d
