@@ -28,7 +28,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
       {!isUserMessage && (
         <div
           className={cn(
-            'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300',
+            'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-primary-foreground text-primary dark:bg-gray-800 dark:text-gray-100  ',
             isLoading && 'animate-[pulse_1.5s_ease-in-out_infinite] opacity-80',
           )}
         >
