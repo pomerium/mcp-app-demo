@@ -67,37 +67,6 @@ export const chatRequestSchema = z.object({
   model: z.string(),
 })
 
-// Get tools request schema
-export const getToolsRequestSchema = z.object({
-  url: z.string().url('Invalid URL format'),
-  name: z
-    .string()
-    .regex(
-      /^[a-zA-Z][a-zA-Z0-9_-]*$/,
-      'Name must start with a letter and can only contain letters, numbers, dashes, and underscores',
-    ),
-})
-
-// Get tools response schema
-export const getToolsResponseSchema = z.object({
-  status: z.enum(['ok', 'error', 'redirect']),
-  redirectUrl: z.string().optional(),
-  tools: z.record(toolStateSchema).optional(),
-  toolStates: z.record(toolStateSchema).optional(),
-  error: z.string().optional(),
-})
-
-// Server form schema
-export const serverFormSchema = z.object({
-  name: z
-    .string()
-    .regex(
-      /^[a-zA-Z][a-zA-Z0-9_-]*$/,
-      'Name must start with a letter and can only contain letters, numbers, dashes, and underscores',
-    ),
-  url: z.string().url('Invalid server URL'),
-})
-
 // Types
 export type PomeriumServerInfo = z.infer<typeof pomeriumServerInfoSchema>
 export type PomeriumRoutesResponse = z.infer<
