@@ -66,7 +66,7 @@ const Header: React.FC = () => {
           <img
             src={isDark ? '/pomerium-icon.svg' : '/pomerium-icon.png'}
             alt="Pomerium Logo"
-            className="w-8 hover:-translate-y-0.5 transition-all"
+            className="w-8 transition-all"
           />
         </a>
         <Link to="/">
