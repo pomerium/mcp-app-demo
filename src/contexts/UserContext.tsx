@@ -12,7 +12,7 @@ type UserInfo = {
 type UserContextType = {
   user: UserInfo | undefined
   isLoading: boolean
-  error: Error | null
+  error: unknown
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
