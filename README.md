@@ -189,6 +189,39 @@ routes:
     policy: {} # define your policy here
 ```
 
+### 4. Listing available MCP servers from your app
+
+You can provide users with a dynamic list of MCP servers protected by the same Pomerium instance as your application. To do this, issue an HTTP request to your app backend using the same `Authorization: Bearer` token your backend received. The response will include the list and connection status of each MCP server upstream available to this Pomerium cluster.
+
+The **connected** property indicates whether the current user has all required internal tokens for upstream OAuth (if needed):
+
+- **true** – The user has all required internal tokens from upstream OAuth providers, or none are required for this server.
+- **false** – The user needs to authenticate with the upstream OAuth provider before accessing this MCP server.
+
+A later section will explain how to ensure your user has all required internal tokens.
+
+```
+GET https://mcp-demo-app.yourdomain.com/ HTTP/1.1
+Accept: application/json
+Authorization: Bearer (TE)
+
+Content-Type: application/json
+{
+    "servers": [
+        {
+            "name": "DB",
+            "url": "https://db-mcp.your-domain.com",
+            "connected": true
+        },
+        {
+            "name": "GitHub",
+            "url": "https://github-mcp.your-domain.com",
+            "connected": false
+        }
+    ]
+}
+```
+
 # Development
 
 To run this application in development mode:
