@@ -84,10 +84,12 @@ const Header: React.FC = () => {
                 variant="secondary"
                 className="size-10 flex justify-center items-center rounded-full"
               >
+                <span className="sr-only">User menu</span>
                 {user?.picture ? (
                   <img
                     src={user.picture}
                     alt={user.name}
+                    aria-hidden={true}
                     className="size-8 rounded-full"
                   />
                 ) : (
