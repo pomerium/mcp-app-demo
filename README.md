@@ -44,6 +44,15 @@ Now you may ask some questions like "What were our sales by year", and see how O
 
 # How does it work
 
+## Token Vocabulary
+
+- **External Token (TE):**  
+  An externally-facing token issued by Pomerium that represents the user's session. This token is used by external clients (such as Claude.ai, OpenAI, or your own apps) to authenticate requests to Pomerium-protected MCP servers.  
+  Example: The token you provide to an LLM API or agentic framework to allow it to call your MCP server.
+
+- **Internal Token (TI):**  
+  An internal authentication token that Pomerium obtains from an upstream OAuth2 provider (such as Notion, Google Drive, GitHub, etc.) on behalf of the user. This token is never exposed to external clients. Pomerium uses this token to authenticate requests to the upstream service when proxying requests to your MCP server.
+
 Pomerium acts as a secure gateway between Model Context Protocol (MCP) clients and servers. It provides authentication and authorization for local HTTP MCP servers, using OAuth 2.1 flows. This setup is especially useful when your MCP server needs to access upstream APIs that require OAuth tokens (such as Notion, Google Drive, GitHub, etc.).
 
 It also enables you to build internal applications that use agentic frameworks or LLM APIs capable of invoking MCP servers, as demonstrated in this repository.
@@ -91,11 +100,11 @@ If your MCP server needs to access an upstream service that requires OAuth (for 
 2. The client registers with Pomerium and starts authentication.
 3. Pomerium gives the client a sign-in URL, which is shown to the user.
 4. The user signs in to Pomerium, then is redirected to the upstream OAuth provider.
-5. The user authenticates with the upstream provider. The provider returns an internal OAuth token (TI) to Pomerium.
+5. The user authenticates with the upstream provider. The provider returns an **Internal Token (TI)** to Pomerium.
 6. Pomerium finishes the sign-in and redirects the user back to the client.
-7. The client receives an external token (TE) from Pomerium.
-8. The client uses TE to make requests to the MCP server.
-9. Pomerium refreshes the upstream token (TI) as needed and proxies requests to the MCP server, passing TI in the `Authorization` header.
+7. The client receives an **External Token (TE)** from Pomerium.
+8. The client uses **TE** to make requests to the MCP server.
+9. Pomerium refreshes the upstream token (**TI**) as needed and proxies requests to the MCP server, passing **TI** in the `Authorization` header.
 
 **Key benefits:**
 
@@ -134,9 +143,9 @@ sequenceDiagram
   U ->> P: Sign-in
   P ->> U: Redirect to upstream OAuth
   U ->> O: Authenticate with upstream OAuth
-  O ->> P: Return upstream OAuth token (TI)
+  O ->> P: Return Internal Token (TI)
   P ->> C: Redirect to client
-  C ->> P: Obtain Token (TE)
+  C ->> P: Obtain External Token (TE)
   C ->> P: GET https://mcp-server Authorization: Bearer (TE)
   P ->> O: Refresh (TI) if necessary
   P ->> S: Proxy request to MCP Server, Bearer (TI)
@@ -144,9 +153,9 @@ sequenceDiagram
 
 ### 3. Calling internal MCP server from your app
 
-Some inference APIs, such as the [OpenAI API](https://platform.openai.com/docs/guides/tools-remote-mcp) and [Claude API](https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector), now support direct invocation of MCP servers. This trend is expected to grow, and many agentic frameworks are adding support for MCP server calls. You can also implement MCP tool calls manually in your app using LLM function calling capabilities. All these approaches require providing an `Authorization: Bearer` token for the MCP server so that requests can be securely routed through Pomerium.
+Some inference APIs, such as the [OpenAI API](https://platform.openai.com/docs/guides/tools-remote-mcp) and [Claude API](https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector), now support direct invocation of MCP servers. This trend is expected to grow, and many agentic frameworks are adding support for MCP server calls. You can also implement MCP tool calls manually in your app using LLM function calling capabilities. All these approaches require providing an `Authorization: Bearer` **External Token (TE)** for the MCP server so that requests can be securely routed through Pomerium.
 
-If you are building your own internal application and need to obtain such a token, Pomerium offers a _client MCP mode_ for routes. By setting the `mcp.pass_upstream_access_token` option, Pomerium will supply your upstream application with an `Authorization: Bearer` token representing the current user session. You can then pass this token to external LLMs or agentic frameworks, allowing them to access MCP servers behind Pomerium according to your authorization policy.
+If you are building your own internal application and need to obtain such a token, Pomerium offers a _client MCP mode_ for routes. By setting the `mcp.pass_upstream_access_token` option, Pomerium will supply your upstream application with an `Authorization: Bearer` **External Token (TE)** representing the current user session. You can then pass this token to external LLMs or agentic frameworks, allowing them to access MCP servers behind Pomerium according to your authorization policy.
 
 The following flow illustrates this process, assuming the user is already authenticated with Pomerium:
 
