@@ -35,7 +35,7 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
         })
       }
 
-      const { messages, servers, model } = result.data
+      const { messages, servers, model, userId } = result.data
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
@@ -87,6 +87,7 @@ export const APIRoute = createAPIFileRoute('/api/chat')({
         tools,
         input,
         stream: true,
+        user: userId,
       })
 
       return streamText(answer)
