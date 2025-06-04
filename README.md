@@ -61,6 +61,8 @@ To understand this setup, let's look at how an MCP client communicates with MCP 
 
 ## 1. Exposing an Internal MCP Server to a Remote Client
 
+https://github.com/user-attachments/assets/c7a809ad-6f0a-4ea3-94a2-6cf22ea6d27b
+
 Suppose you want to allow an external MCP client (like Claude.ai) to access your internal MCP server, but you want to keep it secure. Pomerium sits in front of your server and manages authentication and authorization for all incoming requests.
 
 This means you can safely share access to internal resources (like a database) with external clients, without exposing them directly to the internet.
