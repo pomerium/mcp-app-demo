@@ -1,6 +1,6 @@
 Welcome to the Pomerium Chat, a minimal chat application for showcasing remote Model Context Protocol servers secured with [Pomerium](https://pomerium.com).
 
-# Quick start
+https://github.com/user-attachments/assets/50a17106-a471-4f64-be81-982c09d4689e
 
 ## Pre-requisites
 
