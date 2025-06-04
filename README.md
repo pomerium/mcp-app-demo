@@ -164,15 +164,15 @@ The following flow illustrates this process, assuming the user is already authen
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant C as Your App Backend
   participant P as Pomerium
+  participant C as Your App Backend
   participant S as MCP Server
   participant I as LLM API
   U ->> P: GET https://mcp-app-demo.your-domain.com
   P ->> C: GET http://mcp-app-demo:3000 Authorization: Bearer (TE)
   C ->> I: call tool https://mcp-server.your-domain Authorization: Bearer (TE)
   I ->> P: GET https://mcp-server.your-domain Authorization: Bearer (TE)
-  C ->> P: GET https://mcp-server
+  P ->> S: GET https://mcp-server
 ```
 
 Example route configuration:
@@ -203,7 +203,7 @@ The **connected** property indicates whether the current user has all required i
 A later section will explain how to ensure your user has all required internal tokens.
 
 ```
-GET https://mcp-demo-app.yourdomain.com/ HTTP/1.1
+GET https://mcp-demo-app.yourdomain.com/.pomerium/mcp/routes HTTP/1.1
 Accept: application/json
 Authorization: Bearer (TE)
 
