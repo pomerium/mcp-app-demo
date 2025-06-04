@@ -2,7 +2,7 @@ import { cn } from '../lib/utils'
 import type { Message } from '../mcp/client'
 import { formatTimestamp } from '../lib/utils'
 import { Bot, User, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
+import { MarkdownContent } from './MarkdownContent'
 
 type ChatMessageProps = {
   message: Message
@@ -49,35 +49,7 @@ export function ChatMessage({ message, isLoading }: ChatMessageProps) {
           )}
         >
           <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
-            <ReactMarkdown
-              components={{
-                pre: ({ node, ...props }) => (
-                  <pre
-                    className="overflow-x-auto whitespace-pre-wrap break-words break-all"
-                    {...props}
-                  />
-                ),
-                code: ({ node, ...props }) => (
-                  <code
-                    className="break-words break-all whitespace-pre-wrap"
-                    {...props}
-                  />
-                ),
-                a: ({ href, children, ...props }) => (
-                  <a
-                    href={href}
-                    className="break-words break-all"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    {...props}
-                  >
-                    {children}
-                  </a>
-                ),
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+            <MarkdownContent content={message.content} />
           </div>
         </div>
 
