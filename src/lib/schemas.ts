@@ -65,6 +65,7 @@ export const chatRequestSchema = z.object({
   messages: z.array(messageSchema),
   servers: serversSchema,
   model: z.string(),
+  userId: z.string(),
 })
 
 // Types

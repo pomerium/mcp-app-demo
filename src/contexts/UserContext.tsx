@@ -2,7 +2,11 @@ import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 import { getBrowserUser } from '@pomerium/js-sdk'
 import { useQuery } from '@tanstack/react-query'
-import type { UserInfo } from 'node_modules/@pomerium/js-sdk/lib/esm/types/utils'
+import type { UserInfo as PomeriumUserInfo } from 'node_modules/@pomerium/js-sdk/lib/esm/types/utils'
+
+type UserInfo = PomeriumUserInfo & {
+  id: string | undefined
+}
 
 type UserContextType = {
   user: UserInfo | undefined
@@ -16,9 +20,10 @@ async function fetchUserInfo(): Promise<UserInfo> {
   const userInfo = await getBrowserUser()
 
   return {
-    email: userInfo.email ?? '',
-    name: userInfo.name ?? '',
+    email: userInfo.email,
+    name: userInfo.name,
     picture: userInfo.picture as string,
+    id: userInfo.user,
   }
 }
 
