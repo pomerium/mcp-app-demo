@@ -6,7 +6,7 @@ RUN apk add --no-cache python3 make g++ git
 
 WORKDIR /app
 
-COPY package.json .npmrc ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm install
 
 COPY *.ts *.json ./
