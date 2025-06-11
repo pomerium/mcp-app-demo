@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y python3 make g++ git && rm -rf /var/lib
 WORKDIR /app
 
 COPY package.json package-lock.json .npmrc ./
-RUN npm install
+RUN npm ci --prefer-offline
 
 COPY *.ts *.json ./
 COPY ./public/ ./public/
