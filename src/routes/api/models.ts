@@ -14,7 +14,7 @@ function isSupportedModel(id: string) {
   return SUPPORTED_MODEL_PREFIXES.some((prefix) => id.startsWith(prefix))
 }
 
-export const APIRoute = createAPIFileRoute('/api/models')({
+export const route = createAPIFileRoute('/api/models')({
   GET: async () => {
     try {
       const client = new OpenAI()

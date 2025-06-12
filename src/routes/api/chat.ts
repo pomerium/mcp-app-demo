@@ -4,7 +4,7 @@ import OpenAI from 'openai'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
 import { streamText } from '../../lib/streaming'
 
-export const APIRoute = createAPIFileRoute('/api/chat')({
+export const route = createAPIFileRoute('/api/chat')({
   POST: async ({ request }) => {
     const bearerToken = request.headers.get('Authorization')?.split(' ')[1]
 
