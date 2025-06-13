@@ -1,13 +1,14 @@
-FROM node:lts-alpine
+# using slim instead of alpine for better compatibility with optional dependencies
+FROM node:lts-slim
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-RUN apk add --no-cache python3 make g++ git
+RUN apt-get update && apt-get install -y python3 make g++ git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY package.json .npmrc ./
-RUN npm install
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --prefer-offline
 
 COPY *.ts *.json ./
 COPY ./public/ ./public/
