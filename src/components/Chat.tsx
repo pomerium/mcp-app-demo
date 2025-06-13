@@ -52,8 +52,9 @@ export function Chat() {
           .filter(([_, server]) => server),
       ),
       model: selectedModel,
+      userId: user?.id,
     }),
-    [selectedServers, servers, selectedModel],
+    [selectedServers, servers, selectedModel, user?.id],
   )
 
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
