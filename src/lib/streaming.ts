@@ -75,6 +75,48 @@ export function streamText(
               }
             }
             break
+
+          case 'response.content_part.added':
+          case 'response.content_part.done':
+            if (chunk.part?.type === 'output_text' && chunk.part.text) {
+              buffer += chunk.part.text
+              flush()
+            }
+            break
+
+          case 'response.reasoning.delta':
+            if (typeof chunk.delta === 'string') {
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'reasoning',
+                    effort: chunk.effort,
+                    summary: chunk.delta,
+                    model: chunk.model,
+                    serviceTier: chunk.service_tier,
+                    temperature: chunk.temperature,
+                    topP: chunk.top_p,
+                  })}\n`,
+                ),
+              )
+            }
+            break
+
+          case 'response.created':
+          case 'response.in_progress':
+            if (chunk.response?.reasoning) {
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'reasoning',
+                    effort: chunk.response.reasoning.effort,
+                    summary: chunk.response.reasoning.summary,
+                  })}\n`,
+                ),
+              )
+            }
+            break
+
           case 'response.mcp_call.failed':
             console.error('[TOOL CALL FAILED]', chunk)
 
@@ -161,6 +203,39 @@ export function streamText(
                 ),
               )
             }
+            break
+
+          case 'response.reasoning_summary_text.delta':
+            if (typeof chunk.delta === 'string') {
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'reasoning_summary_delta',
+                    delta: chunk.delta,
+                    effort: chunk.effort,
+                    model: chunk.model,
+                    serviceTier: chunk.service_tier,
+                    temperature: chunk.temperature,
+                    topP: chunk.top_p,
+                  })}\n`,
+                ),
+              )
+            }
+            break
+
+          case 'response.reasoning_summary_text.done':
+            controller.enqueue(
+              encoder.encode(
+                `t:${JSON.stringify({
+                  type: 'reasoning_summary_done',
+                  effort: chunk.effort,
+                  model: chunk.model,
+                  serviceTier: chunk.service_tier,
+                  temperature: chunk.temperature,
+                  topP: chunk.top_p,
+                })}\n`,
+              ),
+            )
             break
 
           default:
