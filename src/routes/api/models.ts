@@ -1,4 +1,4 @@
-import { createAPIFileRoute } from '@tanstack/react-start/api'
+import { createServerFileRoute } from '@tanstack/react-start/server'
 import OpenAI from 'openai'
 
 const SUPPORTED_MODEL_PREFIXES = [
@@ -14,16 +14,14 @@ function isSupportedModel(id: string) {
   return SUPPORTED_MODEL_PREFIXES.some((prefix) => id.startsWith(prefix))
 }
 
-export const APIRoute = createAPIFileRoute('/api/models')({
-  GET: async () => {
+export const ServerRoute = createServerFileRoute('/api/models').methods({
+  async GET({ request }) {
     try {
       const client = new OpenAI()
       const models = await client.models.list()
-
       const filtered = models.data
         .filter((model) => isSupportedModel(model.id))
         .sort((a, b) => a.id.localeCompare(b.id))
-
       return new Response(JSON.stringify(filtered), {
         headers: { 'Content-Type': 'application/json' },
       })

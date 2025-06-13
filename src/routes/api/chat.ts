@@ -1,11 +1,11 @@
-import { createAPIFileRoute } from '@tanstack/react-start/api'
+import { createServerFileRoute } from '@tanstack/react-start/server'
 import { chatRequestSchema } from '../../lib/schemas'
 import OpenAI from 'openai'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
 import { streamText } from '../../lib/streaming'
 
-export const APIRoute = createAPIFileRoute('/api/chat')({
-  POST: async ({ request }) => {
+export const ServerRoute = createServerFileRoute('/api/chat').methods({
+  async POST({ request }) {
     const bearerToken = request.headers.get('Authorization')?.split(' ')[1]
 
     try {
