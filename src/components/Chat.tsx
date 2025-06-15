@@ -31,6 +31,7 @@ export function Chat() {
   const [selectedServers, setSelectedServers] = useState<string[]>([])
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
+  const [toolStates, setToolStates] = useState<Record<string, { approved: boolean; rejected: boolean }>>({})
   const { selectedModel } = useModel()
   const { user } = useUser()
 
@@ -48,7 +49,20 @@ export function Chat() {
     () => ({
       servers: Object.fromEntries(
         selectedServers
-          .map((serverId) => [serverId, servers[serverId]])
+          .map((serverId) => {
+            const server = servers[serverId]
+            // Get tool states from localStorage
+            const stored = localStorage.getItem(`tool-states-${serverId}`)
+            const toolStates = stored ? JSON.parse(stored) : {}
+
+            return [
+              serverId,
+              {
+                ...server,
+                toolStates,
+              },
+            ]
+          })
           .filter(([_, server]) => server),
       ),
       model: selectedModel,
@@ -200,6 +214,20 @@ export function Chat() {
     )
   }
 
+  const handleToolApprove = (toolId: string) => {
+    setToolStates(prev => ({
+      ...prev,
+      [toolId]: { approved: true, rejected: false }
+    }))
+  }
+
+  const handleToolReject = (toolId: string) => {
+    setToolStates(prev => ({
+      ...prev,
+      [toolId]: { approved: false, rejected: true }
+    }))
+  }
+
   return (
     <div className="flex flex-col h-full relative">
       <div className="flex-1 overflow-y-auto">
@@ -207,11 +235,20 @@ export function Chat() {
           <div className="space-y-4">
             {renderEvents.map((event, idx) => {
               if ('type' in event && event.type === 'tool') {
+                const toolId = `${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`
+                const requiresApproval = servers[event.serverLabel]?.toolStates?.[event.toolName]?.allow === 'approval'
+                const toolState = toolStates[toolId]
+
                 return (
                   <ToolCallMessage
-                    key={`tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`}
+                    key={toolId}
                     name={event.serverLabel || ''}
                     args={event}
+                    requiresApproval={requiresApproval}
+                    isApproved={toolState?.approved}
+                    isRejected={toolState?.rejected}
+                    onApprove={() => handleToolApprove(toolId)}
+                    onReject={() => handleToolReject(toolId)}
                   />
                 )
               } else if ('type' in event && event.type === 'assistant') {

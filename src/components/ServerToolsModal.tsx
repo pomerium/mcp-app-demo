@@ -10,6 +10,7 @@ import {
 } from './ui/dropdown-menu'
 import { Drawer, DrawerContent } from './ui/drawer'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useToolStates } from '../hooks/useToolStates'
 
 interface ServerToolsModalProps {
   open: boolean
@@ -17,11 +18,7 @@ interface ServerToolsModalProps {
   serverName: string
   serverUrl: string
   tools: Record<string, any>
-  toolStates: Record<string, { enabled: boolean; allow: string }>
-  onToolStateChange: (
-    tool: string,
-    state: { enabled: boolean; allow: string },
-  ) => void
+  serverId: string
 }
 
 const ALLOW_OPTIONS = [
@@ -29,6 +26,11 @@ const ALLOW_OPTIONS = [
     label: 'Always ask permission',
     value: 'approval',
     sub: 'Your approval is required every time',
+  },
+  {
+    label: 'Allow once',
+    value: 'once',
+    sub: 'Allow this tool to run just once',
   },
   {
     label: 'Allow unsupervised',
@@ -43,20 +45,20 @@ export function ServerToolsModal({
   serverName,
   serverUrl,
   tools,
-  toolStates,
-  onToolStateChange,
+  serverId,
 }: ServerToolsModalProps) {
+  const { toolStates, updateToolState } = useToolStates(serverId)
+  const isMobile = useMediaQuery('(max-width: 640px)')
+
   const handleToggle = (tool: string) => {
     const prev = toolStates[tool] || { enabled: true, allow: 'unsupervised' }
-    onToolStateChange(tool, { ...prev, enabled: !prev.enabled })
+    updateToolState(tool, { enabled: !prev.enabled })
   }
 
   const handleAllowChange = (tool: string, value: string) => {
     const prev = toolStates[tool] || { enabled: true, allow: 'unsupervised' }
-    onToolStateChange(tool, { ...prev, allow: value })
+    updateToolState(tool, { allow: value as 'approval' | 'unsupervised' })
   }
-
-  const isMobile = useMediaQuery('(max-width: 640px)')
 
   const modalContent = (
     <>

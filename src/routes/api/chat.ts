@@ -58,7 +58,7 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           type: 'mcp',
           server_label: sanitizeServerLabel(server.name),
           server_url: server.url,
-          require_approval: 'never',
+          require_approval: server.toolStates?.[_id]?.allow === 'approval' ? 'always' : 'never',
           headers: {
             Authorization: `Bearer ${bearerToken}`,
           },
