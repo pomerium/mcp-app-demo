@@ -5,7 +5,7 @@ import { ServerSelector } from './ServerSelector'
 import { useChat } from 'ai/react'
 import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
-import { type Servers } from '../lib/schemas'
+import { type Servers, type ToolItem } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
 import { useModel } from '../contexts/ModelContext'
@@ -18,7 +18,7 @@ type StreamEvent =
       type: 'tool'
       toolType: string
       serverLabel: string
-      tools?: any[]
+      tools?: ToolItem[]
       itemId?: string
       toolName?: string
       arguments?: unknown

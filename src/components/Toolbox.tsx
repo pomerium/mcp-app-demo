@@ -6,6 +6,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useMemo } from 'react'
+import { type ToolItem } from '../lib/schemas'
 
 type ToolboxProps = {
   name: string
@@ -17,7 +18,7 @@ type ToolboxProps = {
       | 'done'
       | 'arguments_delta'
       | 'arguments_done'
-    tools?: any[]
+    tools?: ToolItem[]
     [key: string]: unknown
   }
 }
