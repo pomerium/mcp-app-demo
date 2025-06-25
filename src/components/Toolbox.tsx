@@ -1,15 +1,15 @@
 import {
-  Wrench,
-  Loader2,
+  Settings,
   CheckCircle,
+  Loader2,
   Clock,
   ChevronRight,
-  ArrowRight,
 } from 'lucide-react'
+import { useMemo } from 'react'
 
-type ToolCallMessageProps<T = Record<string, unknown>> = {
+type ToolboxProps = {
   name: string
-  args: T & {
+  args: {
     toolType?: string
     status?:
       | 'in_progress'
@@ -17,9 +17,8 @@ type ToolCallMessageProps<T = Record<string, unknown>> = {
       | 'done'
       | 'arguments_delta'
       | 'arguments_done'
-    toolName?: string
-    arguments?: unknown
-    delta?: unknown
+    tools?: any[]
+    [key: string]: unknown
   }
 }
 
@@ -35,46 +34,43 @@ const getStatusIcon = (status?: string) => {
 
 const getStatusText = (status?: string) => {
   if (status?.includes('in_progress')) {
-    return 'In progress...'
+    return 'Loading tools...'
   }
   if (status?.includes('completed') || status?.includes('done')) {
-    return 'Completed'
+    return 'Available'
   }
-  if (
-    status?.includes('arguments_delta') ||
-    status?.includes('arguments_done')
-  ) {
+  // Consolidate intermediate states to reduce visual flickering
+  if (status?.includes('arguments')) {
     return 'Preparing...'
   }
-  return 'Tool call'
+  return 'Tool list'
 }
 
-const getTitle = (name: string, args: ToolCallMessageProps['args']) => {
-  // For tool calls, include the tool name if available
-  if (args.toolName) {
-    return (
-      <>
-        Tool Call: {name} <ArrowRight className="h-3 w-3" /> {args.toolName}
-      </>
-    )
-  }
-  return `Tool Call: ${name}`
-}
+export function Toolbox({ name, args }: ToolboxProps) {
+  // Memoize the status elements to reduce unnecessary re-renders
+  const statusElements = useMemo(
+    () => ({
+      icon: getStatusIcon(args.status),
+      text: getStatusText(args.status),
+    }),
+    [args.status],
+  )
 
-export function ToolCallMessage({ name, args }: ToolCallMessageProps) {
   return (
     <div className="flex w-full max-w-full gap-2 py-2 animate-in fade-in justify-start">
-      <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300">
-        <Wrench className="h-5 w-5" />
+      <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300">
+        <Settings className="h-5 w-5" />
       </div>
 
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
-        <details className="rounded-2xl px-4 py-2 text-sm w-full bg-orange-50 text-orange-900 dark:bg-orange-950 dark:text-orange-100 group">
+        <details className="rounded-2xl px-4 py-2 text-sm w-full bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-100 group">
           <summary className="font-medium mb-1 flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden cursor-pointer">
             <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
-            {getTitle(name, args)}
-            {getStatusIcon(args.status)}
-            {getStatusText(args.status)}
+            Tool List: {name}
+            <span className="flex items-center gap-1 text-xs opacity-75">
+              {statusElements.icon}
+              {statusElements.text}
+            </span>
           </summary>
           <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-words break-all">
             {JSON.stringify(args, null, 2)}

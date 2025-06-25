@@ -7,6 +7,7 @@ import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
 import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
+import { Toolbox } from './Toolbox'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 
@@ -21,8 +22,33 @@ type StreamEvent =
       itemId?: string
       toolName?: string
       arguments?: unknown
+      delta?: unknown
+      status?:
+        | 'in_progress'
+        | 'completed'
+        | 'done'
+        | 'arguments_delta'
+        | 'arguments_done'
     }
   | { type: 'user'; id: string; content: string }
+
+// Helper function to map tool types to status
+const getToolStatus = (
+  toolType: string,
+):
+  | 'in_progress'
+  | 'completed'
+  | 'done'
+  | 'arguments_delta'
+  | 'arguments_done'
+  | undefined => {
+  if (toolType.includes('in_progress')) return 'in_progress'
+  if (toolType.includes('completed')) return 'completed'
+  if (toolType.includes('done')) return 'done'
+  if (toolType.includes('arguments_delta')) return 'arguments_delta'
+  if (toolType.includes('arguments_done')) return 'arguments_done'
+  return undefined
+}
 
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -97,19 +123,59 @@ export function Chat() {
                 toolState.arguments = {}
               }
 
-              setStreamBuffer((prev) => [
-                ...prev,
-                {
-                  type: 'tool',
-                  toolType: toolState.type,
-                  serverLabel: toolState.serverLabel,
-                  tools: toolState.tools,
-                  itemId: toolState.itemId,
-                  delta: toolState.delta,
-                  arguments: toolState.arguments,
-                  toolName: toolState.toolName,
-                },
-              ])
+              setStreamBuffer((prev) => {
+                const itemId = toolState.itemId
+                if (itemId) {
+                  // Find existing tool event with same itemId
+                  const existingIndex = prev.findIndex(
+                    (event) =>
+                      event.type === 'tool' &&
+                      'itemId' in event &&
+                      event.itemId === itemId,
+                  )
+
+                  if (existingIndex !== -1) {
+                    // Update existing tool event
+                    const existingEvent = prev[existingIndex] as Extract<
+                      StreamEvent,
+                      { type: 'tool' }
+                    >
+                    const updatedEvent = {
+                      ...existingEvent,
+                      toolType: toolState.type,
+                      serverLabel:
+                        toolState.serverLabel || existingEvent.serverLabel,
+                      tools: toolState.tools || existingEvent.tools,
+                      delta: toolState.delta || existingEvent.delta,
+                      arguments: toolState.arguments || existingEvent.arguments,
+                      toolName: toolState.toolName || existingEvent.toolName,
+                      status: getToolStatus(toolState.type),
+                    }
+
+                    return [
+                      ...prev.slice(0, existingIndex),
+                      updatedEvent,
+                      ...prev.slice(existingIndex + 1),
+                    ]
+                  }
+                }
+
+                // Create new tool event
+                return [
+                  ...prev,
+                  {
+                    type: 'tool',
+                    toolType: toolState.type,
+                    serverLabel: toolState.serverLabel,
+                    tools: toolState.tools,
+                    itemId: toolState.itemId,
+                    delta: toolState.delta,
+                    arguments: toolState.arguments,
+                    toolName: toolState.toolName,
+                    status: getToolStatus(toolState.type),
+                  },
+                ]
+              })
             } catch (e) {
               console.error('Failed to parse tool state:', e)
             }
@@ -207,13 +273,25 @@ export function Chat() {
           <div className="space-y-4">
             {renderEvents.map((event, idx) => {
               if ('type' in event && event.type === 'tool') {
-                return (
-                  <ToolCallMessage
-                    key={`tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`}
-                    name={event.serverLabel || ''}
-                    args={event}
-                  />
-                )
+                const key = `tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`
+                // Check if this is a tool list (contains tools array) or a tool call
+                if (event.tools) {
+                  return (
+                    <Toolbox
+                      key={key}
+                      name={event.serverLabel || ''}
+                      args={event}
+                    />
+                  )
+                } else {
+                  return (
+                    <ToolCallMessage
+                      key={key}
+                      name={event.serverLabel || ''}
+                      args={event}
+                    />
+                  )
+                }
               } else if ('type' in event && event.type === 'assistant') {
                 const assistantEvent = event as Extract<
                   StreamEvent,
