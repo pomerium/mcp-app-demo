@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useMemo } from 'react'
 import { type ToolItem } from '../lib/schemas'
+import { getStatusIcon } from '@/lib/toolStatus'
 
 type ToolboxProps = {
   name: string
@@ -21,16 +22,6 @@ type ToolboxProps = {
     tools?: ToolItem[]
     [key: string]: unknown
   }
-}
-
-const getStatusIcon = (status?: string) => {
-  if (status?.includes('in_progress')) {
-    return <Loader2 className="h-4 w-4 animate-spin" />
-  }
-  if (status?.includes('completed') || status?.includes('done')) {
-    return <CheckCircle className="h-4 w-4" />
-  }
-  return <Clock className="h-4 w-4" />
 }
 
 const getStatusText = (status?: string) => {
