@@ -44,9 +44,9 @@ const getToolStatus = (
   | undefined => {
   if (toolType.includes('in_progress')) return 'in_progress'
   if (toolType.includes('completed')) return 'completed'
+  if (toolType.includes('arguments_done')) return 'arguments_done'
   if (toolType.includes('done')) return 'done'
   if (toolType.includes('arguments_delta')) return 'arguments_delta'
-  if (toolType.includes('arguments_done')) return 'arguments_done'
   return undefined
 }
 
