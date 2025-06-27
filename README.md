@@ -1,5 +1,8 @@
 Welcome to the Pomerium Chat, a minimal chat application for showcasing remote Model Context Protocol servers secured with [Pomerium](https://pomerium.com).
 
+[![Discord](https://img.shields.io/badge/Discord-blue?style=for-the-badge)](https://discord.gg/pWzshUdT)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](/docker-compose.yaml)
+
 https://github.com/user-attachments/assets/50a17106-a471-4f64-be81-982c09d4689e
 
 ## Pre-requisites
@@ -44,6 +47,8 @@ Now you may ask some questions like "What were our sales by year", and see how O
 
 # How does it work
 
+See [Model Context Protocol Capability Overview](https://main.docs.pomerium.com/docs/capabilities/mcp) for more details.
+
 ## Token Vocabulary
 
 - **External Token (TE):**  
@@ -74,7 +79,8 @@ routes:
   - from: https://my-mcp-server.your-domain.com
     to: http://my-mcp-server.int:8080/mcp
     name: My MCP Server
-    mcp: {}
+    mcp:
+      server: {}
 ```
 
 ```mermaid
@@ -122,13 +128,14 @@ routes:
     to: http://github-mcp.int:8080/mcp
     name: GitHub
     mcp:
-      upstream_oauth2:
-        client_id: xxxxxxxxxxxx
-        client_secret: yyyyyyyyy
-        scopes: ['read:user', 'user:email']
-        endpoint:
-          auth_url: 'https://github.com/login/oauth/authorize'
-          token_url: 'https://github.com/login/oauth/access_token'
+      server:
+        upstream_oauth2:
+          client_id: xxxxxxxxxxxx
+          client_secret: yyyyyyyyy
+          scopes: ['read:user', 'user:email']
+          endpoint:
+            auth_url: 'https://github.com/login/oauth/authorize'
+            token_url: 'https://github.com/login/oauth/access_token'
 ```
 
 ```mermaid
@@ -182,13 +189,18 @@ routes:
   - from: https://mcp-app-demo.your-domain.com
     to: http://mcp-app-demo:3000
     mcp:
-      pass_upstream_access_token: true
-    policy: {} # define your policy here
+      client: {}
+    policy:
+      domain:
+        is: your-domain.com
   - from: https://mcp-server.your-domain.com
     to: http://mcp-server.int:8080/mcp
     name: My MCP Server
-    mcp: {}
-    policy: {} # define your policy here
+    mcp:
+      server: {}
+    policy:
+      domain:
+        is: your-domain.com
 ```
 
 ### 4. Listing available MCP servers from your app
