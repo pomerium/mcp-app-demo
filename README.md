@@ -36,6 +36,8 @@ See [`docker-compose.yaml`](./docker-compose.yaml) file in this repo.
 docker compose up -d
 ```
 
+It includes a demo SQLite server that requires a demo database, for example https://github.com/jpwhite3/northwind-SQLite3 that needs be saved as `sqlite.db`.
+
 ### Testing
 
 Now you should be able to navigate to `https://mcp-app-demo.YOUR-DOMAIN/`.

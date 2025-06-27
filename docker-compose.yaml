@@ -30,11 +30,23 @@ services:
     image: pomerium/mcp-app-demo:main
     environment:
       __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: mcp-app-demo
-    env_file: .env
+    env_file: .env-mcp-app-demo
     expose:
       - 3000
     ports:
       - 3000:3000
+  mcp-servers:
+    restart: unless-stopped
+    image: pomerium/mcp-servers:main
+    environment:
+      PORT: 8080
+      SQLITE_DB_FILE: /sqlite.db
+    expose:
+      - 8080
+    ports:
+      - 8080:8080
+    volumes:
+      - ./sqlite.db:/sqlite.db
 volumes:
   postgres-data:
   pomerium-autocert:
