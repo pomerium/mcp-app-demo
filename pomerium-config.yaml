@@ -22,7 +22,7 @@ routes:
   - from: https://mcp-app-demo.YOUR-DOMAIN
     to: http://mcp-app-demo:3000
     mcp:
-      pass_upstream_access_token: true
+      client: {}
     policy:
       - allow:
           or:
@@ -30,9 +30,10 @@ routes:
                 is: pomerium.com
   # this creates a route for the sample MCP database server
   - from: https://db-mcp.YOUR-DOMAIN
-    to: http://db-northwind:8080/mcp
-    name: Northwind DB
-    mcp: {}
+    to: http://mcp-servers:8080/mcp
+    name: Database
+    mcp:
+      server: {}
     policy:
       - allow:
           or:

@@ -43,7 +43,7 @@ It includes a demo SQLite server that requires a demo database, for example http
 Now you should be able to navigate to `https://mcp-app-demo.YOUR-DOMAIN/`.
 A sign-in page would open. After you signed in, you should be redirected to the application itself.
 
-There should be a demo database server (Northwind DB) acessible and in Connected status. Click on it to use it in the conversation.
+There should be a demo database server (Database) acessible and in Connected status. Click on it to use it in the conversation.
 
 Now you may ask some questions like "What were our sales by year", and see how OpenAI large language model inference would interact with the MCP database server running on your computer to obtain the answers.
 
