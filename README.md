@@ -18,7 +18,7 @@ https://github.com/user-attachments/assets/50a17106-a471-4f64-be81-982c09d4689e
 
 ### Environment Variables
 
-Create a `.env` file in the root directory and add the following environment variables:
+Create a `.env-mcp-app-demo` file in the root directory and add the following environment variables:
 
 ```bash
 OPENAI_API_KEY=your_api_key_here
