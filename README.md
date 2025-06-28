@@ -14,9 +14,11 @@ https://github.com/user-attachments/assets/50a17106-a471-4f64-be81-982c09d4689e
 
 ## Quickstart
 
+[![Pomerium MCP Client Demo Setup](https://img.youtube.com/vi/JGecAuJoXEI/maxresdefault.jpg)](https://www.youtube.com/watch?v=JGecAuJoXEI 'Pomerium MCP Client Demo Setup')
+
 ### Environment Variables
 
-Create a `.env` file in the root directory and add the following environment variables:
+Create a `.env-mcp-app-demo` file in the root directory and add the following environment variables:
 
 ```bash
 OPENAI_API_KEY=your_api_key_here
@@ -53,11 +55,11 @@ See [Model Context Protocol Capability Overview](https://main.docs.pomerium.com/
 
 ## Token Vocabulary
 
-- **External Token (TE):**  
-  An externally-facing token issued by Pomerium that represents the user's session. This token is used by external clients (such as Claude.ai, OpenAI, or your own apps) to authenticate requests to Pomerium-protected MCP servers.  
+- **External Token (TE):**
+  An externally-facing token issued by Pomerium that represents the user's session. This token is used by external clients (such as Claude.ai, OpenAI, or your own apps) to authenticate requests to Pomerium-protected MCP servers.
   Example: The token you provide to an LLM API or agentic framework to allow it to call your MCP server.
 
-- **Internal Token (TI):**  
+- **Internal Token (TI):**
   An internal authentication token that Pomerium obtains from an upstream OAuth2 provider (such as Notion, Google Drive, GitHub, etc.) on behalf of the user. This token is never exposed to external clients. Pomerium uses this token to authenticate requests to the upstream service when proxying requests to your MCP server.
 
 Pomerium acts as a secure gateway between Model Context Protocol (MCP) clients and servers. It provides authentication and authorization for local HTTP MCP servers, using OAuth 2.1 flows. This setup is especially useful when your MCP server needs to access upstream APIs that require OAuth tokens (such as Notion, Google Drive, GitHub, etc.).
@@ -240,8 +242,8 @@ Content-Type: application/json
 
 ## 5. Ensuring your current user has authenticated with an upstream OAuth2 provider
 
-If your target MCP server shows `connected: false`, the user needs to authenticate with the required upstream OAuth2 provider.  
-To do this, redirect the user's browser to the special `/.pomerium/mcp/connect` path on the MCP server route (for example: `https://db-mcp.your-domain.com/.pomerium/mcp/connect`).  
+If your target MCP server shows `connected: false`, the user needs to authenticate with the required upstream OAuth2 provider.
+To do this, redirect the user's browser to the special `/.pomerium/mcp/connect` path on the MCP server route (for example: `https://db-mcp.your-domain.com/.pomerium/mcp/connect`).
 Include a `redirect_url` query parameter that points back to your application's page—this is where the user should return after authentication, and where you can reload the MCP server list and their connection status.
 
 **Note:** For security, the `redirect_url` must be a host that matches one of your MCP Client routes.
@@ -250,10 +252,89 @@ After the user completes authentication, the MCP server's `connected` status sho
 
 ## 6. Obtaining User Details
 
-To access the authenticated user's identity and claims, both your MCP client application and MCP server should read the [`X-Pomerium-Assertion`](https://www.pomerium.com/docs/get-started/fundamentals/core/jwt-verification#manually-verify-the-jwt) HTTP header.  
+To access the authenticated user's identity and claims, both your MCP client application and MCP server should read the [`X-Pomerium-Assertion`](https://www.pomerium.com/docs/get-started/fundamentals/core/jwt-verification#manually-verify-the-jwt) HTTP header.
 This header contains a signed JWT with user information, which you can decode and verify to obtain details such as the user's email, name, and other claims.
 
-# Development
+## Monitoring and Auditing MCP Tool Calls
+
+Pomerium provides comprehensive audit logging for all MCP tool calls, allowing you to monitor and analyze how external clients interact with your MCP servers.
+
+[![Auditing MCP Tool Calls and Policies in Action with Pomerium](https://img.youtube.com/vi/nc9rKaUlETg/maxresdefault.jpg)](https://www.youtube.com/watch?v=nc9rKaUlETg 'Auditing MCP Tool Calls and Policies in Action with Pomerium')
+
+### Viewing Audit Logs
+
+You can monitor MCP tool calls in real-time using the following commands:
+
+#### Raw Log Format
+
+View unfiltered audit logs as they occur:
+
+```bash
+docker compose logs -f pomerium \
+  | grep --line-buffered "authorize" \
+  | grep --line-buffered "mcp-"
+```
+
+#### Pretty-Printed JSON Format
+
+View formatted audit logs with syntax highlighting:
+
+```bash
+docker compose logs -f pomerium \
+  | grep --line-buffered "authorize" \
+  | grep --line-buffered "mcp-" \
+  | sed -u 's/^[^{]*//' \
+  | jq -C
+```
+
+Note: You'll need to have `jq` installed for JSON formatting.
+
+#### Sample Audit Log Entry
+
+Here's an example of what an MCP tool call audit log entry looks like:
+
+```json
+{
+  "level": "info",
+  "server-name": "all",
+  "service": "authorize",
+  "request-id": "b9375fd5-e220-9c1d-8f27-9b42249c2de5",
+  "user": "google-oauth2|110679203791094235151",
+  "email": "mcp@pomerium.com",
+  "mcp-method": "tools/call",
+  "mcp-tool": "read_query",
+  "mcp-tool-parameters": {
+    "query": "SELECT SupplierID, CompanyName, Country FROM Suppliers WHERE Country IN ('Austria', 'Belgium', 'Denmark', 'Finland', 'France', 'Germany', 'Ireland', 'Italy', 'Netherlands', 'Norway', 'Portugal', 'Spain', 'Sweden', 'Switzerland', 'UK');"
+  },
+  "host": "northwind.mcp.pomerium.com",
+  "allow": true,
+  "allow-why-true": ["domain-ok"],
+  "deny": false,
+  "deny-why-false": [],
+  "time": "2025-06-27T20:56:44Z",
+  "message": "authorize check"
+}
+```
+
+### Configuring MCP Audit Logging
+
+To enable comprehensive MCP audit logging, add the following global section to your Pomerium configuration. Note that `mcp-*` fields are new authorize_log_fields specifically designed to support MCPs:
+
+```yaml
+# for MCP observability
+authorize_log_fields:
+  - request-id
+  - user
+  - email
+  - mcp-method
+  - mcp-tool
+  - mcp-tool-parameters
+  - host
+```
+
+This configuration ensures that all MCP-specific information is included in your audit logs, providing complete visibility into tool calls and their parameters.
+
+## Development
 
 To run this application in development mode:
 
@@ -264,7 +345,7 @@ npm run dev
 
 This will start the development server with hot reloading enabled.
 
-### Production
+## Production
 
 To build and run this application for production:
 
