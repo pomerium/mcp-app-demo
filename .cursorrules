@@ -1,7 +1,35 @@
-# shadcn instructions
+# Cursor Rules for MCP App Demo
 
-Use the latest version of Shadcn to install new components, like this command to add a button component:
+## General
 
-```bash
-pnpx shadcn@latest add button
-```
+- This repo uses TypeScript, Vite, TanStack Start, Tailwind CSS, and Shadcn/ui components. Any AI-generated code must follow these technologies and the existing linting and Prettier rules.
+- Never introduce the `any` type. Use proper generics or let TypeScript infer types.
+- Keep code self-documenting. Use inline comments only for business logic that is not obvious.
+- Run `npm run lint:fix` before committing.
+
+## Validation
+
+- Use Zod for runtime validation and type safety. Define schemas in `src/lib/schemas.ts` and reuse them across the application.
+- Leverage Zod's TypeScript integration with `z.infer<typeof schema>` for type definitions.
+- Validate API inputs, form data, and external data sources using appropriate Zod schemas.
+
+## State Management
+
+- Use React Context for application-wide state (see `src/contexts/`).
+- Leverage TanStack Query (React Query) for server state management and caching.
+- Use standard React hooks (`useState`, `useReducer`, `useEffect`) for local component state.
+- Avoid external state management libraries like Zustand or Redux for this project.
+
+## File structure & frameworks
+
+- Use TanStack Start for routing. Place new routes under `src/routes` using file-based patterns like `about.tsx` or `[id].tsx`.
+- Export `loader`, `action`, and `meta` objects in route files when needed.
+- Keep shared UI in `src/components`; compose Shadcn components rather than reinventing UI.
+- Put reusable hooks in `src/hooks` and small helpers in `src/lib`.
+
+## Styling & UI
+
+- Prefer Shadcn/ui components. Add new parts with:
+  ```bash
+  npx shadcn@latest add <component>
+  ```
