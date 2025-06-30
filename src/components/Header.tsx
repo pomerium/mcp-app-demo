@@ -10,12 +10,9 @@ import {
 } from './ui/dropdown-menu'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from './ui/button'
-import { ModelSelect } from './ModelSelect'
-import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 
 const Header: React.FC = () => {
-  const { selectedModel, setSelectedModel } = useModel()
   const { user, isLoading } = useUser()
   const [isDark, setIsDark] = useState(false)
 
@@ -72,7 +69,6 @@ const Header: React.FC = () => {
         <Link to="/">
           <h1 className="text-xl font-bold text-white">Pomerium</h1>
         </Link>
-        <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
       </div>
 
       <div className="flex items-center gap-2">

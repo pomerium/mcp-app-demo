@@ -21,7 +21,9 @@ export function ModelSelect({ value, onValueChange }: ModelSelectProps) {
 
   if (isLoading) {
     return (
-      <div className="text-sm text-primary-foreground">Loading models...</div>
+      <div className="text-sm text-gray-700 dark:text-gray-300">
+        Loading models...
+      </div>
     )
   }
 
