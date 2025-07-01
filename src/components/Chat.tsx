@@ -10,6 +10,9 @@ import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
+import { Button } from './ui/button'
+import { MessageSquarePlus } from 'lucide-react'
+import { ModelSelect } from './ModelSelect'
 
 // Streamed event type
 type StreamEvent =
@@ -53,11 +56,12 @@ const getToolStatus = (
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
+  const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
   const [selectedServers, setSelectedServers] = useState<string[]>([])
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
-  const { selectedModel } = useModel()
+  const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
 
   const initialMessage = useMemo<Message>(
@@ -83,153 +87,160 @@ export function Chat() {
     [selectedServers, servers, selectedModel, user?.id],
   )
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      initialMessages: hasStartedChat ? [] : [initialMessage],
-      body: chatBody,
-      onResponse: (response) => {
-        const reader = response.body?.getReader()
-        if (!reader) return
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+    setMessages,
+    setInput,
+  } = useChat({
+    initialMessages: hasStartedChat ? [] : [initialMessage],
+    body: chatBody,
+    onResponse: (response) => {
+      const reader = response.body?.getReader()
+      if (!reader) return
 
-        const decoder = new TextDecoder()
-        let buffer = ''
-        setStreaming(true)
-        let assistantId: string | null = null
+      const decoder = new TextDecoder()
+      let buffer = ''
+      setStreaming(true)
+      let assistantId: string | null = null
 
-        const processChunk = (line: string) => {
-          if (line.startsWith('t:')) {
-            try {
-              const toolState = JSON.parse(line.slice(2))
+      const processChunk = (line: string) => {
+        if (line.startsWith('t:')) {
+          try {
+            const toolState = JSON.parse(line.slice(2))
 
-              if ('delta' in toolState) {
-                try {
-                  toolState.delta =
-                    'delta' in toolState && toolState.delta !== ''
-                      ? JSON.parse(toolState.delta)
-                      : {}
-                } catch (e) {
-                  console.error('Failed to parse delta:', toolState.delta)
-                  toolState.delta = {}
-                }
-              }
-
+            if ('delta' in toolState) {
               try {
-                toolState.arguments =
-                  'arguments' in toolState && toolState.arguments !== ''
-                    ? JSON.parse(toolState.arguments)
+                toolState.delta =
+                  'delta' in toolState && toolState.delta !== ''
+                    ? JSON.parse(toolState.delta)
                     : {}
               } catch (e) {
-                console.error('Failed to parse arguments:', toolState.arguments)
-                toolState.arguments = {}
+                console.error('Failed to parse delta:', toolState.delta)
+                toolState.delta = {}
+              }
+            }
+
+            try {
+              toolState.arguments =
+                'arguments' in toolState && toolState.arguments !== ''
+                  ? JSON.parse(toolState.arguments)
+                  : {}
+            } catch (e) {
+              console.error('Failed to parse arguments:', toolState.arguments)
+              toolState.arguments = {}
+            }
+
+            setStreamBuffer((prev) => {
+              const itemId = toolState.itemId
+              if (itemId) {
+                // Find existing tool event with same itemId
+                const existingIndex = prev.findIndex(
+                  (event) =>
+                    event.type === 'tool' &&
+                    'itemId' in event &&
+                    event.itemId === itemId,
+                )
+
+                if (existingIndex !== -1) {
+                  // Update existing tool event
+                  const existingEvent = prev[existingIndex] as Extract<
+                    StreamEvent,
+                    { type: 'tool' }
+                  >
+                  const updatedEvent = {
+                    ...existingEvent,
+                    toolType: toolState.type,
+                    serverLabel:
+                      toolState.serverLabel || existingEvent.serverLabel,
+                    tools: toolState.tools || existingEvent.tools,
+                    delta: toolState.delta || existingEvent.delta,
+                    arguments: toolState.arguments || existingEvent.arguments,
+                    toolName: toolState.toolName || existingEvent.toolName,
+                    status: getToolStatus(toolState.type),
+                  }
+
+                  return [
+                    ...prev.slice(0, existingIndex),
+                    updatedEvent,
+                    ...prev.slice(existingIndex + 1),
+                  ]
+                }
               }
 
-              setStreamBuffer((prev) => {
-                const itemId = toolState.itemId
-                if (itemId) {
-                  // Find existing tool event with same itemId
-                  const existingIndex = prev.findIndex(
-                    (event) =>
-                      event.type === 'tool' &&
-                      'itemId' in event &&
-                      event.itemId === itemId,
-                  )
-
-                  if (existingIndex !== -1) {
-                    // Update existing tool event
-                    const existingEvent = prev[existingIndex] as Extract<
-                      StreamEvent,
-                      { type: 'tool' }
-                    >
-                    const updatedEvent = {
-                      ...existingEvent,
-                      toolType: toolState.type,
-                      serverLabel:
-                        toolState.serverLabel || existingEvent.serverLabel,
-                      tools: toolState.tools || existingEvent.tools,
-                      delta: toolState.delta || existingEvent.delta,
-                      arguments: toolState.arguments || existingEvent.arguments,
-                      toolName: toolState.toolName || existingEvent.toolName,
-                      status: getToolStatus(toolState.type),
-                    }
-
-                    return [
-                      ...prev.slice(0, existingIndex),
-                      updatedEvent,
-                      ...prev.slice(existingIndex + 1),
-                    ]
-                  }
-                }
-
-                // Create new tool event
+              // Create new tool event
+              return [
+                ...prev,
+                {
+                  type: 'tool',
+                  toolType: toolState.type,
+                  serverLabel: toolState.serverLabel,
+                  tools: toolState.tools,
+                  itemId: toolState.itemId,
+                  delta: toolState.delta,
+                  arguments: toolState.arguments,
+                  toolName: toolState.toolName,
+                  status: getToolStatus(toolState.type),
+                },
+              ]
+            })
+          } catch (e) {
+            console.error('Failed to parse tool state:', e)
+          }
+        } else if (line.startsWith('0:')) {
+          try {
+            const text = JSON.parse(line.slice(2))
+            setStreamBuffer((prev) => {
+              const last = prev[prev.length - 1]
+              if (
+                last &&
+                last.type === 'assistant' &&
+                last.id === assistantId
+              ) {
+                // Append to last assistant message
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, content: last.content + text },
+                ]
+              } else {
+                // Create new assistant message
+                assistantId = generateMessageId()
                 return [
                   ...prev,
-                  {
-                    type: 'tool',
-                    toolType: toolState.type,
-                    serverLabel: toolState.serverLabel,
-                    tools: toolState.tools,
-                    itemId: toolState.itemId,
-                    delta: toolState.delta,
-                    arguments: toolState.arguments,
-                    toolName: toolState.toolName,
-                    status: getToolStatus(toolState.type),
-                  },
+                  { type: 'assistant', id: assistantId, content: text },
                 ]
-              })
-            } catch (e) {
-              console.error('Failed to parse tool state:', e)
-            }
-          } else if (line.startsWith('0:')) {
-            try {
-              const text = JSON.parse(line.slice(2))
-              setStreamBuffer((prev) => {
-                const last = prev[prev.length - 1]
-                if (
-                  last &&
-                  last.type === 'assistant' &&
-                  last.id === assistantId
-                ) {
-                  // Append to last assistant message
-                  return [
-                    ...prev.slice(0, -1),
-                    { ...last, content: last.content + text },
-                  ]
-                } else {
-                  // Create new assistant message
-                  assistantId = generateMessageId()
-                  return [
-                    ...prev,
-                    { type: 'assistant', id: assistantId, content: text },
-                  ]
-                }
-              })
-            } catch (e) {
-              console.error('Failed to parse text chunk:', e)
-            }
+              }
+            })
+          } catch (e) {
+            console.error('Failed to parse text chunk:', e)
           }
         }
+      }
 
-        const readChunk = async () => {
-          const { done, value } = await reader.read()
-          if (done) {
-            setStreaming(false)
-            return
-          }
+      const readChunk = async () => {
+        const { done, value } = await reader.read()
+        if (done) {
+          setStreaming(false)
+          return
+        }
 
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-          for (const line of lines) {
-            if (line.trim()) processChunk(line)
-          }
-
-          readChunk()
+        for (const line of lines) {
+          if (line.trim()) processChunk(line)
         }
 
         readChunk()
-      },
-    })
+      }
+
+      readChunk()
+    },
+  })
 
   // What to render: if streaming or streamBuffer has content, use streamBuffer; else, use messages
   const renderEvents: (StreamEvent | Message)[] =
@@ -266,8 +277,28 @@ export function Chat() {
     )
   }
 
+  const handleNewChat = () => {
+    setHasStartedChat(false)
+    setStreamBuffer([])
+    setStreaming(false)
+    setMessages([initialMessage])
+    setInput('')
+    setFocusTimestamp(Date.now())
+  }
+
   return (
     <div className="flex flex-col h-full relative">
+      <div className="sticky top-0 z-10 bg-background border-b px-4 py-2 flex justify-between items-center">
+        <Button
+          variant="outline"
+          onClick={handleNewChat}
+          className="flex items-center gap-2"
+        >
+          <MessageSquarePlus className="size-4" />
+          <span className="sr-only sm:not-sr-only">New Chat</span>
+        </Button>
+        <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
+      </div>
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-4">
           <div className="space-y-4">
@@ -367,6 +398,7 @@ export function Chat() {
           disabled={isLoading || streaming}
           value={input}
           onChange={handleInputChange}
+          focusTimestamp={focusTimestamp}
         />
       </div>
     </div>
