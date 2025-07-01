@@ -10,7 +10,7 @@ const config = defineConfig({
       projects: ['./tsconfig.json'],
     }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({ target: 'netlify' }),
   ],
 })
 
