@@ -8,6 +8,7 @@ type ChatInputProps = {
   disabled?: boolean
   value: string
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  focusTimestamp?: number
 }
 
 export function ChatInput({
@@ -15,8 +16,15 @@ export function ChatInput({
   disabled = false,
   value,
   onChange,
+  focusTimestamp,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (focusTimestamp && textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }, [focusTimestamp])
 
   useEffect(() => {
     if (textareaRef.current) {

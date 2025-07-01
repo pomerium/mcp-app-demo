@@ -56,6 +56,7 @@ const getToolStatus = (
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
+  const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
   const [selectedServers, setSelectedServers] = useState<string[]>([])
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
@@ -282,6 +283,7 @@ export function Chat() {
     setStreaming(false)
     setMessages([initialMessage])
     setInput('')
+    setFocusTimestamp(Date.now())
   }
 
   return (
@@ -396,6 +398,7 @@ export function Chat() {
           disabled={isLoading || streaming}
           value={input}
           onChange={handleInputChange}
+          focusTimestamp={focusTimestamp}
         />
       </div>
     </div>
