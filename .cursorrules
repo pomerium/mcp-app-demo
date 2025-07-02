@@ -15,148 +15,383 @@ You are an expert in TypeScript, React, TanStack Start, Vite, Tailwind CSS, and 
 
 ## TanStack Start Routing Patterns
 
-### Route File Structure
+### Route File Structure and Conventions
 Place routes in `src/routes/` using file-based routing:
 - Static routes: `about.tsx`
 - Dynamic routes: `[id].tsx`, `users/[userId].tsx`
 - Layout routes: `_layout.tsx`
-- API routes: `api/chat.ts` (server-side)
+- API routes: `api/chat.ts` (server-side with `.ts` extension)
+- Always export `Route` from `createFileRoute()` or `ServerRoute` from `createServerFileRoute()`
 
 ### Loader and Action Conventions
-**Always explicitly type loader/action returns:**
+**Always explicitly type loader/action returns with interfaces:**
 
 ```typescript
-// ✅ Good: Explicit typing with loader-first data handling
+// ✅ Good: Client route with properly typed loader
+import { createFileRoute } from '@tanstack/react-router';
+import { userSchema } from '@/lib/schemas';
+import { z } from 'zod';
+
+interface UserDetailParams {
+  id: string;
+}
+
+interface UserDetailLoaderData {
+  user: z.infer<typeof userSchema>;
+}
+
 export const Route = createFileRoute('/users/$id')({
-  loader: async ({ params }): Promise<{ user: User }> => {
+  loader: async ({ params }): Promise<UserDetailLoaderData> => {
     const user = await fetchUser(params.id);
-    return { user };
+    const validatedUser = userSchema.parse(user);
+    return { user: validatedUser };
   },
   component: UserDetail,
+  errorBoundary: ({ error }) => (
+    <div className="text-red-600 p-4">Error loading user: {error.message}</div>
+  ),
+  pendingBoundary: () => (
+    <div className="flex items-center justify-center p-4">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" role="status" aria-label="Loading">
+        <span className="sr-only">Loading...</span>
+      </div>
+    </div>
+  ),
 });
 
 function UserDetail() {
-  const { user } = Route.useLoaderData(); // Type-safe from loader
-  // No redundant React Query here - use loader data
-  return <div>{user.name}</div>;
+  const { user } = Route.useLoaderData();
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <p>{user.email}</p>
+    </div>
+  );
 }
 ```
 
-**Server routes with proper validation:**
+**Server routes with comprehensive validation:**
 
 ```typescript
+// ✅ Good: Server route with validation
+import { createServerFileRoute } from '@tanstack/react-start/server'
+import { userCreateSchema } from '@/lib/schemas'
+
 export const ServerRoute = createServerFileRoute('/api/users').methods({
-  async POST({ request }): Promise<Response> => {
-    const body = await request.json();
-    const result = userSchema.safeParse(body);
-    
-    if (!result.success) {
-      return new Response(JSON.stringify({ error: result.error }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+  async POST({ request }) {
+    try {
+      const body = await request.json()
+      const result = userCreateSchema.safeParse(body)
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({
+            error: 'Validation failed',
+            details: result.error.flatten(),
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
+      }
+
+      const user = await createUser(result.data)
+      return new Response(JSON.stringify(userSchema.parse(user)))
+    } catch (error) {
+      console.error('Server error:', error)
+      return new Response(
+        JSON.stringify({
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
-    
-    // Handle validated data
-    return new Response(JSON.stringify(result.data));
   },
-});
+})
 ```
 
 ### Error and Loading Boundaries
-Use ErrorBoundary and PendingBoundary in routes:
+**Always use errorBoundary and pendingBoundary in routes:**
 
 ```typescript
-export const Route = createFileRoute('/users')({
-  loader: async () => fetchUsers(),
-  errorComponent: ({ error }) => (
-    <div className="text-red-600">Failed to load users: {error.message}</div>
-  ),
-  pendingComponent: () => (
-    <div className="flex items-center gap-2">
-      <Loader2 className="h-4 w-4 animate-spin" />
-      Loading users...
+// ✅ Good: Consistent boundary patterns
+export const Route = createFileRoute('/dashboard')({
+  loader: async () => {
+    const users = await fetchUsers();
+    return { users: userListSchema.parse(users) };
+  },
+  errorBoundary: ({ error, reset }) => (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
+      <h2 className="font-semibold">Failed to load users</h2>
+      <p className="mt-1 text-sm">{error.message}</p>
+      <Button onClick={reset} className="mt-2" variant="outline" size="sm">
+        Try Again
+      </Button>
     </div>
   ),
-  component: UsersList,
+  pendingBoundary: () => (
+    <div className="flex items-center justify-center p-8" role="status" aria-label="Loading users">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary">
+        <span className="sr-only">Loading users...</span>
+      </div>
+    </div>
+  ),
+  component: Dashboard,
 });
+```
+
+## React Query vs Route Loaders
+
+**Prefer Route Loaders for:**
+- Initial page data that's required for rendering
+- Server-side rendering (SSR) requirements  
+- Data that should be fetched before the component mounts
+- Critical path data needed for SEO
+
+```typescript
+// ✅ Good: Use loader for initial page data
+export const Route = createFileRoute('/users')({
+  loader: async (): Promise<{ users: User[] }> => {
+    const users = await fetchUsers()
+    return { users: userListSchema.parse(users) }
+  },
+  component: UserList,
+})
+```
+
+**Prefer React Query for:**
+- Data that updates frequently
+- Optional/secondary data not critical for initial render
+- Client-side mutations and optimistic updates
+- Data that needs fine-grained cache control
+
+```typescript
+// ✅ Good: Use React Query for dynamic/optional data
+function UserStats({ userId }: { userId: string }) {
+  const { data: stats, isLoading, refetch } = useQuery({
+    queryKey: ['user-stats', userId],
+    queryFn: () => fetchUserStats(userId),
+    refetchInterval: 30000, // Auto-refresh every 30s
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+  });
+
+  if (isLoading) return <div>Loading stats...</div>;
+  return <div>{stats?.totalPosts} posts</div>;
+}
+```
+
+## Validation with Zod
+
+**Always validate external data** - from APIs, user input, environment variables, and any data crossing system boundaries.
+
+### Schema Organization and Best Practices
+Define schemas in `src/lib/schemas.ts` with proper documentation:
+
+```typescript
+// ✅ Good: Comprehensive schema definition
+import { z } from 'zod'
+
+export const userSchema = z.object({
+  id: z.string().describe('Unique user identifier'),
+  name: z.string().min(1, 'Name is required').max(100),
+  email: z.string().email('Invalid email format').optional(),
+  age: z.number().int().min(13, 'Must be at least 13 years old').optional(),
+  createdAt: z.string().datetime('Invalid date format'),
+  role: z.enum(['admin', 'user', 'moderator']).default('user'),
+})
+
+export type User = z.infer<typeof userSchema>
+
+// ✅ Good: Input/output schemas for transformations
+export const userCreateInputSchema = userSchema.omit({
+  id: true,
+  createdAt: true,
+})
+export type UserCreateInput = z.infer<typeof userCreateInputSchema>
+```
+
+### Advanced Validation Patterns
+
+```typescript
+// ✅ Good: Safe parsing with proper error handling
+function validateUserData(data: unknown): User | null {
+  const result = userSchema.safeParse(data)
+
+  if (!result.success) {
+    console.error('User validation failed:', result.error.format())
+    return null
+  }
+
+  return result.data
+}
+
+// ✅ Good: Custom refinements and transformations
+export const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .refine(
+    (val) => /[A-Z]/.test(val),
+    'Password must contain at least one uppercase letter',
+  )
+  .refine(
+    (val) => /[0-9]/.test(val),
+    'Password must contain at least one number',
+  )
+
+// ✅ Good: Conditional schemas
+export const contactSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('email'),
+    email: z.string().email(),
+  }),
+  z.object({
+    type: z.literal('phone'),
+    phone: z.string().regex(/^\+?[\d\s-()]+$/, 'Invalid phone format'),
+  }),
+])
 ```
 
 ## Import Aliasing & File Organization
 
-**Use standardized import aliases:**
+**Always use `@/` alias for internal imports** to ensure consistency:
+
 ```typescript
-// ✅ Good: Consistent aliasing
-import { Button } from '@/components/ui/button';
-import { userSchema } from '@/lib/schemas';
-import { cn } from '@/lib/utils';
+// ✅ Good: Import order and grouping
+// 1. External packages
+import React from 'react'
+import { z } from 'zod'
+import { createFileRoute } from '@tanstack/react-router'
+
+// 2. Internal modules (using @/ alias)
+import { Button } from '@/components/ui/button'
+import { userSchema } from '@/lib/schemas'
+import { cn } from '@/lib/utils'
+
+// 3. Types (if needed separately)
+import type { User } from '@/lib/schemas'
+
+// ❌ Bad: Relative imports for internal modules
+import { Button } from '../components/ui/button'
+import { userSchema } from '../../lib/schemas'
 ```
 
 **File structure:**
 ```
 src/
-├── components/ui/     # Shadcn components
-├── components/        # Custom components  
+├── components/        # Shared UI components (prefer Shadcn)
+│   └── ui/           # Shadcn/ui components
 ├── contexts/          # React Context providers
 ├── hooks/             # Custom React hooks
-├── lib/               # Utilities and schemas
-│   └── schemas.ts     # Centralized Zod schemas
+├── lib/               # Utilities and helpers
+│   └── schemas.ts     # Zod schemas
 ├── routes/            # TanStack Start routes
+│   └── api/          # Server routes (.ts files)
 └── styles.css         # Global styles
 ```
 
-## Validation with Zod
+## Accessibility Best Practices
 
-**Define schemas in `src/lib/schemas.ts` and reuse:**
+### Semantic HTML and ARIA Attributes
+Always use semantic HTML elements for structure and meaning. Only use ARIA attributes when there is no appropriate semantic HTML equivalent:
 
 ```typescript
-// ✅ Good: Schema-first approach
-export const userSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1),
-  email: z.string().email().optional(),
-});
+// ✅ Good: Proper ARIA attributes and semantic elements
+<button
+  aria-expanded={isOpen}
+  aria-controls="menu"
+  aria-label="Toggle navigation menu"
+  onClick={toggleMenu}
+>
+  <MenuIcon aria-hidden="true" />
+  <span className="sr-only">Navigation Menu</span>
+</button>
 
-export type User = z.infer<typeof userSchema>;
+// ✅ Good: Accessible form elements
+<div>
+  <label htmlFor="email" className="block text-sm font-medium">
+    Email Address
+  </label>
+  <input
+    id="email"
+    type="email"
+    aria-describedby="email-error"
+    aria-invalid={errors.email ? 'true' : 'false'}
+    className="mt-1 block w-full rounded-md border border-gray-300"
+  />
+  {errors.email && (
+    <p id="email-error" className="mt-1 text-sm text-red-600" role="alert">
+      {errors.email}
+    </p>
+  )}
+</div>
+```
 
-// Use in components
-const result = userSchema.safeParse(data);
-if (!result.success) {
-  // Handle validation errors
+### Keyboard Navigation
+
+```typescript
+// ✅ Good: Keyboard event handling
+function SearchInput() {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      clearSearch();
+    }
+    if (e.key === 'Enter') {
+      performSearch();
+    }
+  };
+
+  return (
+    <input
+      type="search"
+      onKeyDown={handleKeyDown}
+      aria-label="Search users"
+      placeholder="Search users..."
+    />
+  );
 }
 ```
 
-## Shadcn/ui Components & Accessibility
+## Shadcn/ui Components & Styling
 
 **Always prefer Shadcn components with proper accessibility:**
 
 ```typescript
-// ✅ Good: Accessible Shadcn usage
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// ✅ Good: Shadcn Dialog with proper accessibility
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
-<Card>
-  <CardHeader>
-    <CardTitle id="user-details">User Details</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <Button
-      onClick={handleSave}
-      aria-describedby="user-details"
-      className="w-full md:w-auto"
-    >
-      Save Changes
-    </Button>
-  </CardContent>
-</Card>
+<Dialog>
+  <DialogTrigger asChild>
+    <Button>Open Settings</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>User Settings</DialogTitle>
+      <DialogDescription>
+        Manage your account settings and preferences.
+      </DialogDescription>
+    </DialogHeader>
+    {/* Dialog content */}
+  </DialogContent>
+</Dialog>
 ```
 
 **Add new components with:**
 ```bash
 npx shadcn@latest add <component-name>
 ```
-
-## Styling Guidelines
 
 **Use Tailwind with responsive design:**
 ```typescript
@@ -166,7 +401,7 @@ npx shadcn@latest add <component-name>
 </div>
 
 // ✅ Good: Conditional classes with cn utility
-<div className={cn("base-classes", isActive && "bg-primary")}>
+<div className={cn("base-classes", isActive && "active-classes")}>
 ```
 
 ## State Management Patterns
@@ -199,59 +434,86 @@ function Dashboard() {
 const { user, setUser } = useContext(UserContext);
 ```
 
-## Testing Best Practices
+## Testing Patterns (Optional)
 
 **Component testing with Testing Library:**
 ```typescript
-// ✅ Good: Accessible queries
-test('renders user details correctly', () => {
-  render(<UserCard user={mockUser} />);
-  
-  expect(screen.getByRole('heading', { name: /user details/i })).toBeInTheDocument();
-  expect(screen.getByLabelText(/email address/i)).toHaveValue(mockUser.email);
+// ✅ Good: Component testing with proper setup
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { UserCard } from '@/components/UserCard';
+import { userSchema } from '@/lib/schemas';
+
+describe('UserCard', () => {
+  const mockUser = userSchema.parse({
+    id: '1',
+    name: 'John Doe',
+    email: 'john@example.com',
+    createdAt: new Date().toISOString(),
+  });
+
+  it('displays user information correctly', () => {
+    render(<UserCard user={mockUser} />);
+
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('john@example.com')).toBeInTheDocument();
+  });
+
+  it('handles click events', () => {
+    const onEdit = vi.fn();
+    render(<UserCard user={mockUser} onEdit={onEdit} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    expect(onEdit).toHaveBeenCalledWith(mockUser.id);
+  });
 });
 ```
 
-**Route testing:**
+## Error Handling Patterns
+
+### React Query Error Handling
 ```typescript
-// ✅ Good: Test loader and component integration
-test('user detail route loads and displays user', async () => {
-  const router = createRouter({ routeTree });
-  await router.navigate({ to: '/users/$id', params: { id: 'user-1' } });
-  
-  expect(screen.getByText(mockUser.name)).toBeInTheDocument();
-});
-```
-
-## What NOT to do
-
-- ❌ Don't use `any` type - use proper TypeScript types
-- ❌ Don't use class components - use function components only
-- ❌ Don't use external state libraries (Zustand, Redux) - use Context + React Query
-- ❌ Don't create custom UI when Shadcn alternatives exist
-- ❌ Don't duplicate data fetching - use loaders, then React Query only for mutations
-- ❌ Don't write custom CSS when Tailwind classes work
-- ❌ Don't put business logic directly in components
-- ❌ Don't forget ARIA attributes and semantic HTML
-- ❌ Don't skip Zod validation for external data
-
-## Error Handling
-
-```typescript
-// ✅ Good: Comprehensive error handling
-const { data, error, isLoading } = useQuery({
+// ✅ Good: React Query with comprehensive error handling
+const { data, error, isLoading, refetch } = useQuery({
   queryKey: ['users'],
   queryFn: fetchUsers,
   retry: 3,
+  retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
 });
 
 if (error) {
   return (
-    <Alert variant="destructive">
-      <AlertTriangle className="h-4 w-4" />
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription>{error.message}</AlertDescription>
-    </Alert>
+    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+      <h3 className="font-medium">Error loading data</h3>
+      <p className="mt-1 text-sm">{error.message}</p>
+      <Button onClick={() => refetch()} className="mt-2" size="sm">
+        Retry
+      </Button>
+    </div>
   );
 }
 ```
+
+### Route-Level Error Handling
+```typescript
+// ✅ Good: Route with error and pending boundaries (see examples above)
+```
+
+## What NOT to do
+
+- ❌ Don't use `any` type - always use proper TypeScript types
+- ❌ Don't use class components - use function components
+- ❌ Don't use external state libraries like Zustand or Redux
+- ❌ Don't create custom UI components when Shadcn alternatives exist
+- ❌ Don't write custom CSS when Tailwind classes work
+- ❌ Don't put business logic directly in components
+- ❌ Don't forget to validate external data with Zod schemas
+- ❌ Don't use relative imports for internal modules - use `@/` alias
+- ❌ Don't skip error boundaries and pending boundaries in routes
+- ❌ Don't forget ARIA attributes and accessibility considerations
+- ❌ Don't use React Query for data that should be loaded by route loaders
+- ❌ Don't ignore TypeScript errors or use `@ts-ignore` without justification
+
+## Key Principles
+
+Focus on writing clean, type-safe, maintainable code that follows the established patterns in this project. Prioritize accessibility, proper error handling, and use TanStack Start's conventions for optimal performance and developer experience.
