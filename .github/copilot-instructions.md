@@ -371,7 +371,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 ## Accessibility Best Practices
 
-### ARIA Attributes and Semantic HTML
+### Semantic HTML and ARIA Attributes
+
+Always use semantic HTML elements for structure and meaning. Only use ARIA attributes when there is no appropriate semantic HTML equivalent. This ensures maximum accessibility and compatibility. Follow these patterns to ensure your components are accessible:
 
 ```typescript
 // ✅ Good: Proper ARIA attributes and semantic elements
