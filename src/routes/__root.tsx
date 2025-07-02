@@ -1,16 +1,16 @@
 import {
-  Outlet,
   HeadContent,
+  Link,
+  Outlet,
   Scripts,
   createRootRoute,
-  Link,
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ModelProvider } from '../contexts/ModelContext'
-import { UserProvider } from '../contexts/UserContext'
+import { ModelProvider } from '@/contexts/ModelContext'
+import { UserProvider } from '@/contexts/UserContext'
 
-import appCss from '../styles.css?url'
-import Header from '../components/Header'
+import appCss from '@/styles.css?url'
+import Header from '@/components/Header'
 
 // Create a client
 const queryClient = new QueryClient()

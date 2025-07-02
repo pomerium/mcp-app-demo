@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react'
-import { Button } from './ui/button'
+import React, { useEffect, useRef } from 'react'
 import { Send } from 'lucide-react'
-import { Textarea } from './ui/textarea'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 
 type ChatInputProps = {
   onSendMessage: (message: string) => void

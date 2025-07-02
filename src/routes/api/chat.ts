@@ -1,8 +1,8 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
-import { chatRequestSchema } from '../../lib/schemas'
 import OpenAI from 'openai'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
-import { streamText } from '../../lib/streaming'
+import { chatRequestSchema } from '@/lib/schemas'
+import { streamText } from '@/lib/streaming'
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
@@ -62,7 +62,7 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           headers: {
             Authorization: `Bearer ${bearerToken}`,
           },
-        })) satisfies Tool[]
+        })) satisfies Array<Tool>
 
       // Format the conversation history into a single input string with proper message parts
       const input = messages

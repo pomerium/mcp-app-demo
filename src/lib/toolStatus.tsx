@@ -1,4 +1,4 @@
-import { CheckCircle, Loader2, Clock } from 'lucide-react'
+import { CheckCircle, Clock, Loader2 } from 'lucide-react'
 
 export const getStatusIcon = (status?: string) => {
   if (status?.includes('in_progress')) {

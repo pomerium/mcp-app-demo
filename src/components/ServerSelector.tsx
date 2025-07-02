@@ -1,16 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { Check, RefreshCw } from 'lucide-react'
+import { pomeriumRoutesResponseSchema } from '../lib/schemas'
 import { Button } from './ui/button'
-import { RefreshCw, Check } from 'lucide-react'
-import {
-  pomeriumRoutesResponseSchema,
-  type Server,
-  type Servers,
-} from '../lib/schemas'
+import type { Server, Servers } from '../lib/schemas'
 
 type ServerSelectorProps = {
   servers: Servers
   onServersChange: (servers: Servers) => void
-  selectedServers: string[]
+  selectedServers: Array<string>
   onServerToggle: (serverId: string) => void
   disabled?: boolean
 }
@@ -89,9 +86,8 @@ export function ServerSelector({
     fetchPomeriumServers()
   }, [])
 
-  const connectToServer = async (serverId: string) => {
+  const connectToServer = (serverId: string) => {
     const server = servers[serverId]
-    if (!server) return
 
     // Use Pomerium MCP connection flow
     const currentUrl = window.location.href
@@ -103,7 +99,6 @@ export function ServerSelector({
 
   const handleServerClick = (serverId: string) => {
     const server = servers[serverId]
-    if (!server) return
 
     if (server.status === 'connected') {
       onServerToggle(serverId)
@@ -130,9 +125,7 @@ export function ServerSelector({
             size="sm"
             className="h-6 w-6 p-0"
           >
-            <RefreshCw
-              className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`}
-            />
+            <RefreshCw className="h-3 w-3 animate-spin" />
           </Button>
         </div>
         <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">

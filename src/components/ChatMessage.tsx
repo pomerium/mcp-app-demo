@@ -1,8 +1,7 @@
-import { cn } from '../lib/utils'
-import type { Message } from '../mcp/client'
-import { formatTimestamp } from '../lib/utils'
-import { Bot, User, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { AlertCircle, Bot, CheckCircle2, Clock, User } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import type { Message } from '@/mcp/client'
+import { cn, formatTimestamp  } from '@/lib/utils'
 
 type ChatMessageProps = {
   message: Message

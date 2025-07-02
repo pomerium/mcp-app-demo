@@ -1,12 +1,12 @@
-import { getStatusIcon } from '@/lib/toolStatus'
 import {
-  Wrench,
-  Loader2,
-  CheckCircle,
-  Clock,
-  ChevronRight,
   ArrowRight,
+  CheckCircle,
+  ChevronRight,
+  Clock,
+  Loader2,
+  Wrench,
 } from 'lucide-react'
+import { getStatusIcon } from '@/lib/toolStatus'
 
 type ToolCallMessageProps<T = Record<string, unknown>> = {
   name: string

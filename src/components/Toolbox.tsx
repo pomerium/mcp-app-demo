@@ -1,12 +1,12 @@
 import {
-  Settings,
   CheckCircle,
-  Loader2,
-  Clock,
   ChevronRight,
+  Clock,
+  Loader2,
+  Settings,
 } from 'lucide-react'
 import { useMemo } from 'react'
-import { type ToolItem } from '../lib/schemas'
+import type {ToolItem} from '@/lib/schemas';
 import { getStatusIcon } from '@/lib/toolStatus'
 
 type ToolboxProps = {
@@ -19,7 +19,7 @@ type ToolboxProps = {
       | 'done'
       | 'arguments_delta'
       | 'arguments_done'
-    tools?: ToolItem[]
+    tools?: Array<ToolItem>
     [key: string]: unknown
   }
 }

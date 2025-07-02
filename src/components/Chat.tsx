@@ -1,18 +1,18 @@
-import { useRef, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useChat } from 'ai/react'
+import { MessageSquarePlus } from 'lucide-react'
+import { generateMessageId } from '../mcp/client'
+import { useModel } from '../contexts/ModelContext'
+import { useUser } from '../contexts/UserContext'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
 import { ServerSelector } from './ServerSelector'
-import { useChat } from 'ai/react'
-import { generateMessageId } from '../mcp/client'
-import type { Message } from 'ai'
-import { type Servers, type ToolItem } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
-import { useModel } from '../contexts/ModelContext'
-import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
-import { MessageSquarePlus } from 'lucide-react'
 import { ModelSelect } from './ModelSelect'
+import type { Message } from 'ai'
+import type { Servers, ToolItem } from '../lib/schemas'
 
 // Streamed event type
 type StreamEvent =
@@ -21,7 +21,7 @@ type StreamEvent =
       type: 'tool'
       toolType: string
       serverLabel: string
-      tools?: ToolItem[]
+      tools?: Array<ToolItem>
       itemId?: string
       toolName?: string
       arguments?: unknown
@@ -58,8 +58,8 @@ export function Chat() {
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
-  const [selectedServers, setSelectedServers] = useState<string[]>([])
-  const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
+  const [selectedServers, setSelectedServers] = useState<Array<string>>([])
+  const [streamBuffer, setStreamBuffer] = useState<Array<StreamEvent>>([])
   const [streaming, setStreaming] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
@@ -195,11 +195,7 @@ export function Chat() {
             const text = JSON.parse(line.slice(2))
             setStreamBuffer((prev) => {
               const last = prev[prev.length - 1]
-              if (
-                last &&
-                last.type === 'assistant' &&
-                last.id === assistantId
-              ) {
+              if (last.type === 'assistant' && last.id === assistantId) {
                 // Append to last assistant message
                 return [
                   ...prev.slice(0, -1),
@@ -243,7 +239,7 @@ export function Chat() {
   })
 
   // What to render: if streaming or streamBuffer has content, use streamBuffer; else, use messages
-  const renderEvents: (StreamEvent | Message)[] =
+  const renderEvents: Array<StreamEvent | Message> =
     streaming || streamBuffer.length > 0 ? [...streamBuffer] : messages
 
   // Auto-scroll to the bottom when messages or streamBuffer change
@@ -303,65 +299,67 @@ export function Chat() {
         <div className="p-4 space-y-4">
           <div className="space-y-4">
             {renderEvents.map((event, idx) => {
-              if ('type' in event && event.type === 'tool') {
-                const key = `tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`
-                // Check if this is a tool list (contains tools array) or a tool call
-                if (event.tools) {
-                  return (
-                    <Toolbox
-                      key={key}
-                      name={event.serverLabel || ''}
-                      args={event}
-                    />
-                  )
-                } else {
-                  return (
-                    <ToolCallMessage
-                      key={key}
-                      name={event.serverLabel || ''}
-                      args={event}
-                    />
-                  )
+              if ('type' in event) {
+                switch (event.type) {
+                  case 'tool': {
+                    const key = `tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`
+                    if (event.tools) {
+                      return (
+                        <Toolbox
+                          key={key}
+                          name={event.serverLabel || ''}
+                          args={event}
+                        />
+                      )
+                    } else {
+                      return (
+                        <ToolCallMessage
+                          key={key}
+                          name={event.serverLabel || ''}
+                          args={event}
+                        />
+                      )
+                    }
+                  }
+                  case 'assistant': {
+                    const assistantEvent = event
+                    return (
+                      <ChatMessage
+                        key={assistantEvent.id}
+                        message={{
+                          id: assistantEvent.id,
+                          content: assistantEvent.content,
+                          sender: 'agent',
+                          timestamp: new Date(),
+                          status: 'sent',
+                        }}
+                        isLoading={streaming && idx === renderEvents.length - 1}
+                      />
+                    )
+                  }
+                  case 'user': {
+                    const userEvent = event
+                    return (
+                      <ChatMessage
+                        key={userEvent.id}
+                        message={{
+                          id: userEvent.id,
+                          content: userEvent.content,
+                          sender: 'user',
+                          timestamp: new Date(),
+                          status: 'sent',
+                        }}
+                        isLoading={false}
+                      />
+                    )
+                  }
+                  default:
+                    console.error('Unknown event type', event)
+                    return null
                 }
-              } else if ('type' in event && event.type === 'assistant') {
-                const assistantEvent = event as Extract<
-                  StreamEvent,
-                  { type: 'assistant' }
-                >
-                return (
-                  <ChatMessage
-                    key={assistantEvent.id}
-                    message={{
-                      id: assistantEvent.id,
-                      content: assistantEvent.content,
-                      sender: 'agent',
-                      timestamp: new Date(),
-                      status: 'sent',
-                    }}
-                    isLoading={streaming && idx === renderEvents.length - 1}
-                  />
-                )
-              } else if ('type' in event && event.type === 'user') {
-                const userEvent = event as Extract<
-                  StreamEvent,
-                  { type: 'user' }
-                >
-                return (
-                  <ChatMessage
-                    key={userEvent.id}
-                    message={{
-                      id: userEvent.id,
-                      content: userEvent.content,
-                      sender: 'user',
-                      timestamp: new Date(),
-                      status: 'sent',
-                    }}
-                    isLoading={false}
-                  />
-                )
               } else {
                 // Fallback for Message type (from useChat)
-                const message = event as Message
+                const message = event
                 return (
                   <ChatMessage
                     key={message.id}
