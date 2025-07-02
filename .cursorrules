@@ -1,35 +1,257 @@
 # Cursor Rules for MCP App Demo
 
-## General
+You are an expert in TypeScript, React, TanStack Start, Vite, Tailwind CSS, and Shadcn/ui development.
 
-- This repo uses TypeScript, Vite, TanStack Start, Tailwind CSS, and Shadcn/ui components. Any AI-generated code must follow these technologies and the existing linting and Prettier rules.
-- Never introduce the `any` type. Use proper generics or let TypeScript infer types.
-- Keep code self-documenting. Use inline comments only for business logic that is not obvious.
-- Run `npm run lint:fix` before committing.
+## Technology Stack & Code Quality
 
-## Validation
+- **TypeScript**: Strict mode enabled - never use `any` type, use proper generics or let TypeScript infer
+- **TanStack Start**: SSR routing with file-based patterns
+- **Tailwind CSS & Shadcn/ui**: UI styling and component system
+- **Zod**: Runtime validation and TypeScript integration
+- **React Query**: Server state management (avoid redundant fetching when using loaders)
+- **Vite**: Build tooling
+- Keep code self-documenting with clear names; add comments only for complex business logic
+- Run `npm run lint:fix` after significant changes
 
-- Use Zod for runtime validation and type safety. Define schemas in `src/lib/schemas.ts` and reuse them across the application.
-- Leverage Zod's TypeScript integration with `z.infer<typeof schema>` for type definitions.
-- Validate API inputs, form data, and external data sources using appropriate Zod schemas.
+## TanStack Start Routing Patterns
 
-## State Management
+### Route File Structure
+Place routes in `src/routes/` using file-based routing:
+- Static routes: `about.tsx`
+- Dynamic routes: `[id].tsx`, `users/[userId].tsx`
+- Layout routes: `_layout.tsx`
+- API routes: `api/chat.ts` (server-side)
 
-- Use React Context for application-wide state (see `src/contexts/`).
-- Leverage TanStack Query (React Query) for server state management and caching.
-- Use standard React hooks (`useState`, `useReducer`, `useEffect`) for local component state.
-- Avoid external state management libraries like Zustand or Redux for this project.
+### Loader and Action Conventions
+**Always explicitly type loader/action returns:**
 
-## File structure & frameworks
+```typescript
+// ✅ Good: Explicit typing with loader-first data handling
+export const Route = createFileRoute('/users/$id')({
+  loader: async ({ params }): Promise<{ user: User }> => {
+    const user = await fetchUser(params.id);
+    return { user };
+  },
+  component: UserDetail,
+});
 
-- Use TanStack Start for routing. Place new routes under `src/routes` using file-based patterns like `about.tsx` or `[id].tsx`.
-- Export `loader`, `action`, and `meta` objects in route files when needed.
-- Keep shared UI in `src/components`; compose Shadcn components rather than reinventing UI.
-- Put reusable hooks in `src/hooks` and small helpers in `src/lib`.
+function UserDetail() {
+  const { user } = Route.useLoaderData(); // Type-safe from loader
+  // No redundant React Query here - use loader data
+  return <div>{user.name}</div>;
+}
+```
 
-## Styling & UI
+**Server routes with proper validation:**
 
-- Prefer Shadcn/ui components. Add new parts with:
-  ```bash
-  npx shadcn@latest add <component>
-  ```
+```typescript
+export const ServerRoute = createServerFileRoute('/api/users').methods({
+  async POST({ request }): Promise<Response> => {
+    const body = await request.json();
+    const result = userSchema.safeParse(body);
+    
+    if (!result.success) {
+      return new Response(JSON.stringify({ error: result.error }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    
+    // Handle validated data
+    return new Response(JSON.stringify(result.data));
+  },
+});
+```
+
+### Error and Loading Boundaries
+Use ErrorBoundary and PendingBoundary in routes:
+
+```typescript
+export const Route = createFileRoute('/users')({
+  loader: async () => fetchUsers(),
+  errorComponent: ({ error }) => (
+    <div className="text-red-600">Failed to load users: {error.message}</div>
+  ),
+  pendingComponent: () => (
+    <div className="flex items-center gap-2">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Loading users...
+    </div>
+  ),
+  component: UsersList,
+});
+```
+
+## Import Aliasing & File Organization
+
+**Use standardized import aliases:**
+```typescript
+// ✅ Good: Consistent aliasing
+import { Button } from '@/components/ui/button';
+import { userSchema } from '@/lib/schemas';
+import { cn } from '@/lib/utils';
+```
+
+**File structure:**
+```
+src/
+├── components/ui/     # Shadcn components
+├── components/        # Custom components  
+├── contexts/          # React Context providers
+├── hooks/             # Custom React hooks
+├── lib/               # Utilities and schemas
+│   └── schemas.ts     # Centralized Zod schemas
+├── routes/            # TanStack Start routes
+└── styles.css         # Global styles
+```
+
+## Validation with Zod
+
+**Define schemas in `src/lib/schemas.ts` and reuse:**
+
+```typescript
+// ✅ Good: Schema-first approach
+export const userSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  email: z.string().email().optional(),
+});
+
+export type User = z.infer<typeof userSchema>;
+
+// Use in components
+const result = userSchema.safeParse(data);
+if (!result.success) {
+  // Handle validation errors
+}
+```
+
+## Shadcn/ui Components & Accessibility
+
+**Always prefer Shadcn components with proper accessibility:**
+
+```typescript
+// ✅ Good: Accessible Shadcn usage
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+<Card>
+  <CardHeader>
+    <CardTitle id="user-details">User Details</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <Button
+      onClick={handleSave}
+      aria-describedby="user-details"
+      className="w-full md:w-auto"
+    >
+      Save Changes
+    </Button>
+  </CardContent>
+</Card>
+```
+
+**Add new components with:**
+```bash
+npx shadcn@latest add <component-name>
+```
+
+## Styling Guidelines
+
+**Use Tailwind with responsive design:**
+```typescript
+// ✅ Good: Mobile-first responsive classes
+<div className="flex flex-col gap-4 p-6 md:flex-row md:gap-6">
+  <Button className="w-full md:w-auto">Action</Button>
+</div>
+
+// ✅ Good: Conditional classes with cn utility
+<div className={cn("base-classes", isActive && "bg-primary")}>
+```
+
+## State Management Patterns
+
+**Loader-first approach - avoid redundant React Query:**
+```typescript
+// ✅ Good: Use loader data, React Query only for mutations/real-time
+export const Route = createFileRoute('/dashboard')({
+  loader: async () => {
+    const data = await fetchDashboardData();
+    return { dashboard: data };
+  },
+  component: Dashboard,
+});
+
+function Dashboard() {
+  const { dashboard } = Route.useLoaderData(); // Use loader data
+  
+  // React Query only for mutations or real-time updates
+  const mutation = useMutation({
+    mutationFn: updateDashboard,
+    onSuccess: () => router.invalidate(),
+  });
+}
+```
+
+**Context for global state:**
+```typescript
+// ✅ Good: Typed context
+const { user, setUser } = useContext(UserContext);
+```
+
+## Testing Best Practices
+
+**Component testing with Testing Library:**
+```typescript
+// ✅ Good: Accessible queries
+test('renders user details correctly', () => {
+  render(<UserCard user={mockUser} />);
+  
+  expect(screen.getByRole('heading', { name: /user details/i })).toBeInTheDocument();
+  expect(screen.getByLabelText(/email address/i)).toHaveValue(mockUser.email);
+});
+```
+
+**Route testing:**
+```typescript
+// ✅ Good: Test loader and component integration
+test('user detail route loads and displays user', async () => {
+  const router = createRouter({ routeTree });
+  await router.navigate({ to: '/users/$id', params: { id: 'user-1' } });
+  
+  expect(screen.getByText(mockUser.name)).toBeInTheDocument();
+});
+```
+
+## What NOT to do
+
+- ❌ Don't use `any` type - use proper TypeScript types
+- ❌ Don't use class components - use function components only
+- ❌ Don't use external state libraries (Zustand, Redux) - use Context + React Query
+- ❌ Don't create custom UI when Shadcn alternatives exist
+- ❌ Don't duplicate data fetching - use loaders, then React Query only for mutations
+- ❌ Don't write custom CSS when Tailwind classes work
+- ❌ Don't put business logic directly in components
+- ❌ Don't forget ARIA attributes and semantic HTML
+- ❌ Don't skip Zod validation for external data
+
+## Error Handling
+
+```typescript
+// ✅ Good: Comprehensive error handling
+const { data, error, isLoading } = useQuery({
+  queryKey: ['users'],
+  queryFn: fetchUsers,
+  retry: 3,
+});
+
+if (error) {
+  return (
+    <Alert variant="destructive">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertTitle>Error</AlertTitle>
+      <AlertDescription>{error.message}</AlertDescription>
+    </Alert>
+  );
+}
+```
