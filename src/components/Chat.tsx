@@ -12,8 +12,9 @@ import { ReasoningMessage } from './ReasoningMessage'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
-import { MessageSquarePlus } from 'lucide-react'
+import { Bot, MessageSquarePlus } from 'lucide-react'
 import { ModelSelect } from './ModelSelect'
+import { BotThinking } from './BotThinking'
 
 // Streamed event type
 type StreamEvent =
@@ -482,6 +483,7 @@ export function Chat() {
                 )
               }
             })}
+            {streaming && <BotThinking />}
             <div ref={messagesEndRef} />
           </div>
         </div>
