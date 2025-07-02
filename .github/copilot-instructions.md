@@ -82,6 +82,7 @@ const { data: users, isLoading } = useQuery({
 ### React Query vs Route Loaders
 
 **Prefer Route Loaders for:**
+
 - Initial page data that's required for rendering
 - Server-side rendering (SSR) requirements
 - Data that should be fetched before the component mounts
@@ -91,14 +92,15 @@ const { data: users, isLoading } = useQuery({
 // ✅ Good: Use loader for initial page data
 export const Route = createFileRoute('/users')({
   loader: async (): Promise<{ users: User[] }> => {
-    const users = await fetchUsers();
-    return { users: userListSchema.parse(users) };
+    const users = await fetchUsers()
+    return { users: userListSchema.parse(users) }
   },
   component: UserList,
-});
+})
 ```
 
 **Prefer React Query for:**
+
 - Data that updates frequently
 - Optional/secondary data not critical for initial render
 - Client-side mutations and optimistic updates
@@ -124,11 +126,11 @@ function UserStats({ userId }: { userId: string }) {
 
 ### Schema Organization and Best Practices
 
-Define all schemas in `src/lib/schemas.ts` with proper documentation:
+Define schemas in `src/lib/schemas.ts` with proper documentation. As the project expands, consider organizing schemas into a `src/lib/schemas/` folder structure by domain instead:
 
 ```typescript
 // ✅ Good: Comprehensive schema definition
-import { z } from 'zod';
+import { z } from 'zod'
 
 export const userSchema = z.object({
   id: z.string().describe('Unique user identifier'),
@@ -137,13 +139,16 @@ export const userSchema = z.object({
   age: z.number().int().min(13, 'Must be at least 13 years old').optional(),
   createdAt: z.string().datetime('Invalid date format'),
   role: z.enum(['admin', 'user', 'moderator']).default('user'),
-});
+})
 
-export type User = z.infer<typeof userSchema>;
+export type User = z.infer<typeof userSchema>
 
 // ✅ Good: Input/output schemas for transformations
-export const userCreateInputSchema = userSchema.omit({ id: true, createdAt: true });
-export type UserCreateInput = z.infer<typeof userCreateInputSchema>;
+export const userCreateInputSchema = userSchema.omit({
+  id: true,
+  createdAt: true,
+})
+export type UserCreateInput = z.infer<typeof userCreateInputSchema>
 ```
 
 ### Validation Patterns
@@ -151,48 +156,48 @@ export type UserCreateInput = z.infer<typeof userCreateInputSchema>;
 ```typescript
 // ✅ Good: Safe parsing with proper error handling
 function validateUserData(data: unknown): User | null {
-  const result = userSchema.safeParse(data);
-  
+  const result = userSchema.safeParse(data)
+
   if (!result.success) {
-    console.error('User validation failed:', result.error.format());
-    return null;
+    console.error('User validation failed:', result.error.format())
+    return null
   }
-  
-  return result.data;
+
+  return result.data
 }
 
 // ✅ Good: Server-side validation
 export const ServerRoute = createServerFileRoute('/api/users').methods({
   async POST({ request }) {
-    const body = await request.json();
-    const result = userCreateInputSchema.safeParse(body);
-    
+    const body = await request.json()
+    const result = userCreateInputSchema.safeParse(body)
+
     if (!result.success) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Validation failed', 
-          details: result.error.flatten() 
+        JSON.stringify({
+          error: 'Validation failed',
+          details: result.error.flatten(),
         }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      )
     }
-    
+
     // Process validated data
-    const user = await createUser(result.data);
-    return new Response(JSON.stringify(userSchema.parse(user)));
+    const user = await createUser(result.data)
+    return new Response(JSON.stringify(userSchema.parse(user)))
   },
-});
+})
 
 // ✅ Good: Route loader validation
 export const Route = createFileRoute('/users/$id')({
   loader: async ({ params }) => {
-    const userResponse = await fetchUser(params.id);
-    
+    const userResponse = await fetchUser(params.id)
+
     // Always validate external API responses
-    const user = userSchema.parse(userResponse);
-    return { user };
+    const user = userSchema.parse(userResponse)
+    return { user }
   },
-});
+})
 ```
 
 ### Advanced Zod Patterns
@@ -204,12 +209,12 @@ export const passwordSchema = z
   .min(8, 'Password must be at least 8 characters')
   .refine(
     (val) => /[A-Z]/.test(val),
-    'Password must contain at least one uppercase letter'
+    'Password must contain at least one uppercase letter',
   )
   .refine(
     (val) => /[0-9]/.test(val),
-    'Password must contain at least one number'
-  );
+    'Password must contain at least one number',
+  )
 
 // ✅ Good: Conditional schemas
 export const contactSchema = z.discriminatedUnion('type', [
@@ -221,7 +226,7 @@ export const contactSchema = z.discriminatedUnion('type', [
     type: z.literal('phone'),
     phone: z.string().regex(/^\+?[\d\s-()]+$/, 'Invalid phone format'),
   }),
-]);
+])
 ```
 
 ## TanStack Start Routing Patterns
@@ -279,27 +284,27 @@ function UserDetail() {
 
 ```typescript
 // ✅ Good: Server route with validation
-import { createServerFileRoute } from '@tanstack/react-start/server';
-import { userCreateSchema } from '@/lib/schemas';
+import { createServerFileRoute } from '@tanstack/react-start/server'
+import { userCreateSchema } from '@/lib/schemas'
 
 export const ServerRoute = createServerFileRoute('/api/users').methods({
   async POST({ request }) {
-    const body = await request.json();
-    const result = userCreateSchema.safeParse(body);
-    
+    const body = await request.json()
+    const result = userCreateSchema.safeParse(body)
+
     if (!result.success) {
       return new Response(JSON.stringify({ error: result.error.errors }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
-      });
+      })
     }
-    
-    const user = await createUser(result.data);
+
+    const user = await createUser(result.data)
     return new Response(JSON.stringify(user), {
       headers: { 'Content-Type': 'application/json' },
-    });
+    })
   },
-});
+})
 ```
 
 ### Error and Loading Boundaries
@@ -322,7 +327,7 @@ export const Route = createFileRoute('/dashboard')({
   ),
   pendingBoundary: () => (
     <div className="flex items-center justify-center p-8">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" 
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"
            role="status" aria-label="Loading">
         <span className="sr-only">Loading...</span>
       </div>
@@ -401,9 +406,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 // ✅ Good: Loading states with proper announcements
 <div className="flex items-center justify-center p-8">
-  <div 
+  <div
     className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"
-    role="status" 
+    role="status"
     aria-label="Loading content"
   >
     <span className="sr-only">Loading...</span>
@@ -490,21 +495,21 @@ src/
 
 ```typescript
 // ✅ Good: Using @/ alias consistently
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { userSchema } from '@/lib/schemas';
-import { cn } from '@/lib/utils';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { UserContext } from '@/contexts/UserContext';
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { userSchema } from '@/lib/schemas'
+import { cn } from '@/lib/utils'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { UserContext } from '@/contexts/UserContext'
 
 // ❌ Bad: Relative imports for internal modules
-import { Button } from '../components/ui/button';
-import { userSchema } from '../../lib/schemas';
+import { Button } from '../components/ui/button'
+import { userSchema } from '../../lib/schemas'
 
 // ✅ Good: External packages use direct imports
-import { z } from 'zod';
-import { createFileRoute } from '@tanstack/react-router';
-import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod'
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 ```
 
 ### Import Organization
@@ -512,17 +517,17 @@ import { useQuery } from '@tanstack/react-query';
 ```typescript
 // ✅ Good: Import order and grouping
 // 1. External packages
-import React from 'react';
-import { z } from 'zod';
-import { createFileRoute } from '@tanstack/react-router';
+import React from 'react'
+import { z } from 'zod'
+import { createFileRoute } from '@tanstack/react-router'
 
 // 2. Internal modules (using @/ alias)
-import { Button } from '@/components/ui/button';
-import { userSchema } from '@/lib/schemas';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button'
+import { userSchema } from '@/lib/schemas'
+import { cn } from '@/lib/utils'
 
 // 3. Types (if needed separately)
-import type { User } from '@/lib/schemas';
+import type { User } from '@/lib/schemas'
 ```
 
 ## What NOT to do
@@ -571,7 +576,7 @@ describe('UserCard', () => {
 
   it('displays user information correctly', () => {
     render(<UserCard user={mockUser} />);
-    
+
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('john@example.com')).toBeInTheDocument();
   });
@@ -579,7 +584,7 @@ describe('UserCard', () => {
   it('handles click events', () => {
     const onEdit = vi.fn();
     render(<UserCard user={mockUser} onEdit={onEdit} />);
-    
+
     fireEvent.click(screen.getByRole('button', { name: /edit/i }));
     expect(onEdit).toHaveBeenCalledWith(mockUser.id);
   });
@@ -648,40 +653,39 @@ if (error) {
 export const ServerRoute = createServerFileRoute('/api/users').methods({
   async POST({ request }) {
     try {
-      const body = await request.json();
-      const result = userCreateSchema.safeParse(body);
-      
+      const body = await request.json()
+      const result = userCreateSchema.safeParse(body)
+
       if (!result.success) {
         return new Response(
           JSON.stringify({
             error: 'Validation failed',
             details: result.error.flatten(),
           }),
-          { 
-            status: 400, 
-            headers: { 'Content-Type': 'application/json' } 
-          }
-        );
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
-      
-      const user = await createUser(result.data);
-      return new Response(JSON.stringify(userSchema.parse(user)));
-      
+
+      const user = await createUser(result.data)
+      return new Response(JSON.stringify(userSchema.parse(user)))
     } catch (error) {
-      console.error('Server error:', error);
+      console.error('Server error:', error)
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: 'Internal server error',
-          message: error instanceof Error ? error.message : 'Unknown error'
+          message: error instanceof Error ? error.message : 'Unknown error',
         }),
-        { 
-          status: 500, 
-          headers: { 'Content-Type': 'application/json' } 
-        }
-      );
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
   },
-});
+})
 ```
 
 Remember: Focus on writing clean, type-safe, maintainable code that follows the established patterns in this project. Prioritize accessibility, proper error handling, and use TanStack Start's conventions for optimal performance and developer experience.
