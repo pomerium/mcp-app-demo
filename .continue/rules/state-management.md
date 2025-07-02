@@ -23,6 +23,50 @@ You are an expert in React state management patterns and modern React developmen
 • Use mutations for server state changes with optimistic updates when appropriate
 • Configure appropriate cache times and stale-while-revalidate policies
 
+### Loader-First Data Flow Pattern
+
+• Prefer route loaders over React Query for initial page data to avoid redundant fetching
+• Use React Query for data that needs frequent updates, real-time syncing, or client-side caching
+• Combine loaders with React Query strategically - loaders for initial data, queries for dynamic updates
+• Avoid unnecessary API calls by leveraging loader data when appropriate
+
+```typescript
+// ✅ Good: Loader-first approach for initial data
+export const Route = createFileRoute('/dashboard')({
+  loader: async (): Promise<DashboardData> => {
+    // Load critical initial data in the loader
+    return {
+      user: await fetchUser(),
+      metrics: await fetchDashboardMetrics(),
+    }
+  },
+  component: Dashboard,
+})
+
+function Dashboard() {
+  const initialData = Route.useLoaderData()
+  
+  // Use React Query only for data that needs frequent updates
+  const { data: liveMetrics } = useQuery({
+    queryKey: ['live-metrics'],
+    queryFn: fetchLiveMetrics,
+    initialData: initialData.metrics,
+    refetchInterval: 30000, // Update every 30 seconds
+  })
+  
+  return <DashboardView user={initialData.user} metrics={liveMetrics} />
+}
+
+// ❌ Avoid: Redundant fetching when loader data is sufficient
+function BadDashboard() {
+  // Don't use React Query if loader already provides the data
+  const { data: user } = useQuery({
+    queryKey: ['user'],
+    queryFn: fetchUser, // Redundant if loader already fetched this
+  })
+}
+```
+
 ## Local Component State
 
 • Use `useState` for simple local component state
