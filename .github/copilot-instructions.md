@@ -230,7 +230,7 @@ export const contactSchema = z.discriminatedUnion('type', [
 
 - Place routes in `src/routes/` using file-based routing patterns
 - Use descriptive names: `about.tsx`, `[id].tsx`, `_layout.tsx`
-- Server routes go in `src/routes/api/` with `.ts` extension
+- API routes go in `src/routes/api/` with `.ts` extension
 - Always export `Route` from `createFileRoute()` or `ServerRoute` from `createServerFileRoute()`
 
 ```typescript
