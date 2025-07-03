@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useState } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
 import { ServerSelector } from './ServerSelector'
@@ -442,12 +442,7 @@ export function Chat() {
   const renderEvents: (StreamEvent | Message)[] =
     streaming || streamBuffer.length > 0 ? [...streamBuffer] : messages
 
-  // Auto-scroll to the bottom when messages or streamBuffer change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [messages, streamBuffer])
+  // Removed auto-scroll effect; replaced with manual scroll button
 
   const onSendMessage = (prompt: string) => {
     if (!hasStartedChat) {
@@ -604,6 +599,36 @@ export function Chat() {
         </div>
       </div>
       <div className="sticky bottom-0 left-0 right-0">
+        {(hasStartedChat || streaming) && (
+          <div className="sticky bottom-16 left-0 right-0 flex justify-center px-4 pb-2 z-20">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Scroll to bottom"
+              className="rounded-full shadow"
+              onClick={() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-chevron-down"
+                aria-hidden="true"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+              <span className="sr-only">Scroll to bottom</span>
+            </Button>
+          </div>
+        )}
         <ServerSelector
           servers={servers}
           onServersChange={setServers}
