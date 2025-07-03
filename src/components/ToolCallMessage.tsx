@@ -1,12 +1,5 @@
 import { getStatusIcon } from '@/lib/toolStatus'
-import {
-  Wrench,
-  Loader2,
-  CheckCircle,
-  Clock,
-  ChevronRight,
-  ArrowRight,
-} from 'lucide-react'
+import { Wrench, ChevronRight, ArrowRight } from 'lucide-react'
 
 type ToolCallMessageProps<T = Record<string, unknown>> = {
   name: string
@@ -18,13 +11,18 @@ type ToolCallMessageProps<T = Record<string, unknown>> = {
       | 'done'
       | 'arguments_delta'
       | 'arguments_done'
+      | 'failed'
     toolName?: string
     arguments?: unknown
     delta?: unknown
+    error?: string
   }
 }
 
-const getStatusText = (status?: string) => {
+const getStatusText = (status?: string, error?: string) => {
+  if (error || status?.includes('failed')) {
+    return 'Failed'
+  }
   if (status?.includes('in_progress')) {
     return 'In progress...'
   }
@@ -60,13 +58,16 @@ export function ToolCallMessage({ name, args }: ToolCallMessageProps) {
       </div>
 
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
-        <details className="rounded-2xl px-4 py-2 text-sm w-full bg-orange-50 text-orange-900 dark:bg-orange-950 dark:text-orange-100 group [&:not([open])]:h-8 [&:not([open])]:flex [&:not([open])]:items-center [&:not([open])]:py-0">
+        <details className="rounded-2xl px-4 py-2 text-sm w-full group [&:not([open])]:h-8 [&:not([open])]:flex [&:not([open])]:items-center [&:not([open])]:py-0 bg-orange-50 text-orange-900 dark:bg-orange-950 dark:text-orange-100">
           <summary className="font-medium mb-1 flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden cursor-pointer group-[&:not([open])]:mb-0">
             <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
             {getTitle(name, args)}
-            {getStatusIcon(args.status)}
-            {getStatusText(args.status)}
+            {getStatusIcon(args.status, args.error)}
+            <span className="sr-only">
+              {getStatusText(args.status, args.error)}
+            </span>
           </summary>
+          {args.error && <span>Error: {args.error}</span>}
           <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-words break-all">
             {JSON.stringify(args, null, 2)}
           </pre>
