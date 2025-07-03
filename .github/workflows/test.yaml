@@ -1,4 +1,4 @@
-name: Docker Main
+name: Tests
 permissions:
   contents: read
 on:
