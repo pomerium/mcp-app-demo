@@ -103,39 +103,27 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         console.error('Error creating OpenAI response:', error)
 
         // Handle specific OpenAI API errors
-        if (error instanceof Error) {
-          const errorMessage = error.message
-          let statusCode = 500
+        if (error instanceof OpenAI.APIError) {
+          const statusCode = error.statusCode || 500
           let clientMessage = 'An error occurred while processing your request'
 
-          // Check for specific error types
-          if (
-            errorMessage.includes('401') ||
-            errorMessage.includes('Unauthorized')
-          ) {
-            statusCode = 401
-            clientMessage =
-              'Authentication failed. Please check your credentials and try again.'
-          } else if (
-            errorMessage.includes('403') ||
-            errorMessage.includes('Forbidden')
-          ) {
-            statusCode = 403
-            clientMessage =
-              'Access denied. You may not have permission to use this resource.'
-          } else if (
-            errorMessage.includes('429') ||
-            errorMessage.includes('rate limit')
-          ) {
-            statusCode = 429
-            clientMessage = 'Rate limit exceeded. Please try again later.'
-          } else if (
-            errorMessage.includes('400') ||
-            errorMessage.includes('Bad Request')
-          ) {
-            statusCode = 400
-            clientMessage =
-              'Invalid request. Please check your input and try again.'
+          // Map status codes to client messages
+          switch (statusCode) {
+            case 401:
+              clientMessage =
+                'Authentication failed. Please check your credentials and try again.'
+              break
+            case 403:
+              clientMessage =
+                'Access denied. You may not have permission to use this resource.'
+              break
+            case 429:
+              clientMessage = 'Rate limit exceeded. Please try again later.'
+              break
+            case 400:
+              clientMessage =
+                'Invalid request. Please check your input and try again.'
+              break
           }
 
           return new Response(
