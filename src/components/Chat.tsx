@@ -1,5 +1,6 @@
 import { useRef, useMemo, useState } from 'react'
-import { ChatMessage } from './ChatMessage'
+import { UserMessage } from './UserMessage'
+import { BotMessage } from './BotMessage'
 import { ChatInput } from './ChatInput'
 import { ServerSelector } from './ServerSelector'
 import { useChat } from 'ai/react'
@@ -541,7 +542,7 @@ export function Chat() {
                   { type: 'assistant' }
                 >
                 return (
-                  <ChatMessage
+                  <BotMessage
                     key={assistantEvent.id}
                     message={{
                       id: assistantEvent.id,
@@ -559,7 +560,7 @@ export function Chat() {
                   { type: 'user' }
                 >
                 return (
-                  <ChatMessage
+                  <UserMessage
                     key={userEvent.id}
                     message={{
                       id: userEvent.id,
@@ -568,29 +569,42 @@ export function Chat() {
                       timestamp: new Date(),
                       status: 'sent',
                     }}
-                    isLoading={false}
                   />
                 )
               } else {
                 // Fallback for Message type (from useChat)
                 const message = event as Message
-                return (
-                  <ChatMessage
-                    key={message.id}
-                    message={{
-                      id: message.id,
-                      content: message.content,
-                      sender: message.role === 'assistant' ? 'agent' : 'user',
-                      timestamp: new Date(),
-                      status: 'sent',
-                    }}
-                    isLoading={
-                      (isLoading || streaming) &&
-                      message.role === 'assistant' &&
-                      message === messages.at(-1)
-                    }
-                  />
-                )
+                const isAssistant = message.role === 'assistant'
+                if (isAssistant) {
+                  return (
+                    <BotMessage
+                      key={message.id}
+                      message={{
+                        id: message.id,
+                        content: message.content,
+                        sender: 'agent',
+                        timestamp: new Date(),
+                        status: 'sent',
+                      }}
+                      isLoading={
+                        (isLoading || streaming) && message === messages.at(-1)
+                      }
+                    />
+                  )
+                } else {
+                  return (
+                    <UserMessage
+                      key={message.id}
+                      message={{
+                        id: message.id,
+                        content: message.content,
+                        sender: 'user',
+                        timestamp: new Date(),
+                        status: 'sent',
+                      }}
+                    />
+                  )
+                }
               }
             })}
             {streaming && <BotThinking />}
