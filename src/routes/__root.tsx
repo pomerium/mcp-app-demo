@@ -11,6 +11,7 @@ import { UserProvider } from '../contexts/UserContext'
 
 import appCss from '../styles.css?url'
 import Header from '../components/Header'
+import { Toaster } from '../components/ui/sonner'
 
 // Create a client
 const queryClient = new QueryClient()
@@ -84,6 +85,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <div className="mx-auto max-w-4xl h-full">{children}</div>
           </main>
         </div>
+        <Toaster />
         <Scripts />
       </body>
     </html>
