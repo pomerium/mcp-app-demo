@@ -1,6 +1,9 @@
-import { CheckCircle, Loader2, Clock } from 'lucide-react'
+import { CheckCircle, Loader2, Clock, AlertCircle } from 'lucide-react'
 
-export const getStatusIcon = (status?: string) => {
+export const getStatusIcon = (status?: string, error?: string) => {
+  if (error || status?.includes('failed')) {
+    return <AlertCircle className="h-4 w-4" />
+  }
   if (status?.includes('in_progress')) {
     return <Loader2 className="h-4 w-4 animate-spin" />
   }

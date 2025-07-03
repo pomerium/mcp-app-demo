@@ -82,20 +82,85 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         .join('\n\n')
 
       const client = new OpenAI()
-      const answer = await client.responses.create({
-        model,
-        tools,
-        input,
-        stream: true,
-        user: userId,
-        ...(model.startsWith('o3') || model.startsWith('o4')
-          ? {
-              reasoning: {
-                summary: 'detailed',
-              },
-            }
-          : {}),
-      })
+
+      let answer
+      try {
+        answer = await client.responses.create({
+          model,
+          tools,
+          input,
+          stream: true,
+          user: userId,
+          ...(model.startsWith('o3') || model.startsWith('o4')
+            ? {
+                reasoning: {
+                  summary: 'detailed',
+                },
+              }
+            : {}),
+        })
+      } catch (error) {
+        console.error('Error creating OpenAI response:', error)
+
+        // Handle specific OpenAI API errors
+        if (error instanceof Error) {
+          const errorMessage = error.message
+          let statusCode = 500
+          let clientMessage = 'An error occurred while processing your request'
+
+          // Check for specific error types
+          if (
+            errorMessage.includes('401') ||
+            errorMessage.includes('Unauthorized')
+          ) {
+            statusCode = 401
+            clientMessage =
+              'Authentication failed. Please check your credentials and try again.'
+          } else if (
+            errorMessage.includes('403') ||
+            errorMessage.includes('Forbidden')
+          ) {
+            statusCode = 403
+            clientMessage =
+              'Access denied. You may not have permission to use this resource.'
+          } else if (
+            errorMessage.includes('429') ||
+            errorMessage.includes('rate limit')
+          ) {
+            statusCode = 429
+            clientMessage = 'Rate limit exceeded. Please try again later.'
+          } else if (
+            errorMessage.includes('400') ||
+            errorMessage.includes('Bad Request')
+          ) {
+            statusCode = 400
+            clientMessage =
+              'Invalid request. Please check your input and try again.'
+          }
+
+          return new Response(
+            JSON.stringify({
+              error: clientMessage,
+              details:
+                process.env.NODE_ENV === 'development'
+                  ? errorMessage
+                  : undefined,
+            }),
+            {
+              status: statusCode,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ error: 'Internal server error' }),
+          {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
+      }
 
       return streamText(answer)
     } catch (error) {

@@ -15,6 +15,8 @@ import { Button } from './ui/button'
 import { MessageSquarePlus } from 'lucide-react'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
+import { BotError } from './BotError'
+import { stopStreamProcessing } from '@/lib/streaming'
 
 // Streamed event type
 type StreamEvent =
@@ -28,12 +30,14 @@ type StreamEvent =
       toolName?: string
       arguments?: unknown
       delta?: unknown
+      error?: string
       status?:
         | 'in_progress'
         | 'completed'
         | 'done'
         | 'arguments_delta'
         | 'arguments_done'
+        | 'failed'
     }
   | { type: 'user'; id: string; content: string }
   | {
@@ -44,6 +48,12 @@ type StreamEvent =
       serviceTier?: string
       temperature?: number
       topP?: number
+      done?: boolean
+    }
+  | {
+      type: 'error'
+      message: string
+      details?: unknown
     }
 
 // Helper function to map tool types to status
@@ -55,7 +65,9 @@ const getToolStatus = (
   | 'done'
   | 'arguments_delta'
   | 'arguments_done'
+  | 'failed'
   | undefined => {
+  if (toolType.includes('failed')) return 'failed'
   if (toolType.includes('in_progress')) return 'in_progress'
   if (toolType.includes('completed')) return 'completed'
   if (toolType.includes('arguments_done')) return 'arguments_done'
@@ -109,19 +121,98 @@ export function Chat() {
   } = useChat({
     initialMessages: hasStartedChat ? [] : [initialMessage],
     body: chatBody,
+    onError: (error) => {
+      console.error('Chat error:', error)
+      setStreamBuffer((prev) => [
+        ...prev,
+        {
+          type: 'error',
+          message:
+            error.message || 'An error occurred while sending your message',
+        },
+      ])
+      setStreaming(false)
+    },
     onResponse: (response) => {
-      const reader = response.body?.getReader()
-      if (!reader) return
+      if (!response.ok) {
+        console.error(
+          'Chat response error:',
+          response.status,
+          response.statusText,
+        )
+        setStreamBuffer((prev) => [
+          ...prev,
+          {
+            type: 'error',
+            message: `Request failed with status ${response.status}: ${response.statusText}`,
+          },
+        ])
+        setStreaming(false)
+        return
+      }
+
+      setStreaming(true)
+
+      // Clone the response to handle our custom streaming while letting useChat handle its own
+      const reader = response.clone().body?.getReader()
+
+      // Stop processing the original response stream
+      // This is necessary to prevent useChat from trying to read the stream again. We want to handle it ourselves.
+      stopStreamProcessing(response)
+
+      if (!reader) {
+        setStreamBuffer((prev) => [
+          ...prev,
+          {
+            type: 'error',
+            message: 'Failed to get response stream reader',
+          },
+        ])
+        setStreaming(false)
+        return
+      }
 
       const decoder = new TextDecoder()
       let buffer = ''
-      setStreaming(true)
       let assistantId: string | null = null
 
       const processChunk = (line: string) => {
+        if (line.startsWith('e:')) {
+          // Handle error messages
+          try {
+            const errorData = JSON.parse(line.slice(2))
+
+            setStreamBuffer((prev) => [
+              ...prev,
+              {
+                type: 'error',
+                message:
+                  errorData.message || 'An error occurred during streaming',
+                details: errorData.details,
+              },
+            ])
+          } catch (e) {
+            console.error('Failed to parse error data:', e)
+            setStreamBuffer((prev) => [
+              ...prev,
+              {
+                type: 'error',
+                message: 'An unknown error occurred during streaming',
+              },
+            ])
+          }
+          return
+        }
+
         if (line.startsWith('t:')) {
           try {
-            const toolState = JSON.parse(line.slice(2))
+            const toolStateStr = line.slice(2)
+            if (!toolStateStr.trim()) {
+              console.warn('Empty tool state string')
+              return
+            }
+
+            const toolState = JSON.parse(toolStateStr)
 
             // Handle reasoning summary streaming
             if (toolState.type === 'reasoning_summary_delta') {
@@ -190,8 +281,8 @@ export function Chat() {
                 ...prev,
                 {
                   type: 'reasoning',
-                  effort: toolState.effort,
-                  summary: toolState.summary,
+                  effort: toolState.effort || '',
+                  summary: toolState.summary || null,
                   model: toolState.model,
                   serviceTier: toolState.serviceTier,
                   temperature: toolState.temperature,
@@ -249,6 +340,7 @@ export function Chat() {
                     delta: toolState.delta || existingEvent.delta,
                     arguments: toolState.arguments || existingEvent.arguments,
                     toolName: toolState.toolName || existingEvent.toolName,
+                    error: toolState.error || existingEvent.error,
                     status: getToolStatus(toolState.type),
                   }
 
@@ -272,6 +364,7 @@ export function Chat() {
                   delta: toolState.delta,
                   arguments: toolState.arguments,
                   toolName: toolState.toolName,
+                  error: toolState.error,
                   status: getToolStatus(toolState.type),
                 },
               ]
@@ -310,21 +403,35 @@ export function Chat() {
       }
 
       const readChunk = async () => {
-        const { done, value } = await reader.read()
-        if (done) {
-          setStreaming(false)
-          return
+        try {
+          const { done, value } = await reader.read()
+          if (done) {
+            setStreaming(false)
+            return
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.trim()) processChunk(line)
+          }
+
+          readChunk()
+        } catch (error) {
+          console.error('Error reading stream chunk:', error)
+          setStreamBuffer((prev) => [
+            ...prev,
+            {
+              type: 'error',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to read response stream',
+            },
+          ])
         }
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (line.trim()) processChunk(line)
-        }
-
-        readChunk()
       }
 
       readChunk()
@@ -424,6 +531,14 @@ export function Chat() {
                     topP={event.topP}
                     isLoading={streaming && idx === renderEvents.length - 1}
                   />
+                )
+              } else if ('type' in event && event.type === 'error') {
+                const errorEvent = event as Extract<
+                  StreamEvent,
+                  { type: 'error' }
+                >
+                return (
+                  <BotError key={`error-${idx}`} message={errorEvent.message} />
                 )
               } else if ('type' in event && event.type === 'assistant') {
                 const assistantEvent = event as Extract<
