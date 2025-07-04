@@ -4,9 +4,8 @@ import { BotMessage } from './BotMessage'
 import { ChatInput } from './ChatInput'
 import { ServerSelector } from './ServerSelector'
 import { useChat } from 'ai/react'
-import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
-import { type Servers, type ToolItem } from '../lib/schemas'
+import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
 import { ReasoningMessage } from './ReasoningMessage'
@@ -17,65 +16,7 @@ import { MessageSquarePlus } from 'lucide-react'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
-import { stopStreamProcessing } from '@/lib/streaming'
-
-// Streamed event type
-type StreamEvent =
-  | { type: 'assistant'; id: string; content: string }
-  | {
-      type: 'tool'
-      toolType: string
-      serverLabel: string
-      tools?: ToolItem[]
-      itemId?: string
-      toolName?: string
-      arguments?: unknown
-      delta?: unknown
-      error?: string
-      status?:
-        | 'in_progress'
-        | 'completed'
-        | 'done'
-        | 'arguments_delta'
-        | 'arguments_done'
-        | 'failed'
-    }
-  | { type: 'user'; id: string; content: string }
-  | {
-      type: 'reasoning'
-      effort: string
-      summary: string | null
-      model?: string
-      serviceTier?: string
-      temperature?: number
-      topP?: number
-      done?: boolean
-    }
-  | {
-      type: 'error'
-      message: string
-      details?: unknown
-    }
-
-// Helper function to map tool types to status
-const getToolStatus = (
-  toolType: string,
-):
-  | 'in_progress'
-  | 'completed'
-  | 'done'
-  | 'arguments_delta'
-  | 'arguments_done'
-  | 'failed'
-  | undefined => {
-  if (toolType.includes('failed')) return 'failed'
-  if (toolType.includes('in_progress')) return 'in_progress'
-  if (toolType.includes('completed')) return 'completed'
-  if (toolType.includes('arguments_done')) return 'arguments_done'
-  if (toolType.includes('done')) return 'done'
-  if (toolType.includes('arguments_delta')) return 'arguments_delta'
-  return undefined
-}
+import { useStreamedChat, type StreamEvent } from '../hooks/useStreamedChat'
 
 // Stable key generation function
 const getEventKey = (event: StreamEvent | Message, idx: number): string => {
@@ -107,407 +48,49 @@ export function Chat() {
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
   const [selectedServers, setSelectedServers] = useState<string[]>([])
-  const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
-  const [streaming, setStreaming] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
 
-  // Refs for debounced streaming
-  const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const textBufferRef = useRef<string>('')
-  const lastAssistantIdRef = useRef<string | null>(null)
-  const pendingStreamEventsRef = useRef<StreamEvent[]>([])
-
-  // Debounced text update function
-  const flushTextBuffer = useCallback(() => {
-    if (textBufferRef.current && lastAssistantIdRef.current) {
-      const assistantId = lastAssistantIdRef.current
-      const textToAdd = textBufferRef.current
-
-      setStreamBuffer((prev) => {
-        const existingIndex = prev.findIndex(
-          (event) => event.type === 'assistant' && event.id === assistantId,
-        )
-
-        if (existingIndex !== -1) {
-          // Update existing assistant message
-          const updatedEvent = {
-            ...prev[existingIndex],
-            content:
-              (
-                prev[existingIndex] as Extract<
-                  StreamEvent,
-                  { type: 'assistant' }
-                >
-              ).content + textToAdd,
-          }
-          return [
-            ...prev.slice(0, existingIndex),
-            updatedEvent,
-            ...prev.slice(existingIndex + 1),
-          ]
-        } else {
-          // Create new assistant message
-          return [
-            ...prev,
-            {
-              type: 'assistant' as const,
-              id: assistantId,
-              content: textToAdd,
-            },
-          ]
-        }
-      })
-
-      textBufferRef.current = ''
-    }
-
-    // Flush any pending stream events
-    if (pendingStreamEventsRef.current.length > 0) {
-      setStreamBuffer((prev) => [...prev, ...pendingStreamEventsRef.current])
-      pendingStreamEventsRef.current = []
-    }
-  }, [])
-
-  // Debounced assistant text update
-  const updateAssistantText = useCallback(
-    (text: string, assistantId: string) => {
-      textBufferRef.current += text
-      lastAssistantIdRef.current = assistantId
-
-      // Clear existing timeout
-      if (streamUpdateTimeoutRef.current) {
-        clearTimeout(streamUpdateTimeoutRef.current)
-      }
-
-      // Schedule batched update (~60fps)
-      streamUpdateTimeoutRef.current = setTimeout(() => {
-        flushTextBuffer()
-      }, 16)
-    },
-    [flushTextBuffer],
-  )
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (streamUpdateTimeoutRef.current) {
-        clearTimeout(streamUpdateTimeoutRef.current)
-      }
-    }
-  }, [])
-
   const initialMessage = useMemo<Message>(
     () => ({
-      id: generateMessageId(),
-      content: `Hello ${user?.name?.split(' ')[0] ?? 'there'}! I'm your AI assistant. How can I help you today?`,
+      id: 'initial',
       role: 'assistant',
+      content: `Hello! I'm your AI assistant with access to various tools and services. How can I help you today?`,
     }),
-    [user?.name],
+    [],
   )
 
-  // Create a memoized body object that updates when selectedServers or model change
+  // Chat body for streaming
   const chatBody = useMemo(
     () => ({
+      messages: [], // Start with empty messages - will be managed by streaming
       servers: Object.fromEntries(
         selectedServers
           .map((serverId) => [serverId, servers[serverId]])
           .filter(([_, server]) => server),
       ),
       model: selectedModel,
-      userId: user?.id,
+      userId: user?.id || 'anonymous', // Provide default value since userId is required
     }),
     [selectedServers, servers, selectedModel, user?.id],
   )
 
-  // Memoized event handlers
+  // Error handler
   const handleError = useCallback((error: Error) => {
     console.error('Chat error:', error)
-    setStreamBuffer((prev) => [
-      ...prev,
-      {
-        type: 'error',
-        message:
-          error.message || 'An error occurred while sending your message',
-      },
-    ])
-    setStreaming(false)
   }, [])
 
-  const handleResponse = useCallback(
-    (response: Response) => {
-      if (!response.ok) {
-        console.error(
-          'Chat response error:',
-          response.status,
-          response.statusText,
-        )
-        setStreamBuffer((prev) => [
-          ...prev,
-          {
-            type: 'error',
-            message: `Request failed with status ${response.status}: ${response.statusText}`,
-          },
-        ])
-        setStreaming(false)
-        return
-      }
+  // Streaming chat hook
+  const {
+    events: streamEvents,
+    streaming,
+    start: startStreaming,
+    abort: abortStreaming,
+    addUserMessage,
+    reset: resetStream,
+  } = useStreamedChat(chatBody, handleError)
 
-      setStreaming(true)
-
-      // Clone the response to handle our custom streaming while letting useChat handle its own
-      const reader = response.clone().body?.getReader()
-
-      // Stop processing the original response stream
-      stopStreamProcessing(response)
-
-      if (!reader) {
-        setStreamBuffer((prev) => [
-          ...prev,
-          {
-            type: 'error',
-            message: 'Failed to get response stream reader',
-          },
-        ])
-        setStreaming(false)
-        return
-      }
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let assistantId: string | null = null
-
-      const processChunk = (line: string) => {
-        if (line.startsWith('e:')) {
-          // Handle error messages
-          try {
-            const errorData = JSON.parse(line.slice(2))
-            pendingStreamEventsRef.current.push({
-              type: 'error',
-              message:
-                errorData.message || 'An error occurred during streaming',
-              details: errorData.details,
-            })
-          } catch (e) {
-            console.error('Failed to parse error data:', e)
-            pendingStreamEventsRef.current.push({
-              type: 'error',
-              message: 'An unknown error occurred during streaming',
-            })
-          }
-          return
-        }
-
-        if (line.startsWith('t:')) {
-          try {
-            const toolStateStr = line.slice(2)
-            if (!toolStateStr.trim()) {
-              console.warn('Empty tool state string')
-              return
-            }
-
-            const toolState = JSON.parse(toolStateStr)
-
-            // Handle reasoning summary streaming
-            if (toolState.type === 'reasoning_summary_delta') {
-              setStreamBuffer((prev) => {
-                const last = prev[prev.length - 1]
-                if (last && last.type === 'reasoning' && !last.done) {
-                  return [
-                    ...prev.slice(0, -1),
-                    {
-                      ...last,
-                      summary: (last.summary || '') + toolState.delta,
-                      effort: toolState.effort || last.effort,
-                      model: toolState.model || last.model,
-                      serviceTier: toolState.serviceTier || last.serviceTier,
-                      temperature: toolState.temperature ?? last.temperature,
-                      topP: toolState.topP ?? last.topP,
-                    },
-                  ]
-                } else {
-                  return [
-                    ...prev,
-                    {
-                      type: 'reasoning',
-                      summary: toolState.delta,
-                      effort: toolState.effort || '',
-                      model: toolState.model,
-                      serviceTier: toolState.serviceTier,
-                      temperature: toolState.temperature,
-                      topP: toolState.topP,
-                      done: false,
-                    },
-                  ]
-                }
-              })
-              return
-            }
-
-            if (toolState.type === 'reasoning_summary_done') {
-              setStreamBuffer((prev) => {
-                const last = prev[prev.length - 1]
-                if (last && last.type === 'reasoning' && !last.done) {
-                  return [
-                    ...prev.slice(0, -1),
-                    {
-                      ...last,
-                      done: true,
-                      effort: toolState.effort || last.effort,
-                      model: toolState.model || last.model,
-                      serviceTier: toolState.serviceTier || last.serviceTier,
-                      temperature: toolState.temperature ?? last.temperature,
-                      topP: toolState.topP ?? last.topP,
-                    },
-                  ]
-                }
-                return prev
-              })
-              return
-            }
-
-            if (toolState.type === 'reasoning') {
-              pendingStreamEventsRef.current.push({
-                type: 'reasoning',
-                effort: toolState.effort || '',
-                summary: toolState.summary || null,
-                model: toolState.model,
-                serviceTier: toolState.serviceTier,
-                temperature: toolState.temperature,
-                topP: toolState.topP,
-              })
-              return
-            }
-
-            if ('delta' in toolState) {
-              try {
-                toolState.delta =
-                  'delta' in toolState && toolState.delta !== ''
-                    ? JSON.parse(toolState.delta)
-                    : {}
-              } catch (e) {
-                console.error('Failed to parse delta:', toolState.delta)
-                toolState.delta = {}
-              }
-            }
-
-            try {
-              toolState.arguments =
-                'arguments' in toolState && toolState.arguments !== ''
-                  ? JSON.parse(toolState.arguments)
-                  : {}
-            } catch (e) {
-              console.error('Failed to parse arguments:', toolState.arguments)
-              toolState.arguments = {}
-            }
-
-            // Handle tool events with batching
-            const toolEvent: Extract<StreamEvent, { type: 'tool' }> = {
-              type: 'tool',
-              toolType: toolState.type,
-              serverLabel: toolState.serverLabel,
-              tools: toolState.tools,
-              itemId: toolState.itemId,
-              delta: toolState.delta,
-              arguments: toolState.arguments,
-              toolName: toolState.toolName,
-              error: toolState.error,
-              status: getToolStatus(toolState.type),
-            }
-
-            // Use immediate update for tool events to maintain responsiveness
-            setStreamBuffer((prev) => {
-              const itemId = toolState.itemId
-              if (itemId) {
-                const existingIndex = prev.findIndex(
-                  (event) =>
-                    event.type === 'tool' &&
-                    'itemId' in event &&
-                    event.itemId === itemId,
-                )
-
-                if (existingIndex !== -1) {
-                  const existingEvent = prev[existingIndex] as Extract<
-                    StreamEvent,
-                    { type: 'tool' }
-                  >
-                  const updatedEvent = {
-                    ...existingEvent,
-                    toolType: toolEvent.toolType,
-                    serverLabel:
-                      toolEvent.serverLabel || existingEvent.serverLabel,
-                    tools: toolEvent.tools || existingEvent.tools,
-                    delta: toolEvent.delta || existingEvent.delta,
-                    arguments: toolEvent.arguments || existingEvent.arguments,
-                    toolName: toolEvent.toolName || existingEvent.toolName,
-                    error: toolEvent.error || existingEvent.error,
-                    status: toolEvent.status,
-                  }
-                  return [
-                    ...prev.slice(0, existingIndex),
-                    updatedEvent,
-                    ...prev.slice(existingIndex + 1),
-                  ]
-                }
-              }
-              return [...prev, toolEvent]
-            })
-          } catch (e) {
-            console.error('Failed to parse tool state:', e)
-          }
-        } else if (line.startsWith('0:')) {
-          try {
-            const text = JSON.parse(line.slice(2))
-            if (!assistantId) {
-              assistantId = generateMessageId()
-            }
-            updateAssistantText(text, assistantId)
-          } catch (e) {
-            console.error('Failed to parse text chunk:', e)
-          }
-        }
-      }
-
-      const readChunk = async () => {
-        try {
-          const { done, value } = await reader.read()
-          if (done) {
-            // Flush any remaining text buffer
-            flushTextBuffer()
-            setStreaming(false)
-            return
-          }
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.trim()) processChunk(line)
-          }
-
-          readChunk()
-        } catch (error) {
-          console.error('Error reading stream chunk:', error)
-          setStreamBuffer((prev) => [
-            ...prev,
-            {
-              type: 'error',
-              message:
-                error instanceof Error
-                  ? error.message
-                  : 'Failed to read response stream',
-            },
-          ])
-          setStreaming(false)
-        }
-      }
-
-      readChunk()
-    },
-    [updateAssistantText, flushTextBuffer],
-  )
-
+  // Fallback to useChat for non-streaming mode
   const {
     messages,
     input,
@@ -520,33 +103,28 @@ export function Chat() {
     initialMessages: hasStartedChat ? [] : [initialMessage],
     body: chatBody,
     onError: handleError,
-    onResponse: handleResponse,
   })
 
-  // Memoized render events to prevent unnecessary recalculations
+  // Determine which events to render
   const renderEvents = useMemo<(StreamEvent | Message)[]>(
-    () => (streaming || streamBuffer.length > 0 ? [...streamBuffer] : messages),
-    [streaming, streamBuffer, messages],
+    () => (streaming || streamEvents.length > 0 ? streamEvents : messages),
+    [streaming, streamEvents, messages],
   )
 
-  // Memoized event handlers
+  // UI Event handlers
   const handleSendMessage = useCallback(
     (prompt: string) => {
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
-      setStreamBuffer((prev) => [
-        ...prev,
-        {
-          type: 'user',
-          id: generateMessageId(),
-          content: prompt,
-        },
-      ])
 
-      handleSubmit(new Event('submit'))
+      // Add user message to stream
+      addUserMessage(prompt)
+
+      // Start streaming
+      startStreaming()
     },
-    [hasStartedChat, handleSubmit],
+    [hasStartedChat, addUserMessage, startStreaming],
   )
 
   const handleServerToggle = useCallback((serverId: string) => {
@@ -558,31 +136,30 @@ export function Chat() {
   }, [])
 
   const handleNewChat = useCallback(() => {
-    // Clear timeouts
-    if (streamUpdateTimeoutRef.current) {
-      clearTimeout(streamUpdateTimeoutRef.current)
-    }
+    // Reset streaming state
+    resetStream()
 
-    // Reset state
+    // Reset UI state
     setHasStartedChat(false)
-    setStreamBuffer([])
-    setStreaming(false)
     setMessages([initialMessage])
     setInput('')
     setFocusTimestamp(Date.now())
-
-    // Clear buffers
-    textBufferRef.current = ''
-    lastAssistantIdRef.current = null
-    pendingStreamEventsRef.current = []
-  }, [initialMessage, setMessages, setInput])
+  }, [resetStream, initialMessage, setMessages, setInput])
 
   const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (streaming || renderEvents.length > 0) {
+      handleScrollToBottom()
+    }
+  }, [streaming, renderEvents.length, handleScrollToBottom])
+
   return (
     <div className="flex flex-col min-h-full relative">
+      {/* Header */}
       <div className="sticky top-0 z-10 bg-background border-b px-4 py-2 flex justify-between items-center">
         <Button
           variant="outline"
@@ -594,6 +171,8 @@ export function Chat() {
         </Button>
         <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
       </div>
+
+      {/* Messages */}
       <div className="flex-1">
         <div className="p-4 space-y-4">
           <div className="space-y-4">
@@ -701,7 +280,10 @@ export function Chat() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
       <div className="sticky bottom-0 left-0 right-0">
+        {/* Scroll to bottom button */}
         {(hasStartedChat || streaming) && (
           <div className="sticky bottom-16 left-0 right-0 flex justify-center px-4 pb-2 z-20">
             <Button
@@ -730,6 +312,8 @@ export function Chat() {
             </Button>
           </div>
         )}
+
+        {/* Server selector */}
         <ServerSelector
           servers={servers}
           onServersChange={setServers}
@@ -737,6 +321,8 @@ export function Chat() {
           onServerToggle={handleServerToggle}
           disabled={hasStartedChat}
         />
+
+        {/* Chat input */}
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading || streaming}
