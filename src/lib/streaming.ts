@@ -68,25 +68,17 @@ export function streamText(
                 )
               }
               break
+            // Only emit output text for delta events, ignore content_part events for output_text
             case 'response.output_text.delta':
               if (typeof chunk.delta === 'string') {
                 buffer += chunk.delta
-
                 // Flush on sentence boundaries or when buffer gets large
                 if (buffer.length > 40 || /[.!?\n]$/.test(chunk.delta)) {
                   flush()
                 }
               }
               break
-
-            case 'response.content_part.added':
-            case 'response.content_part.done':
-              if (chunk.part?.type === 'output_text' && chunk.part.text) {
-                buffer += chunk.part.text
-                flush()
-              }
-              break
-
+            // Only emit reasoning for delta events, ignore created/in_progress and content_part for reasoning
             case 'response.reasoning.delta':
               if (typeof chunk.delta === 'string') {
                 controller.enqueue(
@@ -99,21 +91,6 @@ export function streamText(
                       serviceTier: chunk.service_tier,
                       temperature: chunk.temperature,
                       topP: chunk.top_p,
-                    })}\n`,
-                  ),
-                )
-              }
-              break
-
-            case 'response.created':
-            case 'response.in_progress':
-              if (chunk.response?.reasoning) {
-                controller.enqueue(
-                  encoder.encode(
-                    `t:${JSON.stringify({
-                      type: 'reasoning',
-                      effort: chunk.response.reasoning.effort,
-                      summary: chunk.response.reasoning.summary,
                     })}\n`,
                   ),
                 )
@@ -267,6 +244,7 @@ export function streamText(
               )
               break
 
+            // Ignore content_part events for output_text and reasoning, and created/in_progress for reasoning
             default:
               break
           }
