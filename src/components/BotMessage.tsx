@@ -38,33 +38,33 @@ export function BotMessage({ message, isLoading }: BotMessageProps) {
       </div>
       <div
         className={cn(
-          'flex flex-col space-y-1 items-start',
+          'group grid gap-1 space-y-1 items-start',
           'w-full sm:w-[85%] md:w-[75%] lg:w-[65%]',
         )}
       >
         <div
           className={cn(
-            'relative rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
+            'rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
           )}
-          data-raw-markdown={message.content}
         >
-          {/* Copy button */}
+          <div data-raw-markdown={message.content}>
+            <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
+              <MarkdownContent content={message.content} />
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-1 items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
+          <time dateTime={message.timestamp.toISOString()}>
+            {formatTimestamp(message.timestamp)}
+          </time>
           <button
             type="button"
-            aria-label="Copy raw markdown"
-            className={cn(
-              'absolute top-2 right-2 p-1 rounded-md transition-colors bg-transparent text-gray-400 hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-100',
-            )}
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
             onClick={handleCopy}
-            tabIndex={0}
           >
-            <Copy className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only">Copy</span>
+            <Copy className="h-3 w-3" aria-hidden="true" />
+            <span className="sr-only">Copy message to clipboard</span>
           </button>
-          <MarkdownContent content={message.content} />
-        </div>
-        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
-          <span>{formatTimestamp(message.timestamp)}</span>
         </div>
       </div>
     </div>
