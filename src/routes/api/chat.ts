@@ -64,8 +64,29 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           },
         })) satisfies Tool[]
 
+      // System prompt for proper markdown formatting
+      const systemPrompt = `You are a helpful AI assistant that communicates using properly formatted markdown. Follow these strict formatting rules:
+
+MARKDOWN FORMATTING REQUIREMENTS:
+1. **Lists**: Always keep list items on the same line as the marker
+   - ✅ CORRECT: "1. Lorem ipsum dolor sit amet..."
+   - ❌ WRONG: "1.  \\nLorem ipsum dolor sit amet..."
+
+2. **No line breaks after list markers**: Never put a line break immediately after numbered lists (1. 2. 3.) or bullet lists (- * +)
+
+3. **Proper list syntax**:
+   - Numbered lists: "1. Content here"
+   - Bullet lists: "- Content here" or "* Content here"
+   - No extra spaces or line breaks between marker and content
+
+4. **Other markdown**: Use standard markdown for headers, emphasis, links, tables, and code blocks
+
+5. **Consistency**: Maintain consistent formatting throughout your response
+
+Remember: Keep list content on the same line as the list marker to ensure proper rendering.`
+
       // Format the conversation history into a single input string with proper message parts
-      const input = messages
+      const conversationHistory = messages
         .map((msg) => ({
           role: msg.role,
           parts: [
@@ -80,6 +101,9 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
             `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.parts[0].text}`,
         )
         .join('\n\n')
+
+      // Combine system prompt with conversation
+      const input = `${systemPrompt}\n\n--- CONVERSATION ---\n\n${conversationHistory}`
 
       const client = new OpenAI()
 

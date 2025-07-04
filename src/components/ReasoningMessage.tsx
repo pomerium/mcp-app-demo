@@ -82,11 +82,7 @@ export function ReasoningMessage({
           </summary>
           <div className="text-xs space-y-1 mt-1">
             {effort && <div>Effort: {effort}</div>}
-            {summary && (
-              <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
-                <MarkdownContent content={summary} />
-              </div>
-            )}
+            {summary && <MarkdownContent content={summary} />}
             {model && <div>Model: {model}</div>}
             {serviceTier && <div>Service Tier: {serviceTier}</div>}
             <div className="flex gap-4">

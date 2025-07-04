@@ -32,9 +32,7 @@ export function UserMessage({ message }: UserMessageProps) {
             'rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
           )}
         >
-          <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
-            <MarkdownContent content={message.content} />
-          </div>
+          <MarkdownContent content={message.content} />
         </div>
         <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
           <span>{formatTimestamp(message.timestamp)}</span>
