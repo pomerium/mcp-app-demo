@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState } from 'react'
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react'
 import { UserMessage } from './UserMessage'
 import { BotMessage } from './BotMessage'
 import { ChatInput } from './ChatInput'
@@ -19,7 +19,6 @@ import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
 import { stopStreamProcessing } from '@/lib/streaming'
 
-// Streamed event type
 type StreamEvent =
   | { type: 'assistant'; id: string; content: string }
   | {
@@ -57,7 +56,6 @@ type StreamEvent =
       details?: unknown
     }
 
-// Helper function to map tool types to status
 const getToolStatus = (
   toolType: string,
 ):
@@ -77,6 +75,29 @@ const getToolStatus = (
   return undefined
 }
 
+const getEventKey = (event: StreamEvent | Message, idx: number): string => {
+  if ('type' in event) {
+    if (event.type === 'tool') {
+      return (
+        event.itemId || `tool-${idx}-${event.toolType}-${event.serverLabel}`
+      )
+    }
+    if (event.type === 'assistant') {
+      return `assistant-${event.id}`
+    }
+    if (event.type === 'user') {
+      return `user-${event.id}`
+    }
+    if (event.type === 'reasoning') {
+      return `reasoning-${idx}-${event.effort}`
+    }
+    if (event.type === 'error') {
+      return `error-${idx}`
+    }
+  }
+  return `message-${event.id}`
+}
+
 export function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
@@ -88,6 +109,84 @@ export function Chat() {
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
 
+  const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const textBufferRef = useRef<string>('')
+  const lastAssistantIdRef = useRef<string | null>(null)
+  const pendingStreamEventsRef = useRef<StreamEvent[]>([])
+
+  const flushTextBuffer = useCallback(() => {
+    if (textBufferRef.current && lastAssistantIdRef.current) {
+      const assistantId = lastAssistantIdRef.current
+      const textToAdd = textBufferRef.current
+
+      setStreamBuffer((prev) => {
+        const existingIndex = prev.findIndex(
+          (event) => event.type === 'assistant' && event.id === assistantId,
+        )
+
+        if (existingIndex !== -1) {
+          // Update existing assistant message
+          const updatedEvent = {
+            ...prev[existingIndex],
+            content:
+              (
+                prev[existingIndex] as Extract<
+                  StreamEvent,
+                  { type: 'assistant' }
+                >
+              ).content + textToAdd,
+          }
+          return [
+            ...prev.slice(0, existingIndex),
+            updatedEvent,
+            ...prev.slice(existingIndex + 1),
+          ]
+        } else {
+          // Create new assistant message
+          return [
+            ...prev,
+            {
+              type: 'assistant' as const,
+              id: assistantId,
+              content: textToAdd,
+            },
+          ]
+        }
+      })
+
+      textBufferRef.current = ''
+    }
+
+    if (pendingStreamEventsRef.current.length > 0) {
+      setStreamBuffer((prev) => [...prev, ...pendingStreamEventsRef.current])
+      pendingStreamEventsRef.current = []
+    }
+  }, [])
+
+  const updateAssistantText = useCallback(
+    (text: string, assistantId: string) => {
+      textBufferRef.current += text
+      lastAssistantIdRef.current = assistantId
+
+      if (streamUpdateTimeoutRef.current) {
+        clearTimeout(streamUpdateTimeoutRef.current)
+      }
+
+      streamUpdateTimeoutRef.current = setTimeout(() => {
+        flushTextBuffer()
+      }, 16)
+    },
+    [flushTextBuffer],
+  )
+
+  useEffect(() => {
+    return () => {
+      if (streamUpdateTimeoutRef.current) {
+        clearTimeout(streamUpdateTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const initialMessage = useMemo<Message>(
     () => ({
       id: generateMessageId(),
@@ -97,7 +196,6 @@ export function Chat() {
     [user?.name],
   )
 
-  // Create a memoized body object that updates when selectedServers or model change
   const chatBody = useMemo(
     () => ({
       servers: Object.fromEntries(
@@ -111,30 +209,21 @@ export function Chat() {
     [selectedServers, servers, selectedModel, user?.id],
   )
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    setMessages,
-    setInput,
-  } = useChat({
-    initialMessages: hasStartedChat ? [] : [initialMessage],
-    body: chatBody,
-    onError: (error) => {
-      console.error('Chat error:', error)
-      setStreamBuffer((prev) => [
-        ...prev,
-        {
-          type: 'error',
-          message:
-            error.message || 'An error occurred while sending your message',
-        },
-      ])
-      setStreaming(false)
-    },
-    onResponse: (response) => {
+  const handleError = useCallback((error: Error) => {
+    console.error('Chat error:', error)
+    setStreamBuffer((prev) => [
+      ...prev,
+      {
+        type: 'error',
+        message:
+          error.message || 'An error occurred while sending your message',
+      },
+    ])
+    setStreaming(false)
+  }, [])
+
+  const handleResponse = useCallback(
+    (response: Response) => {
       if (!response.ok) {
         console.error(
           'Chat response error:',
@@ -158,7 +247,6 @@ export function Chat() {
       const reader = response.clone().body?.getReader()
 
       // Stop processing the original response stream
-      // This is necessary to prevent useChat from trying to read the stream again. We want to handle it ourselves.
       stopStreamProcessing(response)
 
       if (!reader) {
@@ -182,25 +270,18 @@ export function Chat() {
           // Handle error messages
           try {
             const errorData = JSON.parse(line.slice(2))
-
-            setStreamBuffer((prev) => [
-              ...prev,
-              {
-                type: 'error',
-                message:
-                  errorData.message || 'An error occurred during streaming',
-                details: errorData.details,
-              },
-            ])
+            pendingStreamEventsRef.current.push({
+              type: 'error',
+              message:
+                errorData.message || 'An error occurred during streaming',
+              details: errorData.details,
+            })
           } catch (e) {
             console.error('Failed to parse error data:', e)
-            setStreamBuffer((prev) => [
-              ...prev,
-              {
-                type: 'error',
-                message: 'An unknown error occurred during streaming',
-              },
-            ])
+            pendingStreamEventsRef.current.push({
+              type: 'error',
+              message: 'An unknown error occurred during streaming',
+            })
           }
           return
         }
@@ -218,10 +299,8 @@ export function Chat() {
             // Handle reasoning summary streaming
             if (toolState.type === 'reasoning_summary_delta') {
               setStreamBuffer((prev) => {
-                // Find the last reasoning message
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
-                  // Append delta to summary
                   return [
                     ...prev.slice(0, -1),
                     {
@@ -235,7 +314,6 @@ export function Chat() {
                     },
                   ]
                 } else {
-                  // Start a new reasoning message
                   return [
                     ...prev,
                     {
@@ -256,7 +334,6 @@ export function Chat() {
 
             if (toolState.type === 'reasoning_summary_done') {
               setStreamBuffer((prev) => {
-                // Mark the last reasoning message as done
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
@@ -278,18 +355,15 @@ export function Chat() {
             }
 
             if (toolState.type === 'reasoning') {
-              setStreamBuffer((prev) => [
-                ...prev,
-                {
-                  type: 'reasoning',
-                  effort: toolState.effort || '',
-                  summary: toolState.summary || null,
-                  model: toolState.model,
-                  serviceTier: toolState.serviceTier,
-                  temperature: toolState.temperature,
-                  topP: toolState.topP,
-                },
-              ])
+              pendingStreamEventsRef.current.push({
+                type: 'reasoning',
+                effort: toolState.effort || '',
+                summary: toolState.summary || null,
+                model: toolState.model,
+                serviceTier: toolState.serviceTier,
+                temperature: toolState.temperature,
+                topP: toolState.topP,
+              })
               return
             }
 
@@ -315,10 +389,23 @@ export function Chat() {
               toolState.arguments = {}
             }
 
+            const toolEvent: Extract<StreamEvent, { type: 'tool' }> = {
+              type: 'tool',
+              toolType: toolState.type,
+              serverLabel: toolState.serverLabel,
+              tools: toolState.tools,
+              itemId: toolState.itemId,
+              delta: toolState.delta,
+              arguments: toolState.arguments,
+              toolName: toolState.toolName,
+              error: toolState.error,
+              status: getToolStatus(toolState.type),
+            }
+
+            // Use immediate update for tool events to maintain responsiveness
             setStreamBuffer((prev) => {
               const itemId = toolState.itemId
               if (itemId) {
-                // Find existing tool event with same itemId
                 const existingIndex = prev.findIndex(
                   (event) =>
                     event.type === 'tool' &&
@@ -327,24 +414,22 @@ export function Chat() {
                 )
 
                 if (existingIndex !== -1) {
-                  // Update existing tool event
                   const existingEvent = prev[existingIndex] as Extract<
                     StreamEvent,
                     { type: 'tool' }
                   >
                   const updatedEvent = {
                     ...existingEvent,
-                    toolType: toolState.type,
+                    toolType: toolEvent.toolType,
                     serverLabel:
-                      toolState.serverLabel || existingEvent.serverLabel,
-                    tools: toolState.tools || existingEvent.tools,
-                    delta: toolState.delta || existingEvent.delta,
-                    arguments: toolState.arguments || existingEvent.arguments,
-                    toolName: toolState.toolName || existingEvent.toolName,
-                    error: toolState.error || existingEvent.error,
-                    status: getToolStatus(toolState.type),
+                      toolEvent.serverLabel || existingEvent.serverLabel,
+                    tools: toolEvent.tools || existingEvent.tools,
+                    delta: toolEvent.delta || existingEvent.delta,
+                    arguments: toolEvent.arguments || existingEvent.arguments,
+                    toolName: toolEvent.toolName || existingEvent.toolName,
+                    error: toolEvent.error || existingEvent.error,
+                    status: toolEvent.status,
                   }
-
                   return [
                     ...prev.slice(0, existingIndex),
                     updatedEvent,
@@ -352,23 +437,7 @@ export function Chat() {
                   ]
                 }
               }
-
-              // Create new tool event
-              return [
-                ...prev,
-                {
-                  type: 'tool',
-                  toolType: toolState.type,
-                  serverLabel: toolState.serverLabel,
-                  tools: toolState.tools,
-                  itemId: toolState.itemId,
-                  delta: toolState.delta,
-                  arguments: toolState.arguments,
-                  toolName: toolState.toolName,
-                  error: toolState.error,
-                  status: getToolStatus(toolState.type),
-                },
-              ]
+              return [...prev, toolEvent]
             })
           } catch (e) {
             console.error('Failed to parse tool state:', e)
@@ -376,27 +445,10 @@ export function Chat() {
         } else if (line.startsWith('0:')) {
           try {
             const text = JSON.parse(line.slice(2))
-            setStreamBuffer((prev) => {
-              const last = prev[prev.length - 1]
-              if (
-                last &&
-                last.type === 'assistant' &&
-                last.id === assistantId
-              ) {
-                // Append to last assistant message
-                return [
-                  ...prev.slice(0, -1),
-                  { ...last, content: last.content + text },
-                ]
-              } else {
-                // Create new assistant message
-                assistantId = generateMessageId()
-                return [
-                  ...prev,
-                  { type: 'assistant', id: assistantId, content: text },
-                ]
-              }
-            })
+            if (!assistantId) {
+              assistantId = generateMessageId()
+            }
+            updateAssistantText(text, assistantId)
           } catch (e) {
             console.error('Failed to parse text chunk:', e)
           }
@@ -407,6 +459,8 @@ export function Chat() {
         try {
           const { done, value } = await reader.read()
           if (done) {
+            // Flush any remaining text buffer
+            flushTextBuffer()
             setStreaming(false)
             return
           }
@@ -432,51 +486,82 @@ export function Chat() {
                   : 'Failed to read response stream',
             },
           ])
+          setStreaming(false)
         }
       }
 
       readChunk()
     },
+    [updateAssistantText, flushTextBuffer],
+  )
+
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+    setMessages,
+    setInput,
+  } = useChat({
+    initialMessages: hasStartedChat ? [] : [initialMessage],
+    body: chatBody,
+    onError: handleError,
+    onResponse: handleResponse,
   })
 
-  // What to render: if streaming or streamBuffer has content, use streamBuffer; else, use messages
-  const renderEvents: (StreamEvent | Message)[] =
-    streaming || streamBuffer.length > 0 ? [...streamBuffer] : messages
+  const renderEvents = useMemo<(StreamEvent | Message)[]>(
+    () => (streaming || streamBuffer.length > 0 ? [...streamBuffer] : messages),
+    [streaming, streamBuffer, messages],
+  )
 
-  // Removed auto-scroll effect; replaced with manual scroll button
+  const handleSendMessage = useCallback(
+    (prompt: string) => {
+      if (!hasStartedChat) {
+        setHasStartedChat(true)
+      }
+      setStreamBuffer((prev) => [
+        ...prev,
+        {
+          type: 'user',
+          id: generateMessageId(),
+          content: prompt,
+        },
+      ])
 
-  const onSendMessage = (prompt: string) => {
-    if (!hasStartedChat) {
-      setHasStartedChat(true)
-    }
-    setStreamBuffer((prev) => [
-      ...prev,
-      {
-        type: 'user',
-        id: generateMessageId(),
-        content: prompt,
-      },
-    ])
+      handleSubmit(new Event('submit'))
+    },
+    [hasStartedChat, handleSubmit],
+  )
 
-    handleSubmit(new Event('submit'))
-  }
-
-  const handleServerToggle = (serverId: string) => {
+  const handleServerToggle = useCallback((serverId: string) => {
     setSelectedServers((prev) =>
       prev.includes(serverId)
         ? prev.filter((id) => id !== serverId)
         : [...prev, serverId],
     )
-  }
+  }, [])
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
+    if (streamUpdateTimeoutRef.current) {
+      clearTimeout(streamUpdateTimeoutRef.current)
+    }
+
     setHasStartedChat(false)
     setStreamBuffer([])
     setStreaming(false)
     setMessages([initialMessage])
     setInput('')
     setFocusTimestamp(Date.now())
-  }
+
+    textBufferRef.current = ''
+    lastAssistantIdRef.current = null
+    pendingStreamEventsRef.current = []
+  }, [initialMessage, setMessages, setInput])
+
+  const handleScrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
 
   return (
     <div className="flex flex-col min-h-full relative">
@@ -495,9 +580,9 @@ export function Chat() {
         <div className="p-4 space-y-4">
           <div className="space-y-4">
             {renderEvents.map((event, idx) => {
+              const key = getEventKey(event, idx)
+
               if ('type' in event && event.type === 'tool') {
-                const key = `tool-${event.toolType}-${event.serverLabel || ''}-${event.itemId || generateMessageId()}`
-                // Check if this is a tool list (contains tools array) or a tool call
                 if (event.tools) {
                   return (
                     <Toolbox
@@ -518,7 +603,7 @@ export function Chat() {
               } else if ('type' in event && event.type === 'reasoning') {
                 return (
                   <ReasoningMessage
-                    key={`reasoning-${idx}-${event.effort}-${event.summary || ''}`}
+                    key={key}
                     effort={event.effort}
                     summary={event.summary}
                     model={event.model}
@@ -529,24 +614,14 @@ export function Chat() {
                   />
                 )
               } else if ('type' in event && event.type === 'error') {
-                const errorEvent = event as Extract<
-                  StreamEvent,
-                  { type: 'error' }
-                >
-                return (
-                  <BotError key={`error-${idx}`} message={errorEvent.message} />
-                )
+                return <BotError key={key} message={event.message} />
               } else if ('type' in event && event.type === 'assistant') {
-                const assistantEvent = event as Extract<
-                  StreamEvent,
-                  { type: 'assistant' }
-                >
                 return (
                   <BotMessage
-                    key={assistantEvent.id}
+                    key={key}
                     message={{
-                      id: assistantEvent.id,
-                      content: assistantEvent.content,
+                      id: event.id,
+                      content: event.content,
                       sender: 'agent',
                       timestamp: new Date(),
                       status: 'sent',
@@ -555,16 +630,12 @@ export function Chat() {
                   />
                 )
               } else if ('type' in event && event.type === 'user') {
-                const userEvent = event as Extract<
-                  StreamEvent,
-                  { type: 'user' }
-                >
                 return (
                   <UserMessage
-                    key={userEvent.id}
+                    key={key}
                     message={{
-                      id: userEvent.id,
-                      content: userEvent.content,
+                      id: event.id,
+                      content: event.content,
                       sender: 'user',
                       timestamp: new Date(),
                       status: 'sent',
@@ -578,7 +649,7 @@ export function Chat() {
                 if (isAssistant) {
                   return (
                     <BotMessage
-                      key={message.id}
+                      key={key}
                       message={{
                         id: message.id,
                         content: message.content,
@@ -594,7 +665,7 @@ export function Chat() {
                 } else {
                   return (
                     <UserMessage
-                      key={message.id}
+                      key={key}
                       message={{
                         id: message.id,
                         content: message.content,
@@ -620,9 +691,7 @@ export function Chat() {
               size="icon"
               aria-label="Scroll to bottom"
               className="rounded-full shadow"
-              onClick={() => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-              }}
+              onClick={handleScrollToBottom}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -651,7 +720,7 @@ export function Chat() {
           disabled={hasStartedChat}
         />
         <ChatInput
-          onSendMessage={onSendMessage}
+          onSendMessage={handleSendMessage}
           disabled={isLoading || streaming}
           value={input}
           onChange={handleInputChange}
