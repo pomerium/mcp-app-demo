@@ -61,9 +61,7 @@ export function BotMessage({ message, isLoading }: BotMessageProps) {
             <Copy className="h-4 w-4" aria-hidden="true" />
             <span className="sr-only">Copy</span>
           </button>
-          <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
-            <MarkdownContent content={message.content} />
-          </div>
+          <MarkdownContent content={message.content} />
         </div>
         <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
           <span>{formatTimestamp(message.timestamp)}</span>
