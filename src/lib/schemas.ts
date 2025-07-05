@@ -76,6 +76,7 @@ export type PomeriumRoutesResponse = z.infer<
 export type Server = z.infer<typeof serverSchema>
 export type Servers = z.infer<typeof serversSchema>
 export type ToolState = z.infer<typeof toolStateSchema>
+export type ChatRequest = z.infer<typeof chatRequestSchema>
 
 // Tool item type for MCP tools
 export type ToolItem = {
