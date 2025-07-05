@@ -45,7 +45,7 @@ const users = await fetchUsers() // Let TypeScript infer User[]
 // ✅ Good: Generic constraints for reusable utilities
 function createApiResponse<T extends Record<string, unknown>>(
   data: T,
-  status: 'success' | 'error' = 'success'
+  status: 'success' | 'error' = 'success',
 ): ApiResponse<T> {
   return { data, status, timestamp: Date.now() }
 }
@@ -86,14 +86,14 @@ interface ButtonProps {
   disabled?: boolean
 }
 
-export default function Button({ 
-  children, 
-  onClick, 
+export default function Button({
+  children,
+  onClick,
   variant = 'primary',
-  disabled = false 
+  disabled = false
 }: ButtonProps) {
   return (
-    <button 
+    <button
       onClick={onClick}
       disabled={disabled}
       className={cn(buttonVariants({ variant }), disabled && 'opacity-50')}
@@ -109,4 +109,91 @@ function useToggle(initialValue = false) {
   const toggle = useCallback(() => setValue(prev => !prev), [])
   return [value, toggle] as const
 }
+```
+
+## UI and Styling Guidelines
+
+### Critical: iOS Safari Auto-Zoom Prevention
+
+**Always use `text-base` (16px) or larger for text inputs to prevent iOS Safari auto-zoom:**
+
+```typescript
+// ✅ Good: text-base or larger prevents iOS Safari auto-zoom
+<input
+  type="text"
+  className="text-base border rounded-md px-3 py-2"
+  placeholder="Enter your message..."
+/>
+
+<textarea
+  className="text-base border rounded-md px-3 py-2 resize-none"
+  placeholder="Type your message here..."
+/>
+
+// ✅ Good: Shadcn/ui Textarea with explicit text-base
+<Textarea
+  placeholder="Type your message here..."
+  className="text-base"
+/>
+
+// ❌ Bad: text-sm or smaller causes iOS Safari auto-zoom
+<input
+  type="text"
+  className="text-sm border rounded-md px-3 py-2"  // Will trigger zoom!
+/>
+
+<textarea
+  className="text-sm border rounded-md px-3 py-2"  // Will trigger zoom!
+/>
+```
+
+**Why this matters:** iOS Safari automatically zooms in on text inputs with font sizes below 16px (text-sm = 14px), causing the input to go off-screen and creating a poor user experience. This applies to ALL text inputs including `<input>`, `<textarea>`, and `<select>` elements.
+
+### Shadcn/ui and Tailwind CSS
+
+• Always prefer Shadcn/ui components over custom UI implementations
+• Use Tailwind's utility classes for consistent spacing and styling
+• Follow mobile-first responsive design principles
+• Use the `cn()` utility for conditional class application
+
+### Spacing and Layout Guidelines
+
+**Consistent Spacing Patterns:**
+• Use `*-4` spacing (`gap-4`, `space-y-4`, `p-4`) for main content areas and sections
+• Use `*-2` spacing (`gap-2`, `space-y-2`, `p-2`) for compact UI elements and tight layouts
+• Prefer `grid` over `flex flex-col` for simple vertical stacking (grid is one column by default)
+• Use `gap-*` for both grid and flexbox layouts, `space-y-*` for vertical spacing in block/flex contexts
+
+```typescript
+// ✅ Good: Prefer grid over flex flex-col for vertical layouts
+<div className="grid gap-4">
+  <Header />
+  <MainContent />
+  <Footer />
+</div>
+
+// ✅ Good: Use *-4 spacing for main content areas
+<div className="grid gap-4">        {/* Grid with gap-4 */}
+  <div className="space-y-4">       {/* Vertical spacing within sections */}
+    <h2>Section Title</h2>
+    <p>Content paragraph</p>
+  </div>
+</div>
+
+// ✅ Good: Use *-2 spacing for compact UI elements
+<div className="flex items-center gap-2">  {/* Icon-text pairs */}
+  <Icon className="h-4 w-4" />
+  <span>Label</span>
+</div>
+
+<div className="grid gap-2">        {/* Compact form elements */}
+  <Label>Email</Label>
+  <Input type="email" />
+</div>
+
+// ❌ Avoid: flex flex-col when grid is simpler
+<div className="flex flex-col gap-4">  {/* Use grid gap-4 instead */}
+  <Header />
+  <MainContent />
+</div>
 ```

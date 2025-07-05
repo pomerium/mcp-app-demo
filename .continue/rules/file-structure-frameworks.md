@@ -115,6 +115,65 @@ export const Route = createFileRoute('/users/$id')({
 • Create compound components for related UI elements
 • Export components with descriptive names
 
+### Critical UI Guidelines
+
+**iOS Safari Auto-Zoom Prevention:**
+• Always use `text-base` (16px) or larger for text inputs to prevent iOS Safari auto-zoom
+• Never use `text-sm` (14px) or smaller font sizes for `<input>`, `<textarea>`, or `<select>` elements
+• This prevents the frustrating auto-zoom behavior that takes inputs off-screen on iOS devices
+
+```typescript
+// ✅ Good: Prevents iOS Safari auto-zoom
+<input className="text-base border rounded-md px-3 py-2" />
+<textarea className="text-base border rounded-md px-3 py-2" />
+
+// ❌ Bad: Triggers iOS Safari auto-zoom
+<input className="text-sm border rounded-md px-3 py-2" />
+<textarea className="text-sm border rounded-md px-3 py-2" />
+```
+
+### Spacing and Layout Guidelines
+
+**Consistent Spacing Patterns:**
+• Use `*-4` spacing (`gap-4`, `space-y-4`, `p-4`) for main content areas and sections
+• Use `*-2` spacing (`gap-2`, `space-y-2`, `p-2`) for compact UI elements and tight layouts
+• Prefer `grid` over `flex flex-col` for simple vertical stacking (grid is one column by default)
+• Use `gap-*` for both grid and flexbox layouts, `space-y-*` for vertical spacing in block/flex contexts
+
+```typescript
+// ✅ Good: Prefer grid over flex flex-col for vertical layouts
+<div className="grid gap-4">
+  <Header />
+  <MainContent />
+  <Footer />
+</div>
+
+// ✅ Good: Use *-4 spacing for main content areas
+<div className="grid gap-4">        {/* Grid with gap-4 */}
+  <div className="space-y-4">       {/* Vertical spacing within sections */}
+    <h2>Section Title</h2>
+    <p>Content paragraph</p>
+  </div>
+</div>
+
+// ✅ Good: Use *-2 spacing for compact UI elements
+<div className="flex items-center gap-2">  {/* Icon-text pairs */}
+  <Icon className="h-4 w-4" />
+  <span>Label</span>
+</div>
+
+<div className="grid gap-2">        {/* Compact form elements */}
+  <Label>Email</Label>
+  <Input type="email" />
+</div>
+
+// ❌ Avoid: flex flex-col when grid is simpler
+<div className="flex flex-col gap-4">  {/* Use grid gap-4 instead */}
+  <Header />
+  <MainContent />
+</div>
+```
+
 ## Code Organization
 
 • Put reusable hooks in `src/hooks` with clear, descriptive names

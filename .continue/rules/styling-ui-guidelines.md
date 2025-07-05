@@ -38,6 +38,8 @@ You are an expert in Tailwind CSS and Shadcn/ui component development.
 • Maintain visual hierarchy with proper heading sizes and weights
 • Use consistent border radius and shadow patterns
 • Follow accessibility guidelines for color contrast and focus states
+• Use `gap-4` for content areas and `space-y-4` for vertical content spacing (e.g., CollapsibleSection, main content areas)
+• Use `gap-2` for compact UI elements like icon-text pairs, buttons, and navigation items
 
 ## Accessibility and ARIA Best Practices
 
@@ -112,13 +114,13 @@ You are an expert in Tailwind CSS and Shadcn/ui component development.
 // ✅ Good: Accessible modal with focus management
 function AccessibleModal({ isOpen, onClose, children }) {
   const modalRef = useRef<HTMLDivElement>(null)
-  
+
   useEffect(() => {
     if (isOpen && modalRef.current) {
       modalRef.current.focus()
     }
   }, [isOpen])
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
