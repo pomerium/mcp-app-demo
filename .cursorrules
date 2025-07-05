@@ -403,6 +403,38 @@ npx shadcn@latest add <component-name>
 // ✅ Good: Conditional classes with cn utility
 <div className={cn("base-classes", isActive && "active-classes")}>
 ```
+**CRITICAL: Text Input Font Size Rule (iOS Safari Auto-Zoom Prevention):**
+```typescript
+// ✅ Good: Always use text-base (16px) or larger for text inputs
+<input
+  type="text"
+  className="text-base border rounded-md px-3 py-2"
+  placeholder="Enter your message..."
+/>
+
+<textarea
+  className="text-base border rounded-md px-3 py-2 resize-none"
+  placeholder="Type your message here..."
+/>
+
+// ✅ Good: Shadcn/ui Textarea component (uses text-base by default)
+<Textarea
+  placeholder="Type your message here..."
+  className="text-base"
+/>
+
+// ❌ Bad: text-sm (14px) or smaller causes iOS Safari auto-zoom
+<input
+  type="text"
+  className="text-sm border rounded-md px-3 py-2"  // Will trigger zoom!
+/>
+
+<textarea
+  className="text-sm border rounded-md px-3 py-2"  // Will trigger zoom!
+/>
+```
+
+**Why this matters:** iOS Safari automatically zooms in on text inputs with font sizes below 16px (text-sm = 14px), causing the input to go off-screen and creating a poor user experience. Always use `text-base` (16px) or larger for ALL text inputs including `<input>`, `<textarea>`, and `<select>` elements.
 
 ## State Management Patterns
 
@@ -513,6 +545,7 @@ if (error) {
 - ❌ Don't forget ARIA attributes and accessibility considerations
 - ❌ Don't use React Query for data that should be loaded by route loaders
 - ❌ Don't ignore TypeScript errors or use `@ts-ignore` without justification
+- ❌ **CRITICAL: Don't use text-sm or smaller font sizes for text inputs** - causes iOS Safari auto-zoom (use text-base/16px minimum)
 
 ## Key Principles
 

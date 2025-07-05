@@ -110,3 +110,41 @@ function useToggle(initialValue = false) {
   return [value, toggle] as const
 }
 ```
+
+## UI and Styling Guidelines
+
+### Critical: iOS Safari Auto-Zoom Prevention
+
+**Always use `text-base` (16px) or larger for text inputs to prevent iOS Safari auto-zoom:**
+
+```typescript
+// ✅ Good: text-base or larger prevents iOS Safari auto-zoom
+<input
+  type="text"
+  className="text-base border rounded-md px-3 py-2"
+  placeholder="Enter your message..."
+/>
+
+<textarea
+  className="text-base border rounded-md px-3 py-2 resize-none"
+  placeholder="Type your message here..."
+/>
+
+// ✅ Good: Shadcn/ui Textarea with explicit text-base
+<Textarea
+  placeholder="Type your message here..."
+  className="text-base"
+/>
+
+// ❌ Bad: text-sm or smaller causes iOS Safari auto-zoom
+<input
+  type="text"
+  className="text-sm border rounded-md px-3 py-2"  // Will trigger zoom!
+/>
+
+<textarea
+  className="text-sm border rounded-md px-3 py-2"  // Will trigger zoom!
+/>
+```
+
+**Why this matters:** iOS Safari automatically zooms in on text inputs with font sizes below 16px (text-sm = 14px), causing the input to go off-screen and creating a poor user experience. This applies to ALL text inputs including `<input>`, `<textarea>`, and `<select>` elements.

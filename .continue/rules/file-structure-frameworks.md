@@ -115,6 +115,23 @@ export const Route = createFileRoute('/users/$id')({
 • Create compound components for related UI elements
 • Export components with descriptive names
 
+### Critical UI Guidelines
+
+**iOS Safari Auto-Zoom Prevention:**
+• Always use `text-base` (16px) or larger for text inputs to prevent iOS Safari auto-zoom
+• Never use `text-sm` (14px) or smaller font sizes for `<input>`, `<textarea>`, or `<select>` elements
+• This prevents the frustrating auto-zoom behavior that takes inputs off-screen on iOS devices
+
+```typescript
+// ✅ Good: Prevents iOS Safari auto-zoom
+<input className="text-base border rounded-md px-3 py-2" />
+<textarea className="text-base border rounded-md px-3 py-2" />
+
+// ❌ Bad: Triggers iOS Safari auto-zoom
+<input className="text-sm border rounded-md px-3 py-2" />
+<textarea className="text-sm border rounded-md px-3 py-2" />
+```
+
 ## Code Organization
 
 • Put reusable hooks in `src/hooks` with clear, descriptive names
