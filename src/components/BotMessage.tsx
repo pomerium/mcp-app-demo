@@ -1,11 +1,12 @@
 import { cn } from '../lib/utils'
 import type { Message } from '../mcp/client'
 import { formatTimestamp } from '../lib/utils'
-import { Bot, Copy } from 'lucide-react'
+import { Bot, Copy, Download } from 'lucide-react'
 import { MarkdownContent } from './MarkdownContent'
 
 import { toast } from 'sonner'
 import { copyToClipboard } from '../lib/utils/clipboard'
+import { useState } from 'react'
 
 export interface BotMessageProps {
   message: Message
@@ -40,11 +41,35 @@ function replaceSandboxUrls(
   )
 }
 
+// Check if a file is an image based on its extension
+function isImageFile(filename: string): boolean {
+  const imageExtensions = [
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.gif',
+    '.svg',
+    '.webp',
+    '.bmp',
+  ]
+  return imageExtensions.some((ext) => filename.toLowerCase().endsWith(ext))
+}
+
+// Generate API URL for a file annotation
+function getFileUrl(annotation: {
+  container_id: string
+  file_id: string
+}): string {
+  return `/api/container-file?containerId=${annotation.container_id}&fileId=${annotation.file_id}`
+}
+
 export function BotMessage({
   message,
   isLoading,
   fileAnnotations = [],
 }: BotMessageProps) {
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+
   const handleCopy = async () => {
     const copied = await copyToClipboard(processedContent)
 
@@ -53,8 +78,34 @@ export function BotMessage({
     }
   }
 
+  const handleImageError = (fileId: string) => {
+    setImageErrors((prev) => new Set(prev).add(fileId))
+  }
+
+  const handleDownload = (annotation: {
+    container_id: string
+    file_id: string
+    filename: string
+  }) => {
+    const url = getFileUrl(annotation)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = annotation.filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   // Process message content to replace sandbox URLs
   const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
+
+  // Separate image and non-image files
+  const imageFiles = fileAnnotations.filter((annotation) =>
+    isImageFile(annotation.filename),
+  )
+  const otherFiles = fileAnnotations.filter(
+    (annotation) => !isImageFile(annotation.filename),
+  )
 
   return (
     <div
@@ -87,6 +138,85 @@ export function BotMessage({
               <MarkdownContent content={processedContent} />
             </div>
           </div>
+
+          {/* Image Gallery */}
+          {imageFiles.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {imageFiles.map((annotation) => {
+                const hasError = imageErrors.has(annotation.file_id)
+                const imageUrl = getFileUrl(annotation)
+
+                return (
+                  <div key={annotation.file_id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {annotation.filename}
+                      </span>
+                      <button
+                        onClick={() => handleDownload(annotation)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                      >
+                        <Download className="h-3 w-3" />
+                        Download
+                      </button>
+                    </div>
+
+                    {hasError ? (
+                      <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 rounded border border-dashed border-gray-300 dark:border-gray-600">
+                        <div className="text-center">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Failed to load image
+                          </p>
+                          <button
+                            onClick={() => handleDownload(annotation)}
+                            className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            Download file instead
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={imageUrl}
+                        alt={annotation.filename}
+                        className="max-w-full h-auto rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                        onError={() => handleImageError(annotation.file_id)}
+                        onClick={() => window.open(imageUrl, '_blank')}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Other Files */}
+          {otherFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                Attachments:
+              </p>
+              <div className="space-y-1">
+                {otherFiles.map((annotation) => (
+                  <div
+                    key={annotation.file_id}
+                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700"
+                  >
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {annotation.filename}
+                    </span>
+                    <button
+                      onClick={() => handleDownload(annotation)}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                    >
+                      <Download className="h-3 w-3" />
+                      Download
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex gap-1 items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
           <time dateTime={message.timestamp.toISOString()}>
