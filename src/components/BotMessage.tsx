@@ -10,16 +10,51 @@ import { copyToClipboard } from '../lib/utils/clipboard'
 export interface BotMessageProps {
   message: Message
   isLoading?: boolean
+  fileAnnotations?: Array<{
+    type: string
+    container_id: string
+    file_id: string
+    filename: string
+  }>
 }
 
-export function BotMessage({ message, isLoading }: BotMessageProps) {
+// Replace sandbox URLs with working API URLs
+function replaceSandboxUrls(
+  content: string,
+  annotations: Array<{
+    type: string
+    container_id: string
+    file_id: string
+    filename: string
+  }> = [],
+) {
+  return content.replace(
+    /sandbox:\/mnt\/data\/([^)\s\]]+)/g,
+    (match, filename) => {
+      const annotation = annotations.find((a) => a.filename === filename)
+      if (annotation) {
+        return `/api/container-file?containerId=${annotation.container_id}&fileId=${annotation.file_id}`
+      }
+      return match // Keep original if no annotation found
+    },
+  )
+}
+
+export function BotMessage({
+  message,
+  isLoading,
+  fileAnnotations = [],
+}: BotMessageProps) {
   const handleCopy = async () => {
-    const copied = await copyToClipboard(message.content)
+    const copied = await copyToClipboard(processedContent)
 
     if (copied) {
       toast.success('Copied message to clipboard')
     }
   }
+
+  // Process message content to replace sandbox URLs
+  const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
 
   return (
     <div
@@ -47,9 +82,9 @@ export function BotMessage({ message, isLoading }: BotMessageProps) {
             'rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
           )}
         >
-          <div data-raw-markdown={message.content}>
+          <div data-raw-markdown={processedContent}>
             <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
-              <MarkdownContent content={message.content} />
+              <MarkdownContent content={processedContent} />
             </div>
           </div>
         </div>

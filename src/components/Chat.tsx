@@ -689,6 +689,33 @@ export function Chat() {
     [streaming, streamBuffer, messages],
   )
 
+  // Extract file annotations from code interpreter events
+  const fileAnnotations = useMemo(() => {
+    const annotations: Array<{
+      type: string
+      container_id: string
+      file_id: string
+      filename: string
+    }> = []
+
+    renderEvents.forEach((event) => {
+      if (
+        'type' in event &&
+        event.type === 'code_interpreter' &&
+        event.annotation
+      ) {
+        annotations.push({
+          type: event.annotation.type,
+          container_id: event.annotation.container_id,
+          file_id: event.annotation.file_id,
+          filename: event.annotation.filename,
+        })
+      }
+    })
+
+    return annotations
+  }, [renderEvents])
+
   const handleSendMessage = useCallback(
     (prompt: string) => {
       if (!hasStartedChat) {
@@ -815,6 +842,7 @@ export function Chat() {
                       status: 'sent',
                     }}
                     isLoading={streaming && idx === renderEvents.length - 1}
+                    fileAnnotations={fileAnnotations}
                   />
                 )
               } else if ('type' in event && event.type === 'user') {
@@ -848,6 +876,7 @@ export function Chat() {
                       isLoading={
                         (isLoading || streaming) && message === messages.at(-1)
                       }
+                      fileAnnotations={fileAnnotations}
                     />
                   )
                 } else {

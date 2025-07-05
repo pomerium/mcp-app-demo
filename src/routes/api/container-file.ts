@@ -140,9 +140,23 @@ export const ServerRoute = createServerFileRoute('/api/container-file').methods(
           `[CONTAINER FILE] Downloading file ${fileId} from container ${containerId}`,
         )
 
-        // Download file content from OpenAI's container
-        console.log('[CONTAINER-FILE] Calling openai.files.content...')
-        const fileResponse = await openai.files.content(fileId)
+        // Download file content from OpenAI using Container Files API
+        console.log('[CONTAINER-FILE] Calling Container Files API...')
+        const fileResponse = await fetch(
+          `https://api.openai.com/v1/containers/${containerId}/files/${fileId}/content`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+          },
+        )
+
+        if (!fileResponse.ok) {
+          throw new Error(
+            `Container Files API error: ${fileResponse.status} ${fileResponse.statusText}`,
+          )
+        }
+
         console.log(
           '[CONTAINER-FILE] File response received:',
           fileResponse.status,
@@ -154,18 +168,26 @@ export const ServerRoute = createServerFileRoute('/api/container-file').methods(
           arrayBuffer.byteLength,
         )
 
-        // Get file info to determine content type
+        // Get file info to determine content type (fallback to fileId if not available)
         console.log('[CONTAINER-FILE] Getting file info...')
-        const fileInfo = await openai.files.retrieve(fileId)
-        console.log('[CONTAINER-FILE] File info:', fileInfo)
+        let filename = fileId
+        try {
+          const fileInfo = await openai.files.retrieve(fileId)
+          filename = fileInfo.filename || fileId
+          console.log('[CONTAINER-FILE] File info:', fileInfo)
+        } catch (error) {
+          console.warn(
+            `[CONTAINER-FILE] Could not retrieve file info for ${fileId}, using fileId as filename`,
+          )
+        }
 
-        const contentType = getContentType(fileInfo.filename || fileId)
+        const contentType = getContentType(filename)
 
         // Return the file content with strong caching headers
         return new Response(arrayBuffer, {
           headers: {
             'Content-Type': contentType,
-            'Content-Disposition': `inline; filename="${fileInfo.filename || fileId}"`,
+            'Content-Disposition': `inline; filename="${filename}"`,
             'Cache-Control': 'public, max-age=31536000, immutable', // Cache for 1 year, immutable
             ETag: `"${etag}"`,
             'Access-Control-Allow-Origin': '*',

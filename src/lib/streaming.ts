@@ -93,14 +93,39 @@ async function downloadAndCacheFile(
       )
     }
 
-    // Download file content from OpenAI
-    const [fileResponse, fileInfo] = await Promise.all([
-      openai.files.content(fileId),
-      openai.files.retrieve(fileId),
-    ])
+    // Download file content from OpenAI using Container Files API
+    console.log(
+      `[PROACTIVE CACHE] Using Container Files API for container ${containerId} and file ${fileId}`,
+    )
+
+    const fileResponse = await fetch(
+      `https://api.openai.com/v1/containers/${containerId}/files/${fileId}/content`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      },
+    )
+
+    if (!fileResponse.ok) {
+      throw new Error(
+        `Container Files API error: ${fileResponse.status} ${fileResponse.statusText}`,
+      )
+    }
 
     const arrayBuffer = await fileResponse.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    // Get file info to determine filename (fallback to fileId if not available)
+    let filename = fileId
+    try {
+      const fileInfo = await openai.files.retrieve(fileId)
+      filename = fileInfo.filename || fileId
+    } catch (error) {
+      console.warn(
+        `[PROACTIVE CACHE] Could not retrieve file info for ${fileId}, using fileId as filename`,
+      )
+    }
 
     // Save to temporary cache
     const filePath = path.join(TEMP_CACHE_DIR, `${containerId}_${fileId}`)
@@ -110,8 +135,8 @@ async function downloadAndCacheFile(
     )
 
     const metadata = {
-      filename: fileInfo.filename || fileId,
-      contentType: getContentType(fileInfo.filename || fileId),
+      filename: filename,
+      contentType: getContentType(filename),
       timestamp: Date.now(),
     }
 
