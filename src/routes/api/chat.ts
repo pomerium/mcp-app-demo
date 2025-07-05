@@ -7,6 +7,7 @@ import {
   getSystemPrompt,
   isCodeInterpreterSupported,
 } from '../../lib/utils/prompting'
+import { enhanceChartRequest } from '../../lib/utils/chart-enhancement'
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
@@ -88,8 +89,20 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
       // System prompt for proper markdown formatting (conditionally includes code interpreter instructions)
       const systemPrompt = getSystemPrompt(model)
 
+      // Enhance chart requests in the latest user message
+      const enhancedMessages = messages.map((msg, index) => {
+        // Only enhance the last user message
+        if (msg.role === 'user' && index === messages.length - 1) {
+          return {
+            ...msg,
+            content: enhanceChartRequest(msg.content),
+          }
+        }
+        return msg
+      })
+
       // Format the conversation history into a single input string with proper message parts
-      const conversationHistory = messages
+      const conversationHistory = enhancedMessages
         .map((msg) => ({
           role: msg.role,
           parts: [

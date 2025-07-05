@@ -146,21 +146,14 @@ export function BotMessage({
                 const hasError = imageErrors.has(annotation.file_id)
                 const imageUrl = getFileUrl(annotation)
 
-                return (
-                  <div key={annotation.file_id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {annotation.filename}
-                      </span>
-                      <button
-                        onClick={() => handleDownload(annotation)}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                      >
-                        <Download className="h-3 w-3" />
-                        Download
-                      </button>
-                    </div>
+                // Generate accessible alt text based on filename
+                const getAltText = (filename: string) => {
+                  const name = filename.replace(/\.[^/.]+$/, '') // Remove extension
+                  return `Generated visualization: ${name.replace(/_/g, ' ')}`
+                }
 
+                return (
+                  <div key={annotation.file_id} className="relative group">
                     {hasError ? (
                       <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 rounded border border-dashed border-gray-300 dark:border-gray-600">
                         <div className="text-center">
@@ -176,13 +169,22 @@ export function BotMessage({
                         </div>
                       </div>
                     ) : (
-                      <img
-                        src={imageUrl}
-                        alt={annotation.filename}
-                        className="max-w-full h-auto rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
-                        onError={() => handleImageError(annotation.file_id)}
-                        onClick={() => window.open(imageUrl, '_blank')}
-                      />
+                      <>
+                        <img
+                          src={imageUrl}
+                          alt={getAltText(annotation.filename)}
+                          className="max-w-full h-auto rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                          onError={() => handleImageError(annotation.file_id)}
+                          onClick={() => window.open(imageUrl, '_blank')}
+                        />
+                        <button
+                          onClick={() => handleDownload(annotation)}
+                          className="absolute top-2 right-2 p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-800"
+                          title="Download image"
+                        >
+                          <Download className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                        </button>
+                      </>
                     )}
                   </div>
                 )
