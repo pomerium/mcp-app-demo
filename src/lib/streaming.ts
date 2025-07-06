@@ -244,8 +244,99 @@ export function streamText(
               )
               break
 
-            // Ignore content_part events for output_text and reasoning, and created/in_progress for reasoning
+            // Code interpreter events
+            case 'response.code_interpreter_call.in_progress':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_in_progress',
+                    itemId: chunk.item_id,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call_code.delta':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_code_delta',
+                    itemId: chunk.item_id,
+                    delta: chunk.delta,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call_code.done':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_code_done',
+                    itemId: chunk.item_id,
+                    code: chunk.code,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call.interpreting':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_interpreting',
+                    itemId: chunk.item_id,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call.completed':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_completed',
+                    itemId: chunk.item_id,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.output_text.annotation.added':
+              // Send file annotation to client for display
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_file_annotation',
+                    itemId: chunk.item_id,
+                    annotation: chunk.annotation,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.output_text.done':
+              // Skip - text output is already handled by delta events
+              break
+
+            case 'response.completed':
+              // Optionally emit a tool call completed event
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'tool_call_completed',
+                    response: chunk.response,
+                  })}\n`,
+                ),
+              )
+              break
             default:
+              // Log unknown tool messages for debugging
+              console.warn(
+                '[streamText] Unknown chunk type:',
+                chunk.type,
+                chunk,
+              )
               break
           }
         }
@@ -292,23 +383,5 @@ export function streamText(
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     },
-  })
-}
-
-/**
- * Stops a response's readable stream from being processed further.
- * This is useful for halting streaming responses when needed.
- *
- * @param response The response object to modify.
- */
-export function stopStreamProcessing(response: Response) {
-  const emptyStream = new ReadableStream({
-    start(controller) {
-      controller.close()
-    },
-  })
-
-  Object.defineProperty(response, 'body', {
-    value: emptyStream,
   })
 }
