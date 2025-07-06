@@ -1,116 +1,76 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
 import { OpenAI } from 'openai'
-import { createHash } from 'crypto'
-import { promises as fs } from 'fs'
-import path from 'path'
+import mime from 'mime'
+import { createEtag } from '@/lib/utils/net'
+import { containerFileQuerySchema } from '@/lib/schemas'
 
-// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// Temporary cache directory for proactive downloads
-const TEMP_CACHE_DIR = path.join(process.cwd(), 'cache', 'temp-files')
-
-// Check for proactively cached files
-async function getFromTempCache(
-  containerId: string,
-  fileId: string,
-): Promise<{
-  buffer: Buffer
-  metadata: { filename: string; contentType: string; timestamp: number }
-} | null> {
+async function getFilenameFromMetadata(fileId: string): Promise<string> {
   try {
-    const filePath = path.join(TEMP_CACHE_DIR, `${containerId}_${fileId}`)
-    const metadataPath = path.join(
-      TEMP_CACHE_DIR,
-      `${containerId}_${fileId}.meta.json`,
-    )
-
-    // Check if both file and metadata exist
-    const [buffer, metadataContent] = await Promise.all([
-      fs.readFile(filePath),
-      fs.readFile(metadataPath, 'utf-8'),
-    ])
-
-    const metadata = JSON.parse(metadataContent)
-    console.log(`[TEMP CACHE] Serving file ${fileId} from proactive cache`)
-
-    return { buffer, metadata }
+    const fileInfo = await openai.files.retrieve(fileId)
+    const filename = fileInfo.filename || fileId
+    // Ensure filename has an extension for better mime type detection
+    return filename.includes('.') ? filename : `${filename}.bin`
   } catch (error) {
-    // File not in cache or error reading
-    return null
-  }
-}
-
-// Determine content type based on filename
-function getContentType(filename: string): string {
-  const extension = filename.split('.').pop()?.toLowerCase()
-  switch (extension) {
-    case 'png':
-      return 'image/png'
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg'
-    case 'gif':
-      return 'image/gif'
-    case 'svg':
-      return 'image/svg+xml'
-    case 'pdf':
-      return 'application/pdf'
-    case 'csv':
-      return 'text/csv'
-    case 'txt':
-      return 'text/plain'
-    case 'json':
-      return 'application/json'
-    case 'xlsx':
-      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    case 'docx':
-      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    default:
-      return 'application/octet-stream'
+    console.warn('Could not retrieve file metadata:', error)
+    // If fileId looks like a UUID, add .bin extension
+    return fileId.includes('.') ? fileId : `${fileId}.bin`
   }
 }
 
 export const ServerRoute = createServerFileRoute('/api/container-file').methods(
   {
     async GET({ request }) {
-      console.log('[CONTAINER-FILE] API route hit:', request.url)
       try {
         const url = new URL(request.url)
-        const containerId = url.searchParams.get('containerId')
-        const fileId = url.searchParams.get('fileId')
+        const queryParams = {
+          containerId: url.searchParams.get('containerId'),
+          fileId: url.searchParams.get('fileId'),
+        }
 
-        console.log('[CONTAINER-FILE] Extracted params:', {
-          containerId,
-          fileId,
-        })
-
-        if (!containerId || !fileId) {
-          return new Response(
-            JSON.stringify({
-              error:
-                'Container ID and File ID are required as query parameters',
-            }),
+        const validationResult = containerFileQuerySchema.safeParse(queryParams)
+        if (!validationResult.success) {
+          return Response.json(
             {
-              status: 400,
-              headers: { 'Content-Type': 'application/json' },
+              error: 'Invalid query parameters',
+              details: validationResult.error.format(),
             },
+            { status: 400 },
           )
         }
 
-        // Generate ETag based on containerId and fileId
-        const etag = createHash('md5')
-          .update(`${containerId}-${fileId}`)
-          .digest('hex')
+        const { containerId, fileId } = validationResult.data
 
-        // Check if client has cached version
-        const ifNoneMatch = request.headers.get('If-None-Match')
-        if (ifNoneMatch === `"${etag}"`) {
-          console.log(
-            '[CONTAINER-FILE] Client has cached version, returning 304',
+        // Download file content from OpenAI using Container Files API
+        // This API returns the actual file content (bytes) from within code interpreter containers
+        // Use URL constructor for secure path encoding
+        const apiUrl = new URL(
+          `/v1/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(fileId)}/content`,
+          'https://api.openai.com',
+        )
+
+        const fileResponse = await fetch(apiUrl, {
+          headers: {
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          },
+        })
+
+        if (!fileResponse.ok) {
+          throw new Error(
+            `Container Files API error: ${fileResponse.status} ${fileResponse.statusText}`,
           )
+        }
+
+        const arrayBuffer = await fileResponse.arrayBuffer()
+
+        // Generate ETag and check for cached version as we know the file exists
+        const etag = createEtag(`${containerId}-${fileId}`)
+        const ifNoneMatch = request.headers.get('If-None-Match')
+
+        if (ifNoneMatch === `"${etag}"`) {
           return new Response(null, {
             status: 304,
             headers: {
@@ -120,74 +80,17 @@ export const ServerRoute = createServerFileRoute('/api/container-file').methods(
           })
         }
 
-        // First, check if we have a proactively cached version
-        const cachedFile = await getFromTempCache(containerId, fileId)
-        if (cachedFile) {
-          return new Response(cachedFile.buffer, {
-            headers: {
-              'Content-Type': cachedFile.metadata.contentType,
-              'Content-Disposition': `inline; filename="${cachedFile.metadata.filename}"`,
-              'Cache-Control': 'public, max-age=31536000, immutable',
-              ETag: `"${etag}"`,
-              'Access-Control-Allow-Origin': '*',
-              Vary: 'Accept-Encoding',
-              'X-Served-From': 'proactive-cache',
-            },
-          })
-        }
+        // Try to get file metadata using the regular Files API
+        // This API returns metadata only (filename, size, etc.) - NOT the file content
+        // Note: Container files may not be accessible via this API, so we fallback gracefully
+        const filename = await getFilenameFromMetadata(fileId)
+        const contentType = mime.getType(filename) || 'application/octet-stream'
 
-        console.log(
-          `[CONTAINER FILE] Downloading file ${fileId} from container ${containerId}`,
-        )
-
-        // Download file content from OpenAI using Container Files API
-        console.log('[CONTAINER-FILE] Calling Container Files API...')
-        const fileResponse = await fetch(
-          `https://api.openai.com/v1/containers/${containerId}/files/${fileId}/content`,
-          {
-            headers: {
-              Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            },
-          },
-        )
-
-        if (!fileResponse.ok) {
-          throw new Error(
-            `Container Files API error: ${fileResponse.status} ${fileResponse.statusText}`,
-          )
-        }
-
-        console.log(
-          '[CONTAINER-FILE] File response received:',
-          fileResponse.status,
-        )
-
-        const arrayBuffer = await fileResponse.arrayBuffer()
-        console.log(
-          '[CONTAINER-FILE] Array buffer size:',
-          arrayBuffer.byteLength,
-        )
-
-        // Get file info to determine content type (fallback to fileId if not available)
-        console.log('[CONTAINER-FILE] Getting file info...')
-        let filename = fileId
-        try {
-          const fileInfo = await openai.files.retrieve(fileId)
-          filename = fileInfo.filename || fileId
-          console.log('[CONTAINER-FILE] File info:', fileInfo)
-        } catch (error) {
-          console.warn(
-            `[CONTAINER-FILE] Could not retrieve file info for ${fileId}, using fileId as filename`,
-          )
-        }
-
-        const contentType = getContentType(filename)
-
-        // Return the file content with strong caching headers
         return new Response(arrayBuffer, {
           headers: {
             'Content-Type': contentType,
             'Content-Disposition': `inline; filename="${filename}"`,
+            'Content-Length': arrayBuffer.byteLength.toString(),
             'Cache-Control': 'public, max-age=31536000, immutable', // Cache for 1 year, immutable
             ETag: `"${etag}"`,
             'Access-Control-Allow-Origin': '*',
@@ -195,31 +98,24 @@ export const ServerRoute = createServerFileRoute('/api/container-file').methods(
           },
         })
       } catch (error) {
-        console.error('[CONTAINER FILE] Error downloading file:', error)
+        console.error('Error downloading file:', error)
 
-        // Handle specific OpenAI API errors
         if (error instanceof OpenAI.APIError) {
-          return new Response(
-            JSON.stringify({
+          return Response.json(
+            {
               error: 'Failed to download file from OpenAI',
               message: error.message,
-            }),
-            {
-              status: error.status || 500,
-              headers: { 'Content-Type': 'application/json' },
             },
+            { status: error.status || 500 },
           )
         }
 
-        return new Response(
-          JSON.stringify({
+        return Response.json(
+          {
             error: 'Internal server error',
             message: error instanceof Error ? error.message : 'Unknown error',
-          }),
-          {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
           },
+          { status: 500 },
         )
       }
     },

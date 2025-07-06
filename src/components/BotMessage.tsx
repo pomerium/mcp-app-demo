@@ -34,7 +34,12 @@ function replaceSandboxUrls(
     (match, filename) => {
       const annotation = annotations.find((a) => a.filename === filename)
       if (annotation) {
-        return `/api/container-file?containerId=${annotation.container_id}&fileId=${annotation.file_id}`
+        // Use URLSearchParams for secure query parameter encoding
+        const params = new URLSearchParams({
+          containerId: annotation.container_id,
+          fileId: annotation.file_id,
+        })
+        return `/api/container-file?${params.toString()}`
       }
       return match // Keep original if no annotation found
     },
@@ -60,7 +65,12 @@ function getFileUrl(annotation: {
   container_id: string
   file_id: string
 }): string {
-  return `/api/container-file?containerId=${annotation.container_id}&fileId=${annotation.file_id}`
+  // Use URLSearchParams for secure query parameter encoding
+  const params = new URLSearchParams({
+    containerId: annotation.container_id,
+    fileId: annotation.file_id,
+  })
+  return `/api/container-file?${params.toString()}`
 }
 
 export function BotMessage({

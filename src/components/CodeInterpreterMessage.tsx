@@ -192,7 +192,12 @@ export function CodeInterpreterMessage({ args }: CodeInterpreterMessageProps) {
                     const isImage = file.filename?.match(
                       /\.(png|jpg|jpeg|gif|svg)$/i,
                     )
-                    const fileUrl = `/api/container-file?containerId=${file.container_id}&fileId=${file.file_id}`
+                    // Use URLSearchParams for secure query parameter encoding
+                    const params = new URLSearchParams({
+                      containerId: file.container_id,
+                      fileId: file.file_id,
+                    })
+                    const fileUrl = `/api/container-file?${params.toString()}`
 
                     return (
                       <div key={index} className="space-y-2">

@@ -1,4 +1,5 @@
 import { APIError } from 'openai'
+import mime from 'mime'
 
 // Server-side only imports and functions
 let openai: any = null
@@ -15,32 +16,6 @@ async function initServerModules() {
 
     fs = await import('fs/promises')
     path = await import('path')
-  }
-}
-
-// Helper function to determine content type
-function getContentType(filename: string): string {
-  const extension = filename.split('.').pop()?.toLowerCase()
-  switch (extension) {
-    case 'png':
-      return 'image/png'
-    case 'jpg':
-    case 'jpeg':
-      return 'image/jpeg'
-    case 'gif':
-      return 'image/gif'
-    case 'svg':
-      return 'image/svg+xml'
-    case 'pdf':
-      return 'application/pdf'
-    case 'csv':
-      return 'text/csv'
-    case 'txt':
-      return 'text/plain'
-    case 'json':
-      return 'application/json'
-    default:
-      return 'application/octet-stream'
   }
 }
 
@@ -98,14 +73,17 @@ async function downloadAndCacheFile(
       `[PROACTIVE CACHE] Using Container Files API for container ${containerId} and file ${fileId}`,
     )
 
-    const fileResponse = await fetch(
-      `https://api.openai.com/v1/containers/${containerId}/files/${fileId}/content`,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-      },
+    // Use URL constructor for secure path encoding
+    const apiUrl = new URL(
+      `/v1/containers/${encodeURIComponent(containerId)}/files/${encodeURIComponent(fileId)}/content`,
+      'https://api.openai.com',
     )
+
+    const fileResponse = await fetch(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+    })
 
     if (!fileResponse.ok) {
       throw new Error(
@@ -136,7 +114,7 @@ async function downloadAndCacheFile(
 
     const metadata = {
       filename: filename,
-      contentType: getContentType(filename),
+      contentType: mime.getType(filename) || 'application/octet-stream',
       timestamp: Date.now(),
     }
 
