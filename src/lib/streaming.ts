@@ -1,5 +1,163 @@
 import { APIError } from 'openai'
 
+// Server-side only imports and functions
+let openai: any = null
+let fs: any = null
+let path: any = null
+
+// Initialize server-side modules only when in Node.js environment
+async function initServerModules() {
+  if (typeof window === 'undefined' && !openai) {
+    const OpenAI = await import('openai')
+    openai = new OpenAI.default({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+
+    fs = await import('fs/promises')
+    path = await import('path')
+  }
+}
+
+// Helper function to determine content type
+function getContentType(filename: string): string {
+  const extension = filename.split('.').pop()?.toLowerCase()
+  switch (extension) {
+    case 'png':
+      return 'image/png'
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg'
+    case 'gif':
+      return 'image/gif'
+    case 'svg':
+      return 'image/svg+xml'
+    case 'pdf':
+      return 'application/pdf'
+    case 'csv':
+      return 'text/csv'
+    case 'txt':
+      return 'text/plain'
+    case 'json':
+      return 'application/json'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+// Function to proactively download and cache files
+async function downloadAndCacheFile(
+  containerId: string,
+  fileId: string,
+): Promise<void> {
+  console.log(
+    `[PROACTIVE CACHE] downloadAndCacheFile called with containerId=${containerId}, fileId=${fileId}`,
+  )
+
+  // Only run on server side
+  if (typeof window !== 'undefined') {
+    console.log('[PROACTIVE CACHE] Skipping download on client side')
+    return
+  }
+
+  console.log(
+    '[PROACTIVE CACHE] Running on server side, proceeding with download',
+  )
+
+  try {
+    console.log('[PROACTIVE CACHE] Initializing server modules...')
+    await initServerModules()
+
+    if (!openai || !fs || !path) {
+      console.error(
+        '[PROACTIVE CACHE] Server modules not initialized properly:',
+        { openai: !!openai, fs: !!fs, path: !!path },
+      )
+      return
+    }
+
+    console.log('[PROACTIVE CACHE] Server modules initialized successfully')
+    console.log(
+      `[PROACTIVE CACHE] Starting download of file ${fileId} from container ${containerId}`,
+    )
+
+    // Temporary cache directory for proactive downloads
+    const TEMP_CACHE_DIR = path.join(process.cwd(), 'cache', 'temp-files')
+
+    // Ensure temp cache directory exists
+    try {
+      await fs.mkdir(TEMP_CACHE_DIR, { recursive: true })
+    } catch (error) {
+      console.error(
+        '[TEMP CACHE] Failed to create temp cache directory:',
+        error,
+      )
+    }
+
+    // Download file content from OpenAI using Container Files API
+    console.log(
+      `[PROACTIVE CACHE] Using Container Files API for container ${containerId} and file ${fileId}`,
+    )
+
+    const fileResponse = await fetch(
+      `https://api.openai.com/v1/containers/${containerId}/files/${fileId}/content`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+      },
+    )
+
+    if (!fileResponse.ok) {
+      throw new Error(
+        `Container Files API error: ${fileResponse.status} ${fileResponse.statusText}`,
+      )
+    }
+
+    const arrayBuffer = await fileResponse.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    // Get file info to determine filename (fallback to fileId if not available)
+    let filename = fileId
+    try {
+      const fileInfo = await openai.files.retrieve(fileId)
+      filename = fileInfo.filename || fileId
+    } catch (error) {
+      console.warn(
+        `[PROACTIVE CACHE] Could not retrieve file info for ${fileId}, using fileId as filename`,
+      )
+    }
+
+    // Save to temporary cache
+    const filePath = path.join(TEMP_CACHE_DIR, `${containerId}_${fileId}`)
+    const metadataPath = path.join(
+      TEMP_CACHE_DIR,
+      `${containerId}_${fileId}.meta.json`,
+    )
+
+    const metadata = {
+      filename: filename,
+      contentType: getContentType(filename),
+      timestamp: Date.now(),
+    }
+
+    await Promise.all([
+      fs.writeFile(filePath, buffer),
+      fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2)),
+    ])
+
+    console.log(
+      `[PROACTIVE CACHE] Successfully cached file ${fileId} to ${filePath}`,
+    )
+  } catch (error) {
+    console.error(`[PROACTIVE CACHE] Error downloading file ${fileId}:`, {
+      error: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack : undefined,
+      containerId,
+      fileId,
+    })
+  }
+}
+
 export function streamText(
   answer: AsyncIterable<any>,
   onMessageId?: (messageId: string) => void,
@@ -244,8 +402,126 @@ export function streamText(
               )
               break
 
-            // Ignore content_part events for output_text and reasoning, and created/in_progress for reasoning
+            // Code interpreter events
+            case 'response.code_interpreter_call.in_progress':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_in_progress',
+                    itemId: chunk.item_id,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call_code.delta':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_code_delta',
+                    itemId: chunk.item_id,
+                    delta: chunk.delta,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call_code.done':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_code_done',
+                    itemId: chunk.item_id,
+                    code: chunk.code,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call.interpreting':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_interpreting',
+                    itemId: chunk.item_id,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.code_interpreter_call.completed':
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_call_completed',
+                    itemId: chunk.item_id,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.output_text.annotation.added':
+              // Proactively download and cache files before container is destroyed
+              console.log(
+                '[STREAMING] Received annotation event:',
+                chunk.annotation,
+              )
+              if (chunk.annotation && chunk.annotation.file_id) {
+                // Extract container ID from the annotation or use a default
+                const containerId = chunk.annotation.container_id || 'default'
+                const fileId = chunk.annotation.file_id
+
+                console.log(
+                  `[STREAMING] Triggering proactive download for containerId=${containerId}, fileId=${fileId}`,
+                )
+
+                // Download asynchronously without blocking the stream
+                downloadAndCacheFile(containerId, fileId).catch((error) => {
+                  console.error(
+                    '[PROACTIVE CACHE] Failed to cache file:',
+                    error,
+                  )
+                })
+              } else {
+                console.warn(
+                  '[STREAMING] Annotation missing file_id:',
+                  chunk.annotation,
+                )
+              }
+
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'code_interpreter_file_annotation',
+                    itemId: chunk.item_id,
+                    annotation: chunk.annotation,
+                  })}\n`,
+                ),
+              )
+              break
+
+            case 'response.output_text.done':
+              // Skip - text output is already handled by delta events
+              break
+
+            case 'response.completed':
+              // Optionally emit a tool call completed event
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'tool_call_completed',
+                    response: chunk.response,
+                  })}\n`,
+                ),
+              )
+              break
             default:
+              // Log unknown tool messages for debugging
+              console.warn(
+                '[streamText] Unknown chunk type:',
+                chunk.type,
+                chunk,
+              )
               break
           }
         }
@@ -292,23 +568,5 @@ export function streamText(
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     },
-  })
-}
-
-/**
- * Stops a response's readable stream from being processed further.
- * This is useful for halting streaming responses when needed.
- *
- * @param response The response object to modify.
- */
-export function stopStreamProcessing(response: Response) {
-  const emptyStream = new ReadableStream({
-    start(controller) {
-      controller.close()
-    },
-  })
-
-  Object.defineProperty(response, 'body', {
-    value: emptyStream,
   })
 }

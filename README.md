@@ -334,6 +334,29 @@ authorize_log_fields:
 
 This configuration ensures that all MCP-specific information is included in your audit logs, providing complete visibility into tool calls and their parameters.
 
+## Code Interpreter
+
+The MCP App Demo includes support for OpenAI's Code Interpreter tool, which allows the AI to execute Python code securely using OpenAI's managed infrastructure.
+
+### Features
+
+- **No Setup Required**: Uses OpenAI's managed execution environment
+- **Pre-installed Libraries**: Includes pandas, matplotlib, numpy, scipy, and more
+- **Secure Execution**: Code runs in OpenAI's isolated containers
+- **File Persistence**: Files and variables persist during a conversation session
+
+### Usage
+
+Enable the code interpreter using the toggle switch in the chat interface. When enabled, the AI can:
+
+- Execute Python code for data analysis
+- Create visualizations and plots
+- Process data and generate insights
+- Perform mathematical calculations
+- Work with files and data structures
+
+Code execution happens on OpenAI's servers with automatic security and resource management.
+
 ## Development
 
 To run this application in development mode:
