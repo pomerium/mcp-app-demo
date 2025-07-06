@@ -4,6 +4,7 @@ import OpenAI from 'openai'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
 import { streamText } from '../../lib/streaming'
 import {
+  getSystemPrompt,
   isCodeInterpreterSupported,
 } from '../../lib/utils/prompting'
 
@@ -82,26 +83,15 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
       } else {
         console.log('[MCP] Code interpreter tool NOT enabled for this request.')
       }
-      // System prompt for proper markdown formatting
-      const systemPrompt = `You are a helpful AI assistant that communicates using properly formatted markdown. Follow these strict formatting rules:
 
-MARKDOWN FORMATTING REQUIREMENTS:
-1. **Lists**: Always keep list items on the same line as the marker
-   - ✅ CORRECT: "1. Lorem ipsum dolor sit amet..."
-   - ❌ WRONG: "1.  \\nLorem ipsum dolor sit amet..."
-
-2. **No line breaks after list markers**: Never put a line break immediately after numbered lists (1. 2. 3.) or bullet lists (- * +)
-
-3. **Proper list syntax**:
-   - Numbered lists: "1. Content here"
-   - Bullet lists: "- Content here" or "* Content here"
-   - No extra spaces or line breaks between marker and content
-
-4. **Other markdown**: Use standard markdown for headers, emphasis, links, tables, and code blocks
-
-5. **Consistency**: Maintain consistent formatting throughout your response
-
-Remember: Keep list content on the same line as the list marker to ensure proper rendering.`
+      // System prompt for proper markdown formatting (conditionally includes code interpreter instructions and chart enhancements)
+      const latestUserMessage = messages[messages.length - 1]
+      const systemPrompt = getSystemPrompt(
+        model,
+        latestUserMessage?.role === 'user'
+          ? latestUserMessage.content
+          : undefined,
+      )
 
       // Format the conversation history into a single input string with proper message parts
       const conversationHistory = messages
@@ -120,17 +110,15 @@ Remember: Keep list content on the same line as the list marker to ensure proper
         )
         .join('\n\n')
 
-      // Combine system prompt with conversation
-      const input = `${systemPrompt}\n\n--- CONVERSATION ---\n\n${conversationHistory}`
-
       const client = new OpenAI()
 
       let answer
       try {
         answer = await client.responses.create({
+          instructions: systemPrompt,
           model,
           tools,
-          input,
+          input: conversationHistory,
           stream: true,
           user: userId,
           ...(model.startsWith('o3') || model.startsWith('o4')
@@ -146,7 +134,7 @@ Remember: Keep list content on the same line as the list marker to ensure proper
 
         // Handle specific OpenAI API errors
         if (error instanceof OpenAI.APIError) {
-          const statusCode = error.statusCode || 500
+          const statusCode = error.status || 500
           let clientMessage = 'An error occurred while processing your request'
 
           // Map status codes to client messages
@@ -173,7 +161,7 @@ Remember: Keep list content on the same line as the list marker to ensure proper
               error: clientMessage,
               details:
                 process.env.NODE_ENV === 'development'
-                  ? errorMessage
+                  ? error.message
                   : undefined,
             }),
             {
