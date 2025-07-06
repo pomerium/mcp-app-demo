@@ -40,7 +40,7 @@ export function CodeBlock({
     <div className="relative group">
       <pre
         ref={preRef}
-        className={`overflow-x-auto whitespace-pre-wrap break-words bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 rounded-lg p-4 border border-gray-200 dark:border-gray-700 ${className || ''}`}
+        className={`overflow-auto max-h-64 md:max-h-80 lg:max-h-96 whitespace-pre-wrap break-words bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-gray-100 rounded-lg p-4 border border-gray-200 dark:border-gray-700 ${className || ''}`}
         {...props}
       >
         {children}
