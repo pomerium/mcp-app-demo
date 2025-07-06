@@ -82,20 +82,6 @@ export function BotMessage({
     setImageErrors((prev) => new Set(prev).add(fileId))
   }
 
-  const handleDownload = (annotation: {
-    container_id: string
-    file_id: string
-    filename: string
-  }) => {
-    const url = getFileUrl(annotation)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = annotation.filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
   // Process message content to replace sandbox URLs
   const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
 
@@ -160,12 +146,13 @@ export function BotMessage({
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             Failed to load image
                           </p>
-                          <button
-                            onClick={() => handleDownload(annotation)}
+                          <a
+                            href={getFileUrl(annotation)}
+                            download={annotation.filename}
                             className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                           >
                             Download file instead
-                          </button>
+                          </a>
                         </div>
                       </div>
                     ) : (
@@ -173,17 +160,18 @@ export function BotMessage({
                         <img
                           src={imageUrl}
                           alt={getAltText(annotation.filename)}
-                          className="max-w-full h-auto rounded border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
+                          className="max-w-full h-auto rounded border border-gray-200 dark:border-gray-700 cursor-pointer"
                           onError={() => handleImageError(annotation.file_id)}
                           onClick={() => window.open(imageUrl, '_blank')}
                         />
-                        <button
-                          onClick={() => handleDownload(annotation)}
+                        <a
+                          href={getFileUrl(annotation)}
+                          download={annotation.filename}
                           className="absolute top-2 right-2 p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-800"
                           title="Download image"
                         >
                           <Download className="h-4 w-4 text-gray-600 dark:text-gray-300" />
-                        </button>
+                        </a>
                       </>
                     )}
                   </div>
@@ -207,13 +195,14 @@ export function BotMessage({
                     <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
                       {annotation.filename}
                     </span>
-                    <button
-                      onClick={() => handleDownload(annotation)}
+                    <a
+                      href={getFileUrl(annotation)}
+                      download={annotation.filename}
                       className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                     >
                       <Download className="h-3 w-3" />
                       Download
-                    </button>
+                    </a>
                   </div>
                 ))}
               </div>
