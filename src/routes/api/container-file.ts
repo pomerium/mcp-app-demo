@@ -12,12 +12,10 @@ async function getFilenameFromMetadata(fileId: string): Promise<string> {
   try {
     const fileInfo = await openai.files.retrieve(fileId)
     const filename = fileInfo.filename || fileId
-    // Ensure filename has an extension for better mime type detection
-    return filename.includes('.') ? filename : `${filename}.bin`
+    return filename
   } catch (error) {
     console.warn('Could not retrieve file metadata:', error)
-    // If fileId looks like a UUID, add .bin extension
-    return fileId.includes('.') ? fileId : `${fileId}.bin`
+    return fileId
   }
 }
 
