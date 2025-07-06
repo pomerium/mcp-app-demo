@@ -13,6 +13,7 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { ServerRoute as ApiModelsServerRouteImport } from './routes/api/models'
+import { ServerRoute as ApiContainerFileServerRouteImport } from './routes/api/container-file'
 import { ServerRoute as ApiChatServerRouteImport } from './routes/api/chat'
 
 const rootServerRouteImport = createServerRootRoute()
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiModelsServerRoute = ApiModelsServerRouteImport.update({
   id: '/api/models',
   path: '/api/models',
+  getParentRoute: () => rootServerRouteImport,
+} as any)
+const ApiContainerFileServerRoute = ApiContainerFileServerRouteImport.update({
+  id: '/api/container-file',
+  path: '/api/container-file',
   getParentRoute: () => rootServerRouteImport,
 } as any)
 const ApiChatServerRoute = ApiChatServerRouteImport.update({
@@ -56,27 +62,31 @@ export interface RootRouteChildren {
 }
 export interface FileServerRoutesByFullPath {
   '/api/chat': typeof ApiChatServerRoute
+  '/api/container-file': typeof ApiContainerFileServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRoutesByTo {
   '/api/chat': typeof ApiChatServerRoute
+  '/api/container-file': typeof ApiContainerFileServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRoutesById {
   __root__: typeof rootServerRouteImport
   '/api/chat': typeof ApiChatServerRoute
+  '/api/container-file': typeof ApiContainerFileServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRouteTypes {
   fileServerRoutesByFullPath: FileServerRoutesByFullPath
-  fullPaths: '/api/chat' | '/api/models'
+  fullPaths: '/api/chat' | '/api/container-file' | '/api/models'
   fileServerRoutesByTo: FileServerRoutesByTo
-  to: '/api/chat' | '/api/models'
-  id: '__root__' | '/api/chat' | '/api/models'
+  to: '/api/chat' | '/api/container-file' | '/api/models'
+  id: '__root__' | '/api/chat' | '/api/container-file' | '/api/models'
   fileServerRoutesById: FileServerRoutesById
 }
 export interface RootServerRouteChildren {
   ApiChatServerRoute: typeof ApiChatServerRoute
+  ApiContainerFileServerRoute: typeof ApiContainerFileServerRoute
   ApiModelsServerRoute: typeof ApiModelsServerRoute
 }
 
@@ -100,6 +110,13 @@ declare module '@tanstack/react-start/server' {
       preLoaderRoute: typeof ApiModelsServerRouteImport
       parentRoute: typeof rootServerRouteImport
     }
+    '/api/container-file': {
+      id: '/api/container-file'
+      path: '/api/container-file'
+      fullPath: '/api/container-file'
+      preLoaderRoute: typeof ApiContainerFileServerRouteImport
+      parentRoute: typeof rootServerRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -118,6 +135,7 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 const rootServerRouteChildren: RootServerRouteChildren = {
   ApiChatServerRoute: ApiChatServerRoute,
+  ApiContainerFileServerRoute: ApiContainerFileServerRoute,
   ApiModelsServerRoute: ApiModelsServerRoute,
 }
 export const serverRouteTree = rootServerRouteImport
