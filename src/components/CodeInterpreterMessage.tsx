@@ -1,4 +1,3 @@
-import React from 'react'
 import {
   Download,
   FileText,
@@ -11,6 +10,10 @@ import {
 import { toast } from 'sonner'
 import { CodeBlock } from './CodeBlock'
 import { CollapsibleSection } from './ui/collapsible-section'
+import {
+  createAnnotatedFileUrl,
+  isImageFile,
+} from '@/lib/utils/code-interpreter'
 
 type CodeInterpreterStatus = 'writing' | 'executing' | 'completed' | 'failed'
 
@@ -72,20 +75,6 @@ interface AnnotatedFile {
   filename: string
   start_index: number
   end_index: number
-}
-
-const reImageFileExtension = /\.(jpg|jpeg|png|gif|bmp|webp)$/i
-
-const isImage = (file: AnnotatedFile) => {
-  return file.filename?.match(reImageFileExtension)
-}
-
-function createAnnotatedFileUrl(file: AnnotatedFile) {
-  const url = new URL('/api/container-file', window.location.origin)
-  url.searchParams.set('containerId', file.container_id)
-  url.searchParams.set('fileId', file.file_id)
-
-  return url.toString()
 }
 
 function getInterpreterState(args: CodeInterpreterArgs): {
@@ -191,7 +180,7 @@ export function CodeInterpreterMessage({ args }: CodeInterpreterMessageProps) {
                     return (
                       <div key={fileUrl} className="space-y-2">
                         <div className="flex items-center gap-2 p-2 rounded-lg border border-purple-200 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-900/50">
-                          {isImage(file) ? (
+                          {isImageFile(file.filename) ? (
                             <Image className="h-4 w-4 text-purple-600" />
                           ) : (
                             <FileText className="h-4 w-4 text-purple-600" />
