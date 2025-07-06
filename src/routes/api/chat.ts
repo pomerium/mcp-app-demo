@@ -3,6 +3,9 @@ import { chatRequestSchema } from '../../lib/schemas'
 import OpenAI from 'openai'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
 import { streamText } from '../../lib/streaming'
+import {
+  isCodeInterpreterSupported,
+} from '../../lib/utils/prompting'
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
@@ -36,6 +39,7 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
       }
 
       const { messages, servers, model, userId } = result.data
+      const codeInterpreter = isCodeInterpreterSupported(model)
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
@@ -52,18 +56,32 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           .replace(/_{2,}/g, '_') // Replace multiple underscores with single one
       }
 
-      const tools = Object.entries(servers)
-        .filter(([_, server]) => server.status === 'connected')
-        .map(([_id, server]) => ({
-          type: 'mcp',
-          server_label: sanitizeServerLabel(server.name),
-          server_url: server.url,
-          require_approval: 'never',
-          headers: {
-            Authorization: `Bearer ${bearerToken}`,
-          },
-        })) satisfies Tool[]
+      const tools: Tool[] = [
+        ...Object.entries(servers)
+          .filter(([_, server]) => server.status === 'connected')
+          .map(
+            ([_id, server]) =>
+              ({
+                type: 'mcp',
+                server_label: sanitizeServerLabel(server.name),
+                server_url: server.url,
+                require_approval: 'never',
+                headers: {
+                  Authorization: `Bearer ${bearerToken}`,
+                },
+              }) as Tool,
+          ),
+      ]
 
+      // Add code interpreter tool if enabled
+      if (codeInterpreter) {
+        tools.push({
+          type: 'code_interpreter',
+          container: { type: 'auto' },
+        } as Tool)
+      } else {
+        console.log('[MCP] Code interpreter tool NOT enabled for this request.')
+      }
       // System prompt for proper markdown formatting
       const systemPrompt = `You are a helpful AI assistant that communicates using properly formatted markdown. Follow these strict formatting rules:
 
