@@ -1,3 +1,5 @@
+import { enhanceChartRequest } from './chart-enhancement'
+
 const BASE_SYSTEM_PROMPT = `You are a helpful AI assistant that communicates using properly formatted markdown. Follow these strict formatting rules:
 
 MARKDOWN FORMATTING REQUIREMENTS:
@@ -49,17 +51,44 @@ export function isCodeInterpreterSupported(model: string): boolean {
 }
 
 /**
- * Generates the system prompt, conditionally including code interpreter instructions
- * based on model support
+ * Enhances the system prompt with chart creation instructions if the latest user message is a chart request
  */
-export function getSystemPrompt(model: string): string {
-  const basePrompt = BASE_SYSTEM_PROMPT
+function enhanceSystemPromptForCharts(
+  baseSystemPrompt: string,
+  latestUserMessage: string,
+): string {
+  const enhancedMessage = enhanceChartRequest(latestUserMessage)
 
-  if (isCodeInterpreterSupported(model)) {
-    return basePrompt + CODE_INTERPRETER_INSTRUCTIONS
+  if (enhancedMessage !== latestUserMessage) {
+    // Extract just the enhancement part (everything after the original message)
+    const enhancement = enhancedMessage.substring(latestUserMessage.length)
+    return `${baseSystemPrompt}\n\nCHART CREATION INSTRUCTIONS (for chart requests only):${enhancement}\n\nIMPORTANT: Follow these instructions when creating charts, but DO NOT mention accessibility features, color guidelines, or technical requirements in your response unless specifically asked. Just create the chart following these standards silently.`
   }
 
-  return basePrompt
+  return baseSystemPrompt
+}
+
+/**
+ * Generates the system prompt, conditionally including code interpreter instructions
+ * based on model support and chart enhancement for chart requests
+ */
+export function getSystemPrompt(
+  model: string,
+  latestUserMessage?: string,
+): string {
+  const basePrompt = BASE_SYSTEM_PROMPT
+
+  let systemPrompt = basePrompt
+  if (isCodeInterpreterSupported(model)) {
+    systemPrompt += CODE_INTERPRETER_INSTRUCTIONS
+  }
+
+  // Enhance with chart instructions if applicable
+  if (latestUserMessage) {
+    systemPrompt = enhanceSystemPromptForCharts(systemPrompt, latestUserMessage)
+  }
+
+  return systemPrompt
 }
 
 // For backwards compatibility

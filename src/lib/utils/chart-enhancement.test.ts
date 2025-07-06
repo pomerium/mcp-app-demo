@@ -11,6 +11,9 @@ import {
   generateColorsForItems,
   getDataVisualizationRecommendations,
   generateColorCodeSuggestions,
+  getChartLabelingRequirements,
+  detectLabelingIssues,
+  generateLabeledChartCode,
 } from './chart-enhancement'
 
 describe('Chart Enhancement Accessibility', () => {
@@ -163,10 +166,9 @@ describe('Chart Enhancement Accessibility', () => {
 
       expect(enhanced).toContain(originalMessage)
       expect(enhanced).toContain('ACCESSIBLE COLORS')
-      expect(enhanced).toContain('TEXT COLOR GUIDE')
       expect(enhanced).toContain('WCAG AA COMPLIANCE')
-      expect(enhanced).toContain('FOR LARGE DATASETS')
-      expect(enhanced).toContain('generateColorsForItems()')
+      expect(enhanced).toContain('USE PROPER LABELING')
+      expect(enhanced).toContain('BAR CHART:')
     })
 
     it('should not enhance non-chart requests', () => {
@@ -267,6 +269,61 @@ describe('Chart Enhancement Accessibility', () => {
       // Check that colors cycle correctly
       expect(result[0].color).toBe(result[8].color)
       expect(result[1].color).toBe(result[9].color)
+    })
+  })
+
+  describe('Chart Labeling Requirements', () => {
+    it('should provide labeling requirements for different chart types', () => {
+      const pieRequirements = getChartLabelingRequirements('pie chart')
+      expect(pieRequirements).toContain('✅ PIE CHART REQUIREMENTS:')
+      expect(pieRequirements.some((req) => req.includes('every slice'))).toBe(
+        true,
+      )
+
+      const barRequirements = getChartLabelingRequirements('bar chart')
+      expect(barRequirements).toContain('✅ BAR CHART REQUIREMENTS:')
+      expect(barRequirements.some((req) => req.includes('axis labels'))).toBe(
+        true,
+      )
+    })
+
+    it('should detect labeling issues in chart descriptions', () => {
+      const issuesWithMissingLabels = detectLabelingIssues('create a pie chart')
+      expect(issuesWithMissingLabels.length).toBeGreaterThan(0)
+      expect(
+        issuesWithMissingLabels.some((issue) =>
+          issue.includes('MISSING LABELS'),
+        ),
+      ).toBe(true)
+
+      const goodDescription = detectLabelingIssues(
+        'create a pie chart with labels and percentages and title',
+      )
+      expect(goodDescription.length).toBeLessThan(
+        issuesWithMissingLabels.length,
+      )
+    })
+
+    it('should generate proper code templates with labels', () => {
+      const pieCode = generateLabeledChartCode('pie chart')
+      expect(pieCode).toContain('plt.pie(')
+      expect(pieCode).toContain('labels=labels')
+      expect(pieCode).toContain('autopct=')
+      expect(pieCode).toContain('plt.title(')
+
+      const barCode = generateLabeledChartCode('bar chart')
+      expect(barCode).toContain('plt.bar(')
+      expect(barCode).toContain('plt.xlabel(')
+      expect(barCode).toContain('plt.ylabel(')
+      expect(barCode).toContain('plt.title(')
+    })
+
+    it('should include labeling requirements in enhanced chart requests', () => {
+      const enhanced = enhanceChartRequest('Create a pie chart')
+      expect(enhanced).toContain('USE PROPER LABELING')
+      expect(enhanced).toContain('PIE CHART:')
+      expect(enhanced).toContain('labels=categories')
+      expect(enhanced).toContain('autopct=')
     })
   })
 })

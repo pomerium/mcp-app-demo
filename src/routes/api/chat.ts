@@ -7,7 +7,6 @@ import {
   getSystemPrompt,
   isCodeInterpreterSupported,
 } from '../../lib/utils/prompting'
-import { enhanceChartRequest } from '../../lib/utils/chart-enhancement'
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
@@ -86,23 +85,17 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         console.log('[MCP] Code interpreter tool NOT enabled for this request.')
       }
 
-      // System prompt for proper markdown formatting (conditionally includes code interpreter instructions)
-      const systemPrompt = getSystemPrompt(model)
-
-      // Enhance chart requests in the latest user message
-      const enhancedMessages = messages.map((msg, index) => {
-        // Only enhance the last user message
-        if (msg.role === 'user' && index === messages.length - 1) {
-          return {
-            ...msg,
-            content: enhanceChartRequest(msg.content),
-          }
-        }
-        return msg
-      })
+      // System prompt for proper markdown formatting (conditionally includes code interpreter instructions and chart enhancements)
+      const latestUserMessage = messages[messages.length - 1]
+      const systemPrompt = getSystemPrompt(
+        model,
+        latestUserMessage?.role === 'user'
+          ? latestUserMessage.content
+          : undefined,
+      )
 
       // Format the conversation history into a single input string with proper message parts
-      const conversationHistory = enhancedMessages
+      const conversationHistory = messages
         .map((msg) => ({
           role: msg.role,
           parts: [
@@ -118,17 +111,15 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         )
         .join('\n\n')
 
-      // Combine system prompt with conversation
-      const input = `${systemPrompt}\n\n--- CONVERSATION ---\n\n${conversationHistory}`
-
       const client = new OpenAI()
 
       let answer
       try {
         answer = await client.responses.create({
+          instructions: systemPrompt,
           model,
           tools,
-          input,
+          input: conversationHistory,
           stream: true,
           user: userId,
           ...(model.startsWith('o3') || model.startsWith('o4')

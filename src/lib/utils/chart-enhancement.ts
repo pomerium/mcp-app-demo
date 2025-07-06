@@ -343,15 +343,23 @@ export function enhanceChartRequest(message: string): string {
 
   // Enhanced message with accessibility considerations
   let enhancement = `\n\nACCESSIBLE COLORS: [${colorString}]
-TEXT COLOR GUIDE: ${textColorRecommendations}
-ENSURE WCAG AA COMPLIANCE (4.5:1 contrast ratio minimum). MAKE THE VISUALIZATION CLEAN AND PROFESSIONAL.`
+ENSURE WCAG AA COMPLIANCE (4.5:1 contrast). USE PROPER LABELING.`
 
-  // Add guidance for handling more items than colors
-  enhancement += `\n\nFOR LARGE DATASETS:
-- If more than ${colors.length} items: cycle through colors with patterns/textures
-- Use generateColorsForItems() function to handle any number of items
-- Consider alternative chart types (heatmaps, treemaps) for 20+ items
-- Group similar items when possible to reduce visual complexity`
+  // Detect chart type and add specific technical requirements
+  const chartType = message.toLowerCase()
+
+  if (chartType.includes('pie')) {
+    enhancement += `\nPIE CHART: labels=categories, autopct='%1.1f%%', textprops={'fontsize':12}`
+  } else if (chartType.includes('bar')) {
+    enhancement += `\nBAR CHART: Include plt.xlabel(), plt.ylabel(), plt.title(), value labels on bars`
+  } else if (chartType.includes('line')) {
+    enhancement += `\nLINE CHART: Include plt.legend(), axis labels, title`
+  }
+
+  // Add concise dataset guidance
+  if (colors.length < 12) {
+    enhancement += `\nFor ${colors.length}+ items: cycle colors with patterns`
+  }
 
   return message + enhancement
 }
@@ -500,6 +508,242 @@ patterns = ['', '///', '...', '|||', '---', '+++', 'xxx', 'ooo']
 bar_patterns = list(itertools.islice(itertools.cycle(patterns), ${itemCount}))
 
 plt.bar(x, y, color=colors, hatch=bar_patterns)`
+}
+
+/**
+ * Chart labeling requirements and validation
+ */
+export const CHART_LABELING_REQUIREMENTS = {
+  // Minimum requirements for different chart types
+  pie: {
+    requiresLabels: true,
+    requiresLegend: true,
+    requiresPercentages: true,
+    maxSlicesWithoutGrouping: 8,
+    minSlicePercentage: 2, // Slices smaller than 2% should be grouped as "Other"
+  },
+  bar: {
+    requiresLabels: true,
+    requiresAxisLabels: true,
+    requiresTitle: true,
+    requiresUnits: true,
+  },
+  line: {
+    requiresLabels: true,
+    requiresLegend: true,
+    requiresAxisLabels: true,
+    requiresTitle: true,
+    requiresUnits: true,
+  },
+  scatter: {
+    requiresLabels: true,
+    requiresAxisLabels: true,
+    requiresTitle: true,
+    requiresUnits: true,
+  },
+  heatmap: {
+    requiresLabels: true,
+    requiresColorbar: true,
+    requiresAxisLabels: true,
+    requiresTitle: true,
+  },
+}
+
+/**
+ * Generates comprehensive labeling requirements for charts
+ */
+export function getChartLabelingRequirements(chartType: string): string[] {
+  const type = chartType.toLowerCase()
+  const requirements: string[] = []
+
+  // Universal requirements
+  requirements.push('✅ CHART TITLE: Must be descriptive and specific')
+  requirements.push(
+    '✅ DATA LABELS: Every data point/slice must be clearly labeled',
+  )
+
+  if (type.includes('pie')) {
+    requirements.push('✅ PIE CHART REQUIREMENTS:')
+    requirements.push(
+      '   - Label every slice with category name AND percentage',
+    )
+    requirements.push('   - Include legend if labels are crowded')
+    requirements.push('   - Group slices <2% into "Other" category')
+    requirements.push('   - Maximum 8 slices for readability')
+    requirements.push('   - Use plt.pie(labels=labels, autopct="%1.1f%%")')
+  }
+
+  if (type.includes('bar')) {
+    requirements.push('✅ BAR CHART REQUIREMENTS:')
+    requirements.push('   - Label every bar with category name')
+    requirements.push('   - Include axis labels with units')
+    requirements.push('   - Add value labels on bars if helpful')
+    requirements.push('   - Use plt.xlabel(), plt.ylabel(), plt.title()')
+  }
+
+  if (type.includes('line')) {
+    requirements.push('✅ LINE CHART REQUIREMENTS:')
+    requirements.push('   - Label every line in legend')
+    requirements.push('   - Include axis labels with units')
+    requirements.push('   - Add data point labels if few points')
+    requirements.push('   - Use plt.legend() with descriptive labels')
+  }
+
+  // Accessibility requirements
+  requirements.push('✅ ACCESSIBILITY REQUIREMENTS:')
+  requirements.push('   - All text must have sufficient contrast (4.5:1)')
+  requirements.push('   - Font size minimum 12pt for readability')
+  requirements.push('   - Avoid color-only distinctions (use patterns/shapes)')
+  requirements.push('   - Include alt text describing the chart')
+
+  return requirements
+}
+
+/**
+ * Detects potential labeling issues in chart descriptions
+ */
+export function detectLabelingIssues(chartDescription: string): string[] {
+  const issues: string[] = []
+  const lowerDesc = chartDescription.toLowerCase()
+
+  // Check for missing labels
+  if (!lowerDesc.includes('label') && !lowerDesc.includes('legend')) {
+    issues.push('🚨 MISSING LABELS: Chart may not have proper data labels')
+  }
+
+  // Check for pie chart specific issues
+  if (lowerDesc.includes('pie')) {
+    if (!lowerDesc.includes('percentage') && !lowerDesc.includes('%')) {
+      issues.push('🚨 PIE CHART: Missing percentage labels')
+    }
+    if (!lowerDesc.includes('legend') && !lowerDesc.includes('label')) {
+      issues.push('🚨 PIE CHART: Missing slice labels or legend')
+    }
+  }
+
+  // Check for axis labels
+  if (
+    lowerDesc.includes('bar') ||
+    lowerDesc.includes('line') ||
+    lowerDesc.includes('scatter')
+  ) {
+    if (
+      !lowerDesc.includes('axis') &&
+      !lowerDesc.includes('xlabel') &&
+      !lowerDesc.includes('ylabel')
+    ) {
+      issues.push('🚨 AXIS LABELS: Missing axis labels and units')
+    }
+  }
+
+  // Check for title
+  if (!lowerDesc.includes('title')) {
+    issues.push('🚨 CHART TITLE: Missing descriptive title')
+  }
+
+  // Check for units
+  if (
+    !lowerDesc.includes('unit') &&
+    !lowerDesc.includes('$') &&
+    !lowerDesc.includes('%')
+  ) {
+    issues.push('🚨 UNITS: Consider adding units to data values')
+  }
+
+  return issues
+}
+
+/**
+ * Generates code templates with proper labeling
+ */
+export function generateLabeledChartCode(
+  chartType: string,
+  paletteName: keyof typeof COLOR_PALETTES = 'modern',
+): string {
+  const palette = COLOR_PALETTES[paletteName]
+  const colorString = palette.map((c) => `'${c}'`).join(', ')
+  const type = chartType.toLowerCase()
+
+  if (type.includes('pie')) {
+    return `# Properly labeled pie chart with accessibility
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Data
+labels = ['Category A', 'Category B', 'Category C', 'Category D', 'Category E']
+sizes = [30, 25, 20, 15, 10]
+colors = [${colorString}][:len(labels)]
+
+# Create pie chart with proper labels
+plt.figure(figsize=(10, 8))
+wedges, texts, autotexts = plt.pie(
+    sizes,
+    labels=labels,
+    autopct='%1.1f%%',
+    colors=colors,
+    startangle=90,
+    textprops={'fontsize': 12}
+)
+
+# Ensure text contrast
+for text in texts:
+    text.set_color('black')
+for autotext in autotexts:
+    autotext.set_color('white')
+    autotext.set_fontweight('bold')
+
+plt.title('Sales by Category - Q4 2023', fontsize=16, fontweight='bold')
+plt.axis('equal')  # Equal aspect ratio ensures circular pie
+plt.tight_layout()
+plt.show()`
+  }
+
+  if (type.includes('bar')) {
+    return `# Properly labeled bar chart with accessibility
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Data
+categories = ['Q1', 'Q2', 'Q3', 'Q4']
+values = [25000, 32000, 28000, 35000]
+colors = [${colorString}][:len(categories)]
+
+# Create bar chart with proper labels
+plt.figure(figsize=(10, 6))
+bars = plt.bar(categories, values, color=colors)
+
+# Add value labels on bars
+for bar in bars:
+    height = bar.get_height()
+    plt.text(bar.get_x() + bar.get_width()/2., height,
+             f'$\\{height:,.0f\\}', ha='center', va='bottom', fontsize=11)
+
+plt.title('Quarterly Sales Revenue - 2023', fontsize=16, fontweight='bold')
+plt.xlabel('Quarter', fontsize=12)
+plt.ylabel('Revenue (USD)', fontsize=12)
+plt.grid(axis='y', alpha=0.3)
+plt.tight_layout()
+plt.show()`
+  }
+
+  return `# Generic labeled chart template
+import matplotlib.pyplot as plt
+
+# Ensure your chart has:
+# 1. Descriptive title
+# 2. All data points labeled
+# 3. Axis labels with units
+# 4. Legend if multiple series
+# 5. Sufficient color contrast
+# 6. Accessible color palette
+
+colors = [${colorString}]
+plt.title('Your Chart Title Here', fontsize=16)
+plt.xlabel('X-axis Label (units)', fontsize=12)
+plt.ylabel('Y-axis Label (units)', fontsize=12)
+plt.legend()
+plt.tight_layout()
+plt.show()`
 }
 
 // Note: Accessibility testing is now handled by chart-enhancement.test.ts
