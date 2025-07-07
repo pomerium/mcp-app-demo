@@ -7,8 +7,8 @@
     "start": "node .output/server/index.mjs",
     "build": "vite build",
     "serve": "vite preview",
-    "test": "vitest run",
-    "test:ci": "vitest run --coverage",
+    "test": "vitest run --config vite.config.test.ts",
+    "test:ci": "vitest run --coverage --config vite.config.test.ts",
     "lint": "eslint",
     "format": "prettier",
     "check": "prettier --write . && eslint --fix"
