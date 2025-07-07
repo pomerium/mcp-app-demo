@@ -17,9 +17,7 @@ import { MessageSquarePlus } from 'lucide-react'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
-import { stopStreamProcessing } from '@/lib/utils/streaming'
-import { CodeInterpreterMessage } from './CodeInterpreterMessage'
-import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
+import { stopStreamProcessing } from '@/lib/streaming'
 
 type StreamEvent =
   | { type: 'assistant'; id: string; content: string }
@@ -40,27 +38,6 @@ type StreamEvent =
         | 'arguments_delta'
         | 'arguments_done'
         | 'failed'
-    }
-  | {
-      type: 'code_interpreter'
-      itemId: string
-      code?: string
-      delta?: string
-      annotation?: {
-        type: string
-        container_id: string
-        file_id: string
-        filename: string
-        start_index: number
-        end_index: number
-      }
-      eventType:
-        | 'code_interpreter_call_in_progress'
-        | 'code_interpreter_call_code_delta'
-        | 'code_interpreter_call_code_done'
-        | 'code_interpreter_call_interpreting'
-        | 'code_interpreter_call_completed'
-        | 'code_interpreter_file_annotation'
     }
   | { type: 'user'; id: string; content: string }
   | {
@@ -104,9 +81,6 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
       return (
         event.itemId || `tool-${idx}-${event.toolType}-${event.serverLabel}`
       )
-    }
-    if (event.type === 'code_interpreter') {
-      return `code-interpreter-${event.itemId}`
     }
     if (event.type === 'assistant') {
       return `assistant-${event.id}`
@@ -321,10 +295,6 @@ export function Chat() {
             }
 
             const toolState = JSON.parse(toolStateStr)
-            // Handle tool_call_completed events
-            if (toolState.type === 'tool_call_completed') {
-              return
-            }
 
             // Handle reasoning summary streaming
             if (toolState.type === 'reasoning_summary_delta') {
@@ -393,124 +363,6 @@ export function Chat() {
                 serviceTier: toolState.serviceTier,
                 temperature: toolState.temperature,
                 topP: toolState.topP,
-              })
-              return
-            }
-
-            // Handle code interpreter events
-            if (toolState.type.startsWith('code_interpreter')) {
-              const codeInterpreterEvent: Extract<
-                StreamEvent,
-                { type: 'code_interpreter' }
-              > = {
-                type: 'code_interpreter',
-                itemId: toolState.itemId,
-                eventType: toolState.type as any,
-                code: toolState.code,
-                delta: toolState.delta,
-                annotation: toolState.annotation,
-              }
-
-              // Use immediate update for code interpreter events
-              setStreamBuffer((prev) => {
-                const itemId = toolState.itemId
-
-                // Special handling for file annotations - they have different itemIds
-                if (toolState.type === 'code_interpreter_file_annotation') {
-                  // Extract the shared suffix from the annotation itemId
-                  // msg_6867ef114df4819cab4b74c2c6f7546001ba7a3d8f0c4a9a -> 01ba7a3d8f0c4a9a
-                  const annotationItemId = toolState.itemId
-                  const sharedSuffix = annotationItemId.slice(-16) // Last 16 characters
-
-                  // Find code interpreter event with matching suffix
-                  const matchingIndex = [...prev]
-                    .reverse()
-                    .findIndex(
-                      (event) =>
-                        event.type === 'code_interpreter' &&
-                        event.itemId.endsWith(sharedSuffix),
-                    )
-
-                  if (matchingIndex !== -1) {
-                    const actualIndex = prev.length - 1 - matchingIndex
-                    const existingEvent = prev[actualIndex] as Extract<
-                      StreamEvent,
-                      { type: 'code_interpreter' }
-                    >
-
-                    const updatedEvent = {
-                      ...existingEvent,
-                      annotation: codeInterpreterEvent.annotation,
-                    }
-
-                    console.log(
-                      '[Chat] Updated event with annotation:',
-                      updatedEvent,
-                    )
-
-                    return [
-                      ...prev.slice(0, actualIndex),
-                      updatedEvent,
-                      ...prev.slice(actualIndex + 1),
-                    ]
-                  }
-
-                  // If no matching code interpreter found, skip this annotation
-                  console.warn(
-                    '[Chat] No matching code interpreter found for suffix:',
-                    sharedSuffix,
-                  )
-                  return prev
-                }
-
-                // Handle other code interpreter events by itemId
-                if (itemId) {
-                  const existingIndex = prev.findIndex(
-                    (event) =>
-                      event.type === 'code_interpreter' &&
-                      event.itemId === itemId,
-                  )
-
-                  if (existingIndex !== -1) {
-                    const existingEvent = prev[existingIndex] as Extract<
-                      StreamEvent,
-                      { type: 'code_interpreter' }
-                    >
-
-                    // Handle code accumulation for delta events
-                    let updatedCode = existingEvent.code || ''
-                    if (
-                      toolState.type === 'code_interpreter_call_code_delta' &&
-                      codeInterpreterEvent.delta
-                    ) {
-                      // Accumulate delta into existing code
-                      updatedCode =
-                        (existingEvent.code || '') + codeInterpreterEvent.delta
-                    } else if (
-                      toolState.type === 'code_interpreter_call_code_done' &&
-                      codeInterpreterEvent.code
-                    ) {
-                      // Replace with full code when done
-                      updatedCode = codeInterpreterEvent.code
-                    }
-
-                    const updatedEvent = {
-                      ...existingEvent,
-                      eventType: codeInterpreterEvent.eventType,
-                      code: updatedCode,
-                      delta: codeInterpreterEvent.delta || existingEvent.delta,
-                      annotation:
-                        codeInterpreterEvent.annotation ||
-                        existingEvent.annotation,
-                    }
-                    return [
-                      ...prev.slice(0, existingIndex),
-                      updatedEvent,
-                      ...prev.slice(existingIndex + 1),
-                    ]
-                  }
-                }
-                return [...prev, codeInterpreterEvent]
               })
               return
             }
@@ -663,28 +515,6 @@ export function Chat() {
     [streaming, streamBuffer, messages],
   )
 
-  // Extract file annotations from code interpreter events
-  const fileAnnotations = useMemo(() => {
-    const annotations: Array<AnnotatedFile> = []
-
-    renderEvents.forEach((event) => {
-      if (
-        'type' in event &&
-        event.type === 'code_interpreter' &&
-        event.annotation
-      ) {
-        annotations.push({
-          type: event.annotation.type,
-          container_id: event.annotation.container_id,
-          file_id: event.annotation.file_id,
-          filename: event.annotation.filename,
-        })
-      }
-    })
-
-    return annotations
-  }, [renderEvents])
-
   const handleSendMessage = useCallback(
     (prompt: string) => {
       if (!hasStartedChat) {
@@ -783,20 +613,6 @@ export function Chat() {
                     isLoading={streaming && idx === renderEvents.length - 1}
                   />
                 )
-              } else if ('type' in event && event.type === 'code_interpreter') {
-                return (
-                  <CodeInterpreterMessage
-                    key={key}
-                    name="Code Interpreter"
-                    args={{
-                      type: event.eventType,
-                      itemId: event.itemId,
-                      code: event.code,
-                      delta: event.delta,
-                      annotation: event.annotation,
-                    }}
-                  />
-                )
               } else if ('type' in event && event.type === 'error') {
                 return <BotError key={key} message={event.message} />
               } else if ('type' in event && event.type === 'assistant') {
@@ -811,7 +627,6 @@ export function Chat() {
                       status: 'sent',
                     }}
                     isLoading={streaming && idx === renderEvents.length - 1}
-                    fileAnnotations={fileAnnotations}
                   />
                 )
               } else if ('type' in event && event.type === 'user') {
@@ -845,7 +660,6 @@ export function Chat() {
                       isLoading={
                         (isLoading || streaming) && message === messages.at(-1)
                       }
-                      fileAnnotations={fileAnnotations}
                     />
                   )
                 } else {
@@ -898,7 +712,6 @@ export function Chat() {
             </Button>
           </div>
         )}
-
         <ServerSelector
           servers={servers}
           onServersChange={setServers}
