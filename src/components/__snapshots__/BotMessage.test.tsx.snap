@@ -1,0 +1,247 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`BotMessage > renders a markdown table correctly 1`] = `
+<div>
+  <div
+    class="flex w-full max-w-full gap-2 py-2 animate-in fade-in justify-start"
+  >
+    <div
+      class="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+    >
+      <svg
+        class="lucide lucide-bot h-5 w-5"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M12 8V4H8"
+        />
+        <rect
+          height="12"
+          rx="2"
+          width="16"
+          x="4"
+          y="8"
+        />
+        <path
+          d="M2 14h2"
+        />
+        <path
+          d="M20 14h2"
+        />
+        <path
+          d="M15 13v2"
+        />
+        <path
+          d="M9 13v2"
+        />
+      </svg>
+    </div>
+    <div
+      class="group grid gap-1 space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]"
+    >
+      <div
+        class="rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+      >
+        <div
+          data-raw-markdown="| Year | Total Sales        |
+|------|-------------------|
+| 2012 | $18,823,201.72    |
+| 2013 | $38,633,120.01    |
+| 2014 | $38,870,148.13    |
+| 2015 | $41,423,456.72    |
+| 2016 | $40,568,672.36    |
+| 2017 | $40,209,904.23    |
+| 2018 | $38,326,623.43    |
+| 2019 | $38,516,963.86    |
+| 2020 | $38,862,436.79    |
+| 2021 | $41,355,549.74    |
+| 2022 | $39,742,066.18    |
+| 2023 | $33,054,490.00    |
+
+Here is a summary table of total sales from every year. If you need additional detail, just let me know!"
+        >
+          <div
+            class="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap"
+          >
+            <div
+              class="prose prose-sm dark:prose-invert max-w-none break-words [&>*+*]:mt-4 [&>h1+*]:mt-3 [&>h2+*]:mt-3 [&>h3+*]:mt-3 [&>p+ul]:mt-3 [&>p+ol]:mt-3"
+            >
+              <div
+                class="overflow-x-auto my-4"
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th>
+                        Year
+                      </th>
+                      <th>
+                        Total Sales
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        2012
+                      </td>
+                      <td>
+                        $18,823,201.72
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2013
+                      </td>
+                      <td>
+                        $38,633,120.01
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2014
+                      </td>
+                      <td>
+                        $38,870,148.13
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2015
+                      </td>
+                      <td>
+                        $41,423,456.72
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2016
+                      </td>
+                      <td>
+                        $40,568,672.36
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2017
+                      </td>
+                      <td>
+                        $40,209,904.23
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2018
+                      </td>
+                      <td>
+                        $38,326,623.43
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2019
+                      </td>
+                      <td>
+                        $38,516,963.86
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2020
+                      </td>
+                      <td>
+                        $38,862,436.79
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2021
+                      </td>
+                      <td>
+                        $41,355,549.74
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2022
+                      </td>
+                      <td>
+                        $39,742,066.18
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        2023
+                      </td>
+                      <td>
+                        $33,054,490.00
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+
+              <p>
+                Here is a summary table of total sales from every year. If you need additional detail, just let me know!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="flex gap-1 items-center text-xs text-gray-500 dark:text-gray-400 space-x-1"
+      >
+        <time
+          datetime="2025-07-06T12:00:00.000Z"
+        >
+          8:00 AM
+        </time>
+        <button
+          class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-copy h-3 w-3"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              height="14"
+              rx="2"
+              ry="2"
+              width="14"
+              x="8"
+              y="8"
+            />
+            <path
+              d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+            />
+          </svg>
+          <span
+            class="sr-only"
+          >
+            Copy message to clipboard
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+`;

@@ -12,6 +12,11 @@ const config = defineConfig({
     tailwindcss(),
     tanstackStart(),
   ],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./setupTests.ts'],
+    globals: true,
+  },
 })
 
 export default config
