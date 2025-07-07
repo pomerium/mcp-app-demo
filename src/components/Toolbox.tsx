@@ -1,4 +1,4 @@
-import { Settings, ChevronRight } from 'lucide-react'
+import { Settings } from 'lucide-react'
 import { useMemo } from 'react'
 import { type ToolItem } from '../lib/schemas'
 import { getStatusIcon } from '@/lib/toolStatus'
@@ -49,7 +49,11 @@ export function Toolbox({ name, args }: ToolboxProps) {
   )
 
   const hasError = args.error || args.status?.includes('failed')
-  const variant = hasError ? 'red' : 'blue'
+  const variant = hasError
+    ? 'error'
+    : args.status?.includes('in_progress')
+      ? 'processing'
+      : 'toollist'
 
   const summaryContent = (
     <span className="flex items-center gap-1 text-xs opacity-75">
@@ -67,7 +71,6 @@ export function Toolbox({ name, args }: ToolboxProps) {
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
         <CollapsibleSection
           title={`Tool List: ${name}`}
-          icon={<Settings className="h-4 w-4" />}
           variant={variant}
           additionalSummaryContent={summaryContent}
         >

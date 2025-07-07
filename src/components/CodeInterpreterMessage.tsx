@@ -14,6 +14,7 @@ import {
   createAnnotatedFileUrl,
   isImageFile,
 } from '@/lib/utils/code-interpreter'
+import { MessageAvatar } from './MessageAvatar'
 
 type CodeInterpreterStatus = 'writing' | 'executing' | 'completed' | 'failed'
 
@@ -139,17 +140,18 @@ export function CodeInterpreterMessage({ args }: CodeInterpreterMessageProps) {
     </>
   )
 
+  const variant = status === 'writing' ? 'processing' : 'toollist'
+
   return (
     <div className="flex w-full max-w-full gap-2 py-2 animate-in fade-in justify-start">
-      <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300">
-        <Code2 className="h-5 w-5" />
-      </div>
+      <MessageAvatar icon={<Code2 className="h-5 w-5" />} variant={variant} />
 
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
         <CollapsibleSection
           title="Code Interpreter"
           open={true}
           additionalSummaryContent={summaryContent}
+          variant={variant}
         >
           <div className="space-y-4">
             {/* Code Block */}
