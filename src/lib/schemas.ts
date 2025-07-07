@@ -108,3 +108,23 @@ export const allowOptions = {
     description: 'Your approval is not required',
   },
 } as const
+
+// Container file query parameters schema
+export const containerFileQuerySchema = z.object({
+  containerId: z
+    .string()
+    .min(1, 'Container ID is required')
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Container ID must contain only alphanumeric characters, hyphens, and underscores',
+    ),
+  fileId: z
+    .string()
+    .min(1, 'File ID is required')
+    .regex(
+      /^[a-zA-Z0-9._-]+$/,
+      'File ID must contain only alphanumeric characters, dots, hyphens, and underscores',
+    ),
+})
+
+export type ContainerFileQuery = z.infer<typeof containerFileQuerySchema>

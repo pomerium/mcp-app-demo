@@ -1,25 +1,56 @@
-import { cn } from '../lib/utils'
-import type { Message } from '../mcp/client'
-import { formatTimestamp } from '../lib/utils'
-import { Bot, Copy } from 'lucide-react'
-import { MarkdownContent } from './MarkdownContent'
-
+import { Bot, Copy, Download } from 'lucide-react'
 import { toast } from 'sonner'
-import { copyToClipboard } from '../lib/utils/clipboard'
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import type { Message } from '@/mcp/client'
+import { formatTimestamp } from '@/lib/utils'
+import { MarkdownContent } from '@/components/MarkdownContent'
+import { copyToClipboard } from '@/lib/utils/clipboard'
+import {
+  isImageFile,
+  createAnnotatedFileUrl,
+} from '@/lib/utils/code-interpreter'
 
 export interface BotMessageProps {
   message: Message
   isLoading?: boolean
+  fileAnnotations?: Array<{
+    type: string
+    container_id: string
+    file_id: string
+    filename: string
+  }>
 }
 
-export function BotMessage({ message, isLoading }: BotMessageProps) {
+export function BotMessage({
+  message,
+  isLoading,
+  fileAnnotations = [],
+}: BotMessageProps) {
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+
   const handleCopy = async () => {
-    const copied = await copyToClipboard(message.content)
+    const copied = await copyToClipboard(processedContent)
 
     if (copied) {
       toast.success('Copied message to clipboard')
     }
   }
+
+  const handleImageError = (fileId: string) => {
+    setImageErrors((prev) => new Set(prev).add(fileId))
+  }
+
+  // Use message content directly; sandbox URL replacement is not needed
+  const processedContent = message.content
+
+  // Separate image and non-image files
+  const imageFiles = fileAnnotations.filter((annotation) =>
+    isImageFile(annotation.filename),
+  )
+  const otherFiles = fileAnnotations.filter(
+    (annotation) => !isImageFile(annotation.filename),
+  )
 
   return (
     <div
@@ -50,6 +81,90 @@ export function BotMessage({ message, isLoading }: BotMessageProps) {
           <div data-raw-markdown={message.content}>
             <MarkdownContent content={message.content} />
           </div>
+
+          {/* Image Gallery */}
+          {imageFiles.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {imageFiles.map((annotation) => {
+                const hasError = imageErrors.has(annotation.file_id)
+                const imageUrl = createAnnotatedFileUrl(annotation)
+
+                // Generate accessible alt text based on filename
+                const getAltText = (filename: string) => {
+                  const name = filename.replace(/\.[^/.]+$/, '') // Remove extension
+                  return `Generated visualization: ${name.replace(/_/g, ' ')}`
+                }
+
+                return (
+                  <div key={annotation.file_id} className="relative group">
+                    {hasError ? (
+                      <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 rounded border border-dashed border-gray-300 dark:border-gray-600">
+                        <div className="text-center">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Failed to load image
+                          </p>
+                          <a
+                            href={createAnnotatedFileUrl(annotation)}
+                            download={annotation.filename}
+                            className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            Download file instead
+                          </a>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <img
+                          src={imageUrl}
+                          alt={getAltText(annotation.filename)}
+                          className="max-w-full h-auto rounded border border-gray-200 dark:border-gray-700 cursor-pointer"
+                          onError={() => handleImageError(annotation.file_id)}
+                          onClick={() => window.open(imageUrl, '_blank')}
+                        />
+                        <a
+                          href={createAnnotatedFileUrl(annotation)}
+                          download={annotation.filename}
+                          className="absolute top-2 right-2 p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-800"
+                          title="Download image"
+                        >
+                          <Download className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                        </a>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Other Files */}
+          {otherFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                Attachments:
+              </p>
+              <div className="space-y-1">
+                {otherFiles.map((annotation) => (
+                  <div
+                    key={annotation.file_id}
+                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700"
+                  >
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {annotation.filename}
+                    </span>
+                    <a
+                      href={createAnnotatedFileUrl(annotation)}
+                      download={annotation.filename}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                    >
+                      <Download className="h-3 w-3" />
+                      Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex gap-1 items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
           <time dateTime={message.timestamp.toISOString()}>
