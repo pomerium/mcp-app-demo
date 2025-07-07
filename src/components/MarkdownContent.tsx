@@ -17,7 +17,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
   }
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words [&>*+*]:mt-4 [&>h1+*]:mt-3 [&>h2+*]:mt-3 [&>h3+*]:mt-3 [&>p+ul]:mt-3 [&>p+ol]:mt-3">
+    <div className="prose prose-sm dark:prose-invert max-w-none break-words">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
