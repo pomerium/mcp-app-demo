@@ -504,16 +504,21 @@ export function Chat() {
     setMessages,
     setInput,
   } = useChat({
-    initialMessages: hasStartedChat ? [] : [initialMessage],
     body: chatBody,
     onError: handleError,
     onResponse: handleResponse,
   })
 
-  const renderEvents = useMemo<(StreamEvent | Message)[]>(
-    () => (streaming || streamBuffer.length > 0 ? [...streamBuffer] : messages),
-    [streaming, streamBuffer, messages],
-  )
+  const renderEvents = useMemo<(StreamEvent | Message)[]>(() => {
+    if (streaming || streamBuffer.length > 0) {
+      return [...streamBuffer]
+    }
+    // Show initial message only when there are no real messages and no streaming
+    if (messages.length === 0 && !hasStartedChat) {
+      return [initialMessage]
+    }
+    return messages
+  }, [streaming, streamBuffer, messages, hasStartedChat, initialMessage])
 
   const handleSendMessage = useCallback(
     (prompt: string) => {
@@ -550,14 +555,14 @@ export function Chat() {
     setHasStartedChat(false)
     setStreamBuffer([])
     setStreaming(false)
-    setMessages([initialMessage])
+    setMessages([]) // Clear messages completely - initialMessage will be shown via renderEvents logic
     setInput('')
     setFocusTimestamp(Date.now())
 
     textBufferRef.current = ''
     lastAssistantIdRef.current = null
     pendingStreamEventsRef.current = []
-  }, [initialMessage, setMessages, setInput])
+  }, [setMessages, setInput])
 
   const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
