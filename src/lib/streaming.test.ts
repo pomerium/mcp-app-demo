@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stopStreamProcessing } from './utils/streaming'
+import { stopStreamProcessing } from './streaming'
 
 describe('stopStreamProcessing', () => {
   it('replaces response body with an empty closed stream', async () => {

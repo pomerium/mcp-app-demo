@@ -23,6 +23,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
         components={{
           pre: ({ node, className, children, ...props }) => (
             <CodeBlock
+              className={className}
               onCopySuccess={handleCopySuccess}
               onCopyError={handleCopyError}
               {...props}
