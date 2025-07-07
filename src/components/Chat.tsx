@@ -835,7 +835,6 @@ export function Chat() {
                       timestamp: new Date(),
                       status: 'sent',
                     }}
-                    isLoading={streaming && idx === renderEvents.length - 1}
                     fileAnnotations={fileAnnotations}
                   />
                 )

@@ -1,7 +1,7 @@
 import { Brain } from 'lucide-react'
-import { cn } from '../lib/utils'
 import { MarkdownContent } from './MarkdownContent'
 import { CollapsibleSection } from './ui/collapsible-section'
+import { MessageAvatar } from './MessageAvatar'
 
 type ReasoningMessageProps = {
   effort: string
@@ -24,22 +24,14 @@ export function ReasoningMessage({
 }: ReasoningMessageProps) {
   return (
     <div className="flex w-full max-w-full gap-2 py-2 animate-in fade-in justify-start">
-      <div
-        className={cn(
-          'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300',
-          isLoading && 'animate-[pulse_1.5s_ease-in-out_infinite] opacity-80',
-        )}
-        aria-hidden="true"
-      >
-        <Brain className="h-5 w-5" />
-      </div>
+      <MessageAvatar icon={<Brain className="h-5 w-5" />} variant="reasoning" />
 
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
         <CollapsibleSection
           title="Reasoning"
-          icon={<Brain className="h-4 w-4" />}
           open={true}
           isLoading={isLoading}
+          variant="reasoning"
         >
           <div className="text-xs space-y-1">
             {effort && <div>Effort: {effort}</div>}

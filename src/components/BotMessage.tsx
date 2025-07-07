@@ -6,6 +6,7 @@ import type { Message } from '@/mcp/client'
 import { formatTimestamp } from '@/lib/utils'
 import { MarkdownContent } from '@/components/MarkdownContent'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { MessageAvatar } from './MessageAvatar'
 import {
   isImageFile,
   createAnnotatedFileUrl,
@@ -13,7 +14,6 @@ import {
 
 export interface BotMessageProps {
   message: Message
-  isLoading?: boolean
   fileAnnotations?: Array<{
     type: string
     container_id: string
@@ -22,11 +22,7 @@ export interface BotMessageProps {
   }>
 }
 
-export function BotMessage({
-  message,
-  isLoading,
-  fileAnnotations = [],
-}: BotMessageProps) {
+export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
 
   const handleCopy = async () => {
@@ -59,14 +55,7 @@ export function BotMessage({
         'justify-start',
       )}
     >
-      <div
-        className={cn(
-          'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
-          isLoading && 'animate-[pulse_1.5s_ease-in-out_infinite] opacity-80',
-        )}
-      >
-        <Bot className="h-5 w-5" />
-      </div>
+      <MessageAvatar icon={<Bot className="h-5 w-5" />} variant="default" />
       <div
         className={cn(
           'group grid gap-1 space-y-1 items-start',
