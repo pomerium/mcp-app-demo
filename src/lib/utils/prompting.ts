@@ -70,16 +70,16 @@ function enhanceSystemPromptForCharts(
 
 /**
  * Generates the system prompt, conditionally including code interpreter instructions
- * based on model support and chart enhancement for chart requests
+ * based on user toggle and chart enhancement for chart requests
  */
 export function getSystemPrompt(
-  model: string,
+  codeInterpreter: boolean,
   latestUserMessage?: string,
 ): string {
   const basePrompt = BASE_SYSTEM_PROMPT
 
   let systemPrompt = basePrompt
-  if (isCodeInterpreterSupported(model)) {
+  if (codeInterpreter) {
     systemPrompt += CODE_INTERPRETER_INSTRUCTIONS
   }
 

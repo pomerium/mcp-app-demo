@@ -39,14 +39,25 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         })
       }
 
-      const { messages, servers, model, userId } = result.data
-      const codeInterpreter = isCodeInterpreterSupported(model)
+      const { messages, servers, model, userId, codeInterpreter } = result.data
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
         })
+      }
+
+      if (codeInterpreter && !isCodeInterpreterSupported(model)) {
+        return new Response(
+          JSON.stringify({
+            error: `Code interpreter is not supported for model: ${model}. Please use a supported model like GPT-4o or o3-series.`,
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
 
       // Function to sanitize server labels for OpenAI API requirements
@@ -74,12 +85,16 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           ),
       ]
 
-      // Add code interpreter tool if enabled
-      if (codeInterpreter) {
+      // Add code interpreter tool if enabled and supported by model
+      if (codeInterpreter && isCodeInterpreterSupported(model)) {
         tools.push({
           type: 'code_interpreter',
           container: { type: 'auto' },
         } as Tool)
+      } else if (codeInterpreter) {
+        console.log(
+          `[MCP] Code interpreter tool requested but NOT supported for model: ${model}`,
+        )
       } else {
         console.log('[MCP] Code interpreter tool NOT enabled for this request.')
       }
@@ -87,7 +102,7 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
       // System prompt for proper markdown formatting (conditionally includes code interpreter instructions and chart enhancements)
       const latestUserMessage = messages[messages.length - 1]
       const systemPrompt = getSystemPrompt(
-        model,
+        codeInterpreter,
         latestUserMessage?.role === 'user'
           ? latestUserMessage.content
           : undefined,

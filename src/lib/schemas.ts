@@ -68,6 +68,7 @@ export const chatRequestSchema = z.object({
   servers: serversSchema,
   model: z.string(),
   userId: z.string(),
+  codeInterpreter: z.boolean().default(false),
 })
 
 // Disconnect request schema

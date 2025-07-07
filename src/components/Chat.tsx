@@ -14,12 +14,14 @@ import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
 import { MessageSquarePlus } from 'lucide-react'
+import { CodeInterpreterToggle } from './CodeInterpreterToggle'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { CodeInterpreterMessage } from './CodeInterpreterMessage'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
+import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 
 type StreamEvent =
   | { type: 'assistant'; id: string; content: string }
@@ -132,8 +134,17 @@ export function Chat() {
   const [selectedServers, setSelectedServers] = useState<string[]>([])
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
+  const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
+
+  const handleModelChange = (newModel: string) => {
+    setSelectedModel(newModel)
+
+    if (!isCodeInterpreterSupported(newModel)) {
+      setUseCodeInterpreter(false)
+    }
+  }
 
   const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const textBufferRef = useRef<string>('')
@@ -231,8 +242,9 @@ export function Chat() {
       ),
       model: selectedModel,
       userId: user?.id,
+      codeInterpreter: useCodeInterpreter,
     }),
-    [selectedServers, servers, selectedModel, user?.id],
+    [selectedServers, servers, selectedModel, user?.id, useCodeInterpreter],
   )
 
   const handleError = useCallback((error: Error) => {
@@ -735,6 +747,7 @@ export function Chat() {
     setMessages([]) // Clear messages completely - initialMessage will be shown via renderEvents logic
     setInput('')
     setFocusTimestamp(Date.now())
+    setUseCodeInterpreter(false)
 
     textBufferRef.current = ''
     lastAssistantIdRef.current = null
@@ -756,7 +769,7 @@ export function Chat() {
           <MessageSquarePlus className="size-4" />
           <span className="sr-only sm:not-sr-only">New Chat</span>
         </Button>
-        <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
+        <ModelSelect value={selectedModel} onValueChange={handleModelChange} />
       </div>
       <div className="flex-1">
         <div className="p-4 space-y-4">
