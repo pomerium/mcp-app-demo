@@ -377,7 +377,7 @@ export function ServerSelector({
         throw new Error('Invalid server data format')
       }
 
-      // Convert Pomerium server info to our local server format
+      // Transform server data
       const newServers: Servers = {}
       result.data.servers.forEach((serverInfo) => {
         const id = serverInfo.url // Use URL as unique identifier
@@ -405,6 +405,29 @@ export function ServerSelector({
       )
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Connect to server via Pomerium OAuth flow
+  const connectToServer = (serverId: string) => {
+    const server = servers[serverId]
+    if (!server) return
+
+    const currentUrl = window.location.href
+    const connectUrl = `${server.url}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
+
+    window.location.href = connectUrl
+  }
+
+  // Handle server click - toggle if connected, connect if disconnected
+  const handleServerClick = (serverId: string) => {
+    const server = servers[serverId]
+    if (!server) return
+
+    if (server.connected) {
+      onServerToggle(serverId)
+    } else {
+      connectToServer(serverId)
     }
   }
 
