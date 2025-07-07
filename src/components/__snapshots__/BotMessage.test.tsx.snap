@@ -199,11 +199,7 @@ Here is a summary table of total sales from every year. If you need additional d
         <time
           datetime="2025-07-06T12:00:00.000Z"
         >
-<<<<<<< HEAD
           12:00 PM
-=======
-          8:00 AM
->>>>>>> b0fb437 (test: added test for markdown table rendering in BotMessage component)
         </time>
         <button
           class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary"
