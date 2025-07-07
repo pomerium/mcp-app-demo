@@ -1,5 +1,6 @@
 /// <reference types="vitest/globals" />
 import '@testing-library/jest-dom/vitest'
+<<<<<<< HEAD
 import { vi } from 'vitest'
 
 // Mock Intl.DateTimeFormat globally to use UTC timezone for consistent test snapshots
@@ -12,3 +13,5 @@ vi.stubGlobal('Intl', {
     return new originalDateTimeFormat(locale, { ...options, timeZone: 'UTC' })
   }),
 })
+=======
+>>>>>>> b0fb437 (test: added test for markdown table rendering in BotMessage component)
