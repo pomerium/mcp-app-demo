@@ -12,6 +12,15 @@ const config = defineConfig({
     tailwindcss(),
     tanstackStart(),
   ],
+  // Use PostCSS instead of Lightning CSS during tests to avoid native dependency issues
+  // Lightning CSS is still used during build via @tailwindcss/vite plugin (default behavior)
+  ...(process.env.NODE_ENV === 'test' || process.env.VITEST
+    ? {
+        css: {
+          transformer: 'postcss',
+        },
+      }
+    : undefined),
   test: {
     environment: 'jsdom',
     setupFiles: ['./setupTests.ts'],
