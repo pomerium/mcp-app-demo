@@ -270,18 +270,25 @@ export function Chat() {
           // Handle error messages
           try {
             const errorData = JSON.parse(line.slice(2))
-            pendingStreamEventsRef.current.push({
-              type: 'error',
-              message:
-                errorData.message || 'An error occurred during streaming',
-              details: errorData.details,
-            })
+            // Process error events immediately instead of buffering
+            setStreamBuffer((prev) => [
+              ...prev,
+              {
+                type: 'error',
+                message:
+                  errorData.message || 'An error occurred during streaming',
+                details: errorData.details,
+              },
+            ])
           } catch (e) {
             console.error('Failed to parse error data:', e)
-            pendingStreamEventsRef.current.push({
-              type: 'error',
-              message: 'An unknown error occurred during streaming',
-            })
+            setStreamBuffer((prev) => [
+              ...prev,
+              {
+                type: 'error',
+                message: 'An unknown error occurred during streaming',
+              },
+            ])
           }
           return
         }
