@@ -48,9 +48,7 @@ export function BotMessage({ message, isLoading }: BotMessageProps) {
           )}
         >
           <div data-raw-markdown={message.content}>
-            <div className="prose prose-sm dark:prose-invert max-w-none break-words break-all whitespace-pre-wrap">
-              <MarkdownContent content={message.content} />
-            </div>
+            <MarkdownContent content={message.content} />
           </div>
         </div>
         <div className="flex gap-1 items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
