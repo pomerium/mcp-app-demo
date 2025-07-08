@@ -37,7 +37,7 @@ describe('ServerSelector', () => {
             description: 'A test server',
             url: 'https://test.example.com',
             connected: true,
-            can_disconnect: true,
+            needs_oauth: true,
           },
         ],
       }),
@@ -115,7 +115,7 @@ describe('ServerSelector', () => {
     expect(screen.queryByLabelText('Disconnect from Test Server')).toBeNull()
   })
 
-  it('should call DELETE request when disconnect button is clicked', async () => {
+  it('should call POST request to disconnect endpoint when disconnect button is clicked', async () => {
     const serversWithDisconnect: Servers = {
       'test-server': {
         ...baseServer,
@@ -123,11 +123,28 @@ describe('ServerSelector', () => {
       },
     }
 
-    // Mock DELETE request
-    const deleteFetch = vi.fn().mockResolvedValue({ ok: true })
+    // Mock disconnect POST request
+    const disconnectFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        servers: [
+          {
+            name: 'Test Server',
+            description: 'A test server',
+            url: 'https://test.example.com',
+            connected: false, // After disconnect
+            needs_oauth: true,
+          },
+        ],
+      }),
+    })
+
     ;(global.fetch as any).mockImplementation((url: string, options?: any) => {
-      if (options?.method === 'DELETE') {
-        return deleteFetch(url, options)
+      if (
+        url === '/.pomerium/mcp/routes/disconnect' &&
+        options?.method === 'POST'
+      ) {
+        return disconnectFetch(url, options)
       }
       // Return the default mock for other requests
       return Promise.resolve({
@@ -139,7 +156,7 @@ describe('ServerSelector', () => {
               description: 'A test server',
               url: 'https://test.example.com',
               connected: true,
-              can_disconnect: true,
+              needs_oauth: true,
             },
           ],
         }),
@@ -165,9 +182,17 @@ describe('ServerSelector', () => {
       fireEvent.click(disconnectButton)
     })
 
-    expect(deleteFetch).toHaveBeenCalledWith(
-      'https://test.example.com/.pomerium/mcp/connect',
-      { method: 'DELETE' },
+    expect(disconnectFetch).toHaveBeenCalledWith(
+      '/.pomerium/mcp/routes/disconnect',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          routes: ['https://test.example.com'],
+        }),
+      },
     )
   })
 
