@@ -1,6 +1,6 @@
 import { useState, useEffect, useId } from 'react'
 import { Button } from './ui/button'
-import { RefreshCw, Check, Info, Wrench, X } from 'lucide-react'
+import { RefreshCw, Check, Info, Wrench, Plug } from 'lucide-react'
 import {
   Drawer,
   DrawerClose,
@@ -333,7 +333,7 @@ const ServerSelectionContent = ({
                   aria-label={`Disconnect from ${server.name}`}
                   title="Disconnect"
                 >
-                  <X className="w-3 h-3" aria-hidden="true" />
+                  <Plug className="w-3 h-3" aria-hidden="true" />
                 </Button>
               )}
             </li>
