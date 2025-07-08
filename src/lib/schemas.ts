@@ -23,6 +23,7 @@ export const pomeriumServerInfoSchema = z.object({
   logo_url: z.string().optional(),
   url: z.string().url('Invalid server URL'),
   connected: z.boolean(),
+  needs_oauth: z.boolean().optional(),
 })
 
 // Pomerium MCP routes response schema
@@ -39,6 +40,7 @@ export const serverSchema = z.object({
   url: z.string().url('Invalid server URL'),
   status: ServerStatusEnum,
   connected: z.boolean().default(false),
+  needs_oauth: z.boolean().optional(),
   tools: z.record(toolStateSchema).optional(),
   toolStates: z.record(toolStateSchema).optional(),
 })
@@ -68,11 +70,23 @@ export const chatRequestSchema = z.object({
   userId: z.string(),
 })
 
+// Disconnect request schema
+export const disconnectRequestSchema = z.object({
+  routes: z.array(z.string().url('Invalid route URL')),
+})
+
+// Disconnect response schema (same format as routes response)
+export const disconnectResponseSchema = z.object({
+  servers: z.array(pomeriumServerInfoSchema),
+})
+
 // Types
 export type PomeriumServerInfo = z.infer<typeof pomeriumServerInfoSchema>
 export type PomeriumRoutesResponse = z.infer<
   typeof pomeriumRoutesResponseSchema
 >
+export type DisconnectRequest = z.infer<typeof disconnectRequestSchema>
+export type DisconnectResponse = z.infer<typeof disconnectResponseSchema>
 export type Server = z.infer<typeof serverSchema>
 export type Servers = z.infer<typeof serversSchema>
 export type ToolState = z.infer<typeof toolStateSchema>

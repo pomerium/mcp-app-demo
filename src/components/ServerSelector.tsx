@@ -1,6 +1,6 @@
 import { useState, useEffect, useId } from 'react'
 import { Button } from './ui/button'
-import { RefreshCw, Check, Settings, Info, Wrench } from 'lucide-react'
+import { RefreshCw, Check, Info, Wrench, Plug } from 'lucide-react'
 import {
   Drawer,
   DrawerClose,
@@ -16,6 +16,7 @@ import {
   type Server,
   type Servers,
 } from '../lib/schemas'
+import { useDisconnectServer } from '@/hooks/useDisconnectServer'
 
 // Constants
 const POMERIUM_ROUTES_ENDPOINT = '/.pomerium/mcp/routes'
@@ -154,10 +155,12 @@ const ServerSelectionContent = ({
   onServerToggle,
   disabled = false,
   isLoading,
+  error,
   onRefresh,
   children,
 }: ServerSelectorProps & {
   isLoading: boolean
+  error: string | null
   onRefresh: () => void
 }) => {
   const connectToServer = async (serverId: string) => {
@@ -170,6 +173,20 @@ const ServerSelectionContent = ({
 
     // Redirect to the connection URL - this will handle the OAuth flow
     window.location.href = connectUrl
+  }
+
+  // Use the custom hook for disconnecting
+  const disconnectMutation = useDisconnectServer(servers, onServersChange)
+
+  const disconnectFromServer = async (serverId: string) => {
+    const server = servers[serverId]
+    if (!server || !server.needs_oauth) return
+
+    try {
+      await disconnectMutation.mutateAsync(serverId)
+    } catch (error) {
+      console.error('Failed to disconnect from server:', error)
+    }
   }
 
   const handleServerClick = (serverId: string) => {
@@ -186,6 +203,26 @@ const ServerSelectionContent = ({
   const serverList = Object.values(servers).sort((a, b) =>
     a.url.localeCompare(b.url),
   )
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <ServerSelectorHeader
+          isLoading={isLoading}
+          disabled={disabled}
+          onRefresh={onRefresh}
+        />
+        <div
+          role="status"
+          aria-live="polite"
+          className="text-sm text-red-600 dark:text-red-400 text-center py-4"
+        >
+          Error loading servers: {error}
+        </div>
+        {children}
+      </div>
+    )
+  }
 
   if (serverList.length === 0 && !isLoading) {
     return (
@@ -234,13 +271,14 @@ const ServerSelectionContent = ({
         {serverList.map((server) => {
           const isSelected = selectedServers.includes(server.id)
           const isConnected = server.status === 'connected'
+          const canDisconnect = isConnected && server.needs_oauth
 
           const buttonAriaLabel = isConnected
             ? `${server.name} - ${server.status}${isSelected ? ', selected' : ', click to ' + (isSelected ? 'deselect' : 'select')}`
             : `${server.name} - ${server.status}, click to connect`
 
           return (
-            <li key={server.id}>
+            <li key={server.id} className="flex items-center">
               <Button
                 onClick={() => handleServerClick(server.id)}
                 disabled={disabled}
@@ -251,6 +289,7 @@ const ServerSelectionContent = ({
                   ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
                   ${!isConnected ? 'opacity-70' : ''}
                   ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
+                  ${canDisconnect ? 'rounded-r-none border-r-0' : ''}
                 `}
                 aria-label={buttonAriaLabel}
                 aria-pressed={isConnected ? isSelected : undefined}
@@ -276,6 +315,27 @@ const ServerSelectionContent = ({
                   )}
                 </div>
               </Button>
+
+              {canDisconnect && (
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    disconnectFromServer(server.id)
+                  }}
+                  disabled={disabled}
+                  variant="outline"
+                  size="sm"
+                  className="
+                    h-8 w-8 p-0 rounded-l-none -ml-px text-xs
+                    hover:bg-red-50 hover:text-red-600 hover:border-red-300
+                    dark:hover:bg-red-950 dark:hover:text-red-400 dark:hover:border-red-700
+                  "
+                  aria-label={`Disconnect from ${server.name}`}
+                  title="Disconnect"
+                >
+                  <Plug className="w-3 h-3" aria-hidden="true" />
+                </Button>
+              )}
             </li>
           )
         })}
@@ -295,6 +355,7 @@ export function ServerSelector({
   children,
 }: ServerSelectorProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 768px)')
   const descriptionId = useId()
@@ -302,6 +363,7 @@ export function ServerSelector({
   // Fetch servers from Pomerium MCP endpoint
   const fetchPomeriumServers = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       const response = await fetch(POMERIUM_ROUTES_ENDPOINT)
       if (!response.ok) {
@@ -330,6 +392,7 @@ export function ServerSelector({
           url: serverInfo.url,
           status: serverInfo.connected ? 'connected' : 'disconnected',
           connected: serverInfo.connected,
+          needs_oauth: serverInfo.needs_oauth,
         }
         newServers[id] = server
       })
@@ -337,6 +400,9 @@ export function ServerSelector({
       onServersChange(newServers)
     } catch (error) {
       console.error('Failed to fetch servers:', error)
+      setError(
+        error instanceof Error ? error.message : 'Failed to fetch servers',
+      )
     } finally {
       setIsLoading(false)
     }
@@ -354,6 +420,7 @@ export function ServerSelector({
     onServerToggle,
     disabled,
     isLoading,
+    error,
     onRefresh: fetchPomeriumServers,
     children,
   }
