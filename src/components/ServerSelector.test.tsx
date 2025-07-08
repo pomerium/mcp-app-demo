@@ -48,7 +48,7 @@ describe('ServerSelector', () => {
     const serversWithoutDisconnect: Servers = {
       'test-server': {
         ...baseServer,
-        can_disconnect: false,
+        needs_oauth: false,
       },
     }
 
@@ -71,7 +71,7 @@ describe('ServerSelector', () => {
     const serversWithDisconnect: Servers = {
       'test-server': {
         ...baseServer,
-        can_disconnect: true,
+        needs_oauth: true,
       },
     }
 
@@ -96,7 +96,7 @@ describe('ServerSelector', () => {
         ...baseServer,
         status: 'disconnected',
         connected: false,
-        can_disconnect: true,
+        needs_oauth: true,
       },
     }
 
@@ -119,7 +119,7 @@ describe('ServerSelector', () => {
     const serversWithDisconnect: Servers = {
       'test-server': {
         ...baseServer,
-        can_disconnect: true,
+        needs_oauth: true,
       },
     }
 
@@ -175,7 +175,7 @@ describe('ServerSelector', () => {
     const serversWithDisconnect: Servers = {
       'test-server': {
         ...baseServer,
-        can_disconnect: true,
+        needs_oauth: true,
       },
     }
 

@@ -13,6 +13,8 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import {
   pomeriumRoutesResponseSchema,
+  disconnectRequestSchema,
+  disconnectResponseSchema,
   type Server,
   type Servers,
 } from '../lib/schemas'
@@ -20,6 +22,7 @@ import {
 // Constants
 const POMERIUM_ROUTES_ENDPOINT = '/.pomerium/mcp/routes'
 const POMERIUM_CONNECT_PATH = '/.pomerium/mcp/connect'
+const POMERIUM_DISCONNECT_ENDPOINT = '/.pomerium/mcp/routes/disconnect'
 
 type ServerSelectorProps = {
   servers: Servers
@@ -149,13 +152,14 @@ function ServerSelectorHeader({
 // Shared component for server selection UI
 const ServerSelectionContent = ({
   servers,
+  onServersChange,
   selectedServers,
   onServerToggle,
   disabled = false,
   isLoading,
   onRefresh,
   children,
-}: Omit<ServerSelectorProps, 'onServersChange'> & {
+}: ServerSelectorProps & {
   isLoading: boolean
   onRefresh: () => void
 }) => {
@@ -173,19 +177,53 @@ const ServerSelectionContent = ({
 
   const disconnectFromServer = async (serverId: string) => {
     const server = servers[serverId]
-    if (!server || !server.can_disconnect) return
+    if (!server || !server.needs_oauth) return
 
     try {
-      const response = await fetch(`${server.url}${POMERIUM_CONNECT_PATH}`, {
-        method: 'DELETE',
+      // Validate request payload
+      const requestPayload = disconnectRequestSchema.parse({
+        routes: [server.url],
+      })
+
+      const response = await fetch(POMERIUM_DISCONNECT_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload),
       })
 
       if (!response.ok) {
         throw new Error(`Failed to disconnect: ${response.status}`)
       }
 
-      // Refresh the servers list to get the updated connection status
-      onRefresh()
+      const responseData = await response.json()
+
+      // Validate response data
+      const result = disconnectResponseSchema.parse(responseData)
+
+      // Convert updated Pomerium server info to our local server format
+      const updatedServers: Servers = {}
+      result.servers.forEach((serverInfo) => {
+        const id = serverInfo.url // Use URL as unique identifier
+        // Extract hostname from URL as fallback name if name is not provided
+        const fallbackName =
+          new URL(serverInfo.url).hostname.split('.')[0] || 'Unknown Server'
+        const updatedServer: Server = {
+          id,
+          name: serverInfo.name || fallbackName,
+          description: serverInfo.description,
+          logo_url: serverInfo.logo_url,
+          url: serverInfo.url,
+          status: serverInfo.connected ? 'connected' : 'disconnected',
+          connected: serverInfo.connected,
+          needs_oauth: serverInfo.needs_oauth,
+        }
+        updatedServers[id] = updatedServer
+      })
+
+      // Update the servers with the new states
+      onServersChange(updatedServers)
     } catch (error) {
       console.error('Failed to disconnect from server:', error)
     }
@@ -253,14 +291,14 @@ const ServerSelectionContent = ({
         {serverList.map((server) => {
           const isSelected = selectedServers.includes(server.id)
           const isConnected = server.status === 'connected'
-          const canDisconnect = isConnected && server.can_disconnect
+          const canDisconnect = isConnected && server.needs_oauth
 
           const buttonAriaLabel = isConnected
             ? `${server.name} - ${server.status}${isSelected ? ', selected' : ', click to ' + (isSelected ? 'deselect' : 'select')}`
             : `${server.name} - ${server.status}, click to connect`
 
           return (
-            <li key={server.id} className="flex items-center gap-1">
+            <li key={server.id} className="flex items-center">
               <Button
                 onClick={() => handleServerClick(server.id)}
                 disabled={disabled}
@@ -271,7 +309,7 @@ const ServerSelectionContent = ({
                   ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
                   ${!isConnected ? 'opacity-70' : ''}
                   ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-                  ${canDisconnect ? 'rounded-r-none' : ''}
+                  ${canDisconnect ? 'rounded-r-none border-r-0' : ''}
                 `}
                 aria-label={buttonAriaLabel}
                 aria-pressed={isConnected ? isSelected : undefined}
@@ -308,7 +346,7 @@ const ServerSelectionContent = ({
                   variant="outline"
                   size="sm"
                   className="
-                    w-6 h-6 p-0 rounded-l-none border-l-0 text-xs
+                    h-8 w-8 p-0 rounded-l-none -ml-px text-xs
                     hover:bg-red-50 hover:text-red-600 hover:border-red-300
                     dark:hover:bg-red-950 dark:hover:text-red-400 dark:hover:border-red-700
                   "
@@ -372,7 +410,7 @@ export function ServerSelector({
           url: serverInfo.url,
           status: serverInfo.connected ? 'connected' : 'disconnected',
           connected: serverInfo.connected,
-          can_disconnect: serverInfo.can_disconnect,
+          needs_oauth: serverInfo.needs_oauth,
         }
         newServers[id] = server
       })
@@ -392,6 +430,7 @@ export function ServerSelector({
 
   const sharedProps = {
     servers,
+    onServersChange,
     selectedServers,
     onServerToggle,
     disabled,
