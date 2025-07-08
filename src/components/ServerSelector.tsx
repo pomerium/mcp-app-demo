@@ -1,6 +1,6 @@
 import { useState, useEffect, useId } from 'react'
 import { Button } from './ui/button'
-import { RefreshCw, Check, Settings, Info, Wrench } from 'lucide-react'
+import { RefreshCw, Check, Info, Wrench, X } from 'lucide-react'
 import {
   Drawer,
   DrawerClose,
@@ -149,14 +149,13 @@ function ServerSelectorHeader({
 // Shared component for server selection UI
 const ServerSelectionContent = ({
   servers,
-  onServersChange,
   selectedServers,
   onServerToggle,
   disabled = false,
   isLoading,
   onRefresh,
   children,
-}: ServerSelectorProps & {
+}: Omit<ServerSelectorProps, 'onServersChange'> & {
   isLoading: boolean
   onRefresh: () => void
 }) => {
@@ -170,6 +169,26 @@ const ServerSelectionContent = ({
 
     // Redirect to the connection URL - this will handle the OAuth flow
     window.location.href = connectUrl
+  }
+
+  const disconnectFromServer = async (serverId: string) => {
+    const server = servers[serverId]
+    if (!server || !server.can_disconnect) return
+
+    try {
+      const response = await fetch(`${server.url}${POMERIUM_CONNECT_PATH}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to disconnect: ${response.status}`)
+      }
+
+      // Refresh the servers list to get the updated connection status
+      onRefresh()
+    } catch (error) {
+      console.error('Failed to disconnect from server:', error)
+    }
   }
 
   const handleServerClick = (serverId: string) => {
@@ -234,13 +253,14 @@ const ServerSelectionContent = ({
         {serverList.map((server) => {
           const isSelected = selectedServers.includes(server.id)
           const isConnected = server.status === 'connected'
+          const canDisconnect = isConnected && server.can_disconnect
 
           const buttonAriaLabel = isConnected
             ? `${server.name} - ${server.status}${isSelected ? ', selected' : ', click to ' + (isSelected ? 'deselect' : 'select')}`
             : `${server.name} - ${server.status}, click to connect`
 
           return (
-            <li key={server.id}>
+            <li key={server.id} className="flex items-center gap-1">
               <Button
                 onClick={() => handleServerClick(server.id)}
                 disabled={disabled}
@@ -251,6 +271,7 @@ const ServerSelectionContent = ({
                   ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
                   ${!isConnected ? 'opacity-70' : ''}
                   ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
+                  ${canDisconnect ? 'rounded-r-none' : ''}
                 `}
                 aria-label={buttonAriaLabel}
                 aria-pressed={isConnected ? isSelected : undefined}
@@ -276,6 +297,27 @@ const ServerSelectionContent = ({
                   )}
                 </div>
               </Button>
+
+              {canDisconnect && (
+                <Button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    disconnectFromServer(server.id)
+                  }}
+                  disabled={disabled}
+                  variant="outline"
+                  size="sm"
+                  className="
+                    w-6 h-6 p-0 rounded-l-none border-l-0 text-xs
+                    hover:bg-red-50 hover:text-red-600 hover:border-red-300
+                    dark:hover:bg-red-950 dark:hover:text-red-400 dark:hover:border-red-700
+                  "
+                  aria-label={`Disconnect from ${server.name}`}
+                  title="Disconnect"
+                >
+                  <X className="w-3 h-3" aria-hidden="true" />
+                </Button>
+              )}
             </li>
           )
         })}
@@ -330,6 +372,7 @@ export function ServerSelector({
           url: serverInfo.url,
           status: serverInfo.connected ? 'connected' : 'disconnected',
           connected: serverInfo.connected,
+          can_disconnect: serverInfo.can_disconnect,
         }
         newServers[id] = server
       })
@@ -349,7 +392,6 @@ export function ServerSelector({
 
   const sharedProps = {
     servers,
-    onServersChange,
     selectedServers,
     onServerToggle,
     disabled,

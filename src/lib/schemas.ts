@@ -23,6 +23,7 @@ export const pomeriumServerInfoSchema = z.object({
   logo_url: z.string().optional(),
   url: z.string().url('Invalid server URL'),
   connected: z.boolean(),
+  can_disconnect: z.boolean().optional(),
 })
 
 // Pomerium MCP routes response schema
@@ -39,6 +40,7 @@ export const serverSchema = z.object({
   url: z.string().url('Invalid server URL'),
   status: ServerStatusEnum,
   connected: z.boolean().default(false),
+  can_disconnect: z.boolean().optional(),
   tools: z.record(toolStateSchema).optional(),
   toolStates: z.record(toolStateSchema).optional(),
 })
