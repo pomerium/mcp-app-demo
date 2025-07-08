@@ -13,16 +13,14 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import {
   pomeriumRoutesResponseSchema,
-  disconnectRequestSchema,
-  disconnectResponseSchema,
   type Server,
   type Servers,
 } from '../lib/schemas'
+import { useDisconnectServer } from '@/hooks/useDisconnectServer'
 
 // Constants
 const POMERIUM_ROUTES_ENDPOINT = '/.pomerium/mcp/routes'
 const POMERIUM_CONNECT_PATH = '/.pomerium/mcp/connect'
-const POMERIUM_DISCONNECT_ENDPOINT = '/.pomerium/mcp/routes/disconnect'
 
 type ServerSelectorProps = {
   servers: Servers
@@ -157,10 +155,12 @@ const ServerSelectionContent = ({
   onServerToggle,
   disabled = false,
   isLoading,
+  error,
   onRefresh,
   children,
 }: ServerSelectorProps & {
   isLoading: boolean
+  error: string | null
   onRefresh: () => void
 }) => {
   const connectToServer = async (serverId: string) => {
@@ -175,55 +175,15 @@ const ServerSelectionContent = ({
     window.location.href = connectUrl
   }
 
+  // Use the custom hook for disconnecting
+  const disconnectMutation = useDisconnectServer(servers, onServersChange)
+
   const disconnectFromServer = async (serverId: string) => {
     const server = servers[serverId]
     if (!server || !server.needs_oauth) return
 
     try {
-      // Validate request payload
-      const requestPayload = disconnectRequestSchema.parse({
-        routes: [server.url],
-      })
-
-      const response = await fetch(POMERIUM_DISCONNECT_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestPayload),
-      })
-
-      if (!response.ok) {
-        throw new Error(`Failed to disconnect: ${response.status}`)
-      }
-
-      const responseData = await response.json()
-
-      // Validate response data
-      const result = disconnectResponseSchema.parse(responseData)
-
-      // Convert updated Pomerium server info to our local server format
-      const updatedServers: Servers = {}
-      result.servers.forEach((serverInfo) => {
-        const id = serverInfo.url // Use URL as unique identifier
-        // Extract hostname from URL as fallback name if name is not provided
-        const fallbackName =
-          new URL(serverInfo.url).hostname.split('.')[0] || 'Unknown Server'
-        const updatedServer: Server = {
-          id,
-          name: serverInfo.name || fallbackName,
-          description: serverInfo.description,
-          logo_url: serverInfo.logo_url,
-          url: serverInfo.url,
-          status: serverInfo.connected ? 'connected' : 'disconnected',
-          connected: serverInfo.connected,
-          needs_oauth: serverInfo.needs_oauth,
-        }
-        updatedServers[id] = updatedServer
-      })
-
-      // Update the servers with the new states
-      onServersChange(updatedServers)
+      await disconnectMutation.mutateAsync(serverId)
     } catch (error) {
       console.error('Failed to disconnect from server:', error)
     }
@@ -243,6 +203,26 @@ const ServerSelectionContent = ({
   const serverList = Object.values(servers).sort((a, b) =>
     a.url.localeCompare(b.url),
   )
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <ServerSelectorHeader
+          isLoading={isLoading}
+          disabled={disabled}
+          onRefresh={onRefresh}
+        />
+        <div
+          role="status"
+          aria-live="polite"
+          className="text-sm text-red-600 dark:text-red-400 text-center py-4"
+        >
+          Error loading servers: {error}
+        </div>
+        {children}
+      </div>
+    )
+  }
 
   if (serverList.length === 0 && !isLoading) {
     return (
@@ -375,6 +355,7 @@ export function ServerSelector({
   children,
 }: ServerSelectorProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 768px)')
   const descriptionId = useId()
@@ -382,6 +363,7 @@ export function ServerSelector({
   // Fetch servers from Pomerium MCP endpoint
   const fetchPomeriumServers = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       const response = await fetch(POMERIUM_ROUTES_ENDPOINT)
       if (!response.ok) {
@@ -418,6 +400,9 @@ export function ServerSelector({
       onServersChange(newServers)
     } catch (error) {
       console.error('Failed to fetch servers:', error)
+      setError(
+        error instanceof Error ? error.message : 'Failed to fetch servers',
+      )
     } finally {
       setIsLoading(false)
     }
@@ -435,6 +420,7 @@ export function ServerSelector({
     onServerToggle,
     disabled,
     isLoading,
+    error,
     onRefresh: fetchPomeriumServers,
     children,
   }
