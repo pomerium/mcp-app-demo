@@ -724,13 +724,15 @@ export function Chat() {
             </Button>
           </div>
         )}
-        <ServerSelector
-          servers={servers}
-          onServersChange={setServers}
-          selectedServers={selectedServers}
-          onServerToggle={handleServerToggle}
-          disabled={hasStartedChat}
-        />
+        <div className="md:border-t border-gray-200 dark:border-gray-800 bg-background p-2 md:p-4">
+          <ServerSelector
+            servers={servers}
+            onServersChange={setServers}
+            selectedServers={selectedServers}
+            onServerToggle={handleServerToggle}
+            disabled={hasStartedChat}
+          />
+        </div>
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading || streaming}
