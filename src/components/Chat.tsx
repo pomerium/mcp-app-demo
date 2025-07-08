@@ -866,9 +866,6 @@ export function Chat() {
                         timestamp: new Date(),
                         status: 'sent',
                       }}
-                      isLoading={
-                        (isLoading || streaming) && message === messages.at(-1)
-                      }
                       fileAnnotations={fileAnnotations}
                     />
                   )
