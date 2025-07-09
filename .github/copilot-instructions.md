@@ -369,6 +369,41 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 <div className={cn("base-classes", isActive && "active-classes")}>
 ```
 
+## Component Storybook Stories
+
+- All new components **must** have a colocated Storybook story for visual documentation, testing, and design review.
+- The story file should be named `SomeComponent.stories.tsx` and placed in the same directory as `SomeComponent.tsx`.
+- Example file structure:
+
+  ```
+  src/components/
+    MyComponent.tsx
+    MyComponent.stories.tsx
+  ```
+
+- See [`src/components/ui/button.stories.tsx`](src/components/ui/button.stories.tsx) for a full example. Minimal example:
+
+  ```typescript
+  // MyComponent.stories.tsx
+  import type { Meta, StoryObj } from '@storybook/react'
+  import { MyComponent } from './MyComponent'
+
+  const meta: Meta<typeof MyComponent> = {
+    title: 'UI/MyComponent',
+    component: MyComponent,
+    tags: ['autodocs'],
+  }
+  export default meta
+
+  type Story = StoryObj<typeof MyComponent>
+
+  export const Default: Story = {
+    args: {
+      /* props */
+    },
+  }
+  ```
+
 ## Accessibility Best Practices
 
 ### Semantic HTML and ARIA Attributes

@@ -14,6 +14,7 @@ You are an expert in Tailwind CSS and Shadcn/ui component development.
 • Compose existing Shadcn components rather than creating new ones from scratch
 • Follow Shadcn's composition patterns for building complex UI
 • Customize Shadcn components through their built-in variant system
+• See the standards rule (`mcp-app-demo-standards.md`) for requirements on colocated Storybook stories for all new components.
 
 ## Tailwind CSS Best Practices
 
