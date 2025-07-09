@@ -926,7 +926,14 @@ export function Chat() {
             selectedServers={selectedServers}
             onServerToggle={handleServerToggle}
             disabled={hasStartedChat}
-          />
+          >
+            <CodeInterpreterToggle
+              useCodeInterpreter={useCodeInterpreter}
+              onToggle={setUseCodeInterpreter}
+              selectedModel={selectedModel}
+              disabled={hasStartedChat}
+            />
+          </ServerSelector>
         </div>
         <ChatInput
           onSendMessage={handleSendMessage}
