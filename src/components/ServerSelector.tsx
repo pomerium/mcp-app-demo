@@ -1,6 +1,13 @@
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useId, Children, type ReactElement } from 'react'
 import { Button } from './ui/button'
-import { RefreshCw, Check, Info, Wrench, Plug } from 'lucide-react'
+import {
+  RefreshCw,
+  Check,
+  Info,
+  Wrench,
+  Plug,
+  Server as ServerIcon,
+} from 'lucide-react'
 import {
   Drawer,
   DrawerClose,
@@ -465,9 +472,15 @@ export function ServerSelector({
               aria-describedby={descriptionId}
             >
               <div className="flex items-center gap-2">
-                <Wrench className="w-4 h-4" aria-hidden="true" />
+                <span className="relative flex items-center justify-center">
+                  <ServerIcon className="w-4 h-4" aria-hidden="true" />
+                  <Wrench
+                    className="absolute -top-1.5 -right-2 bg-gray-100 dark:bg-gray-600 rounded-full p-0.5"
+                    aria-hidden="true"
+                  />
+                </span>
                 <span className="text-sm">
-                  MCP Servers ({selectedCount}/{totalServers})
+                  Servers & Tools ({selectedCount}/{totalServers})
                 </span>
               </div>
               {disabled && (
