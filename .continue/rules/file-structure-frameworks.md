@@ -114,6 +114,7 @@ export const Route = createFileRoute('/users/$id')({
 • Use Shadcn components as building blocks rather than reinventing UI
 • Create compound components for related UI elements
 • Export components with descriptive names
+• See the standards rule (`mcp-app-demo-standards.md`) for requirements on colocated Storybook stories for all new components.
 
 ## Code Organization
 
@@ -158,3 +159,7 @@ import { userSchema } from '../../lib/schemas'
 • Use kebab-case for route files when appropriate
 • Use descriptive names that clearly indicate the file's purpose
 • Include the file type in the name when it adds clarity
+
+```
+
+```

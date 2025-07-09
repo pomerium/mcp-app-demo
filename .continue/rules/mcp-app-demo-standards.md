@@ -110,3 +110,38 @@ function useToggle(initialValue = false) {
   return [value, toggle] as const
 }
 ```
+
+## Storybook Stories for Components
+
+- All new components **must** have a colocated Storybook story for visual documentation, testing, and design review.
+- The story file should be named `SomeComponent.stories.tsx` and placed in the same directory as `SomeComponent.tsx`.
+- Example file structure:
+
+  ```
+  src/components/
+    MyComponent.tsx
+    MyComponent.stories.tsx
+  ```
+
+- See `src/components/ui/button.stories.tsx` for a full example. Minimal example:
+
+  ```typescript
+  // MyComponent.stories.tsx
+  import type { Meta, StoryObj } from '@storybook/react'
+  import { MyComponent } from './MyComponent'
+
+  const meta: Meta<typeof MyComponent> = {
+    title: 'UI/MyComponent',
+    component: MyComponent,
+    tags: ['autodocs'],
+  }
+  export default meta
+
+  type Story = StoryObj<typeof MyComponent>
+
+  export const Default: Story = {
+    args: {
+      /* props */
+    },
+  }
+  ```
