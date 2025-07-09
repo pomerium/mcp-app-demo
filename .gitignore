@@ -145,3 +145,6 @@ dist
 # Tanstack Start specific files
 .tanstack
 .nitro
+
+*storybook.log
+storybook-static

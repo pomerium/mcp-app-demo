@@ -11,7 +11,9 @@
     "test:ci": "vitest run --coverage",
     "lint": "eslint",
     "format": "prettier",
-    "check": "prettier --write . && eslint --fix"
+    "check": "prettier --write . && eslint --fix",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@pomerium/js-sdk": "^1.1.0",
@@ -52,6 +54,12 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@chromatic-com/storybook": "^4.0.1",
+    "@storybook/addon-a11y": "^9.0.16",
+    "@storybook/addon-docs": "^9.0.16",
+    "@storybook/addon-onboarding": "^9.0.16",
+    "@storybook/addon-vitest": "^9.0.16",
+    "@storybook/react-vite": "^9.0.16",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/eslint-config": "^0.1.0",
     "@testing-library/dom": "^10.4.0",
@@ -60,8 +68,12 @@
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/browser": "3.2.3",
+    "eslint-plugin-storybook": "^9.0.16",
     "jsdom": "^26.0.0",
+    "playwright": "^1.53.2",
     "prettier": "^3.5.3",
+    "storybook": "^9.0.16",
     "typescript": "^5.7.2",
     "vite": "^6.3.3",
     "vitest": "^3.0.5",
