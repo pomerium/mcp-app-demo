@@ -1,13 +1,6 @@
 import { useState, useEffect, useId, Children, type ReactElement } from 'react'
 import { Button } from './ui/button'
-import {
-  RefreshCw,
-  Check,
-  Info,
-  Wrench,
-  Plug,
-  Server as ServerIcon,
-} from 'lucide-react'
+import { RefreshCw, Info, Wrench, Server as ServerIcon } from 'lucide-react'
 import {
   Drawer,
   DrawerClose,
@@ -248,10 +241,10 @@ export function ServerSelector({
   disabled = false,
   children,
 }: ServerSelectorProps) {
+  const isMobile = useMediaQuery('(max-width: 768px)')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const isMobile = useMediaQuery('(max-width: 768px)')
   const descriptionId = useId()
 
   // Fetch servers from Pomerium MCP endpoint
@@ -345,9 +338,12 @@ export function ServerSelector({
   // On mobile, show drawer trigger with selected server count
   if (isMobile) {
     const selectedCount = selectedServers.length
-    const totalServers = Object.keys(servers).length
+    // Count both servers and children as selectable items
+    const childrenCount = Children.toArray(children).length
+    const totalServers = Object.keys(servers).length + childrenCount
     const description = `Opens server selection. ${selectedCount} of ${totalServers} servers selected${disabled ? '. Selection is locked after first message.' : ''}`
 
+    // Only render the button and drawer outside; ServerSelectionContent only inside DrawerContent
     return (
       <div className="space-y-4">
         <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
@@ -384,6 +380,7 @@ export function ServerSelector({
             {description}
           </div>
           <DrawerContent>
+            {/* Only render header/loading/error inside the drawer */}
             <DrawerHeader>
               <DrawerTitle className="text-left">
                 <ServerSelectorHeader
@@ -414,6 +411,5 @@ export function ServerSelector({
     )
   }
 
-  // On desktop, show inline server selection (current behavior)
   return <ServerSelectionContent {...sharedProps} />
 }

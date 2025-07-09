@@ -22,6 +22,7 @@ import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { CodeInterpreterMessage } from './CodeInterpreterMessage'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
+import { useHasMounted } from '@/hooks/useHasMounted'
 
 type StreamEvent =
   | { type: 'assistant'; id: string; content: string }
@@ -127,6 +128,7 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
 }
 
 export function Chat() {
+  const hasMounted = useHasMounted()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
@@ -919,22 +921,24 @@ export function Chat() {
             </Button>
           </div>
         )}
-        <div className="md:border-t border-gray-200 dark:border-gray-800 bg-background p-2 md:p-4">
-          <ServerSelector
-            servers={servers}
-            onServersChange={setServers}
-            selectedServers={selectedServers}
-            onServerToggle={handleServerToggle}
-            disabled={hasStartedChat}
-          >
-            <CodeInterpreterToggle
-              useCodeInterpreter={useCodeInterpreter}
-              onToggle={setUseCodeInterpreter}
-              selectedModel={selectedModel}
+        {hasMounted && (
+          <div className="md:border-t border-gray-200 dark:border-gray-800 bg-background p-2 md:p-4">
+            <ServerSelector
+              servers={servers}
+              onServersChange={setServers}
+              selectedServers={selectedServers}
+              onServerToggle={handleServerToggle}
               disabled={hasStartedChat}
-            />
-          </ServerSelector>
-        </div>
+            >
+              <CodeInterpreterToggle
+                useCodeInterpreter={useCodeInterpreter}
+                onToggle={setUseCodeInterpreter}
+                selectedModel={selectedModel}
+                disabled={hasStartedChat}
+              />
+            </ServerSelector>
+          </div>
+        )}
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading || streaming}
