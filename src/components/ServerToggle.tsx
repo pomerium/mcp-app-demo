@@ -17,7 +17,6 @@ const StatusIndicator = ({ status }: { status: Server['status'] }) => {
       case 'connected':
         return 'bg-green-500'
       case 'connecting':
-        // Use a darker orange for connecting
         return 'bg-orange-600'
       case 'error':
         return 'bg-red-500'
@@ -41,11 +40,11 @@ export function ServerToggle({
 }: ServerToggleProps) {
   const isConnected = server.status === 'connected'
   const isConnecting = server.status === 'connecting'
-  const canDisconnect = (isConnected || isConnecting) && server.needs_oauth
-
-  // Only show disconnect button when connected and needs_oauth is true
+  const serverLabel = `${server.name} - ${isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Click to connect'}`
+  const disconnectLabel = `Disconnect from ${server.name}`
   const showDisconnect =
     server.status === 'connected' && server.needs_oauth && onDisconnect
+
   return (
     <div
       className={`flex items-center ${showDisconnect ? 'gap-0' : 'gap-0.5'}`}
@@ -62,14 +61,18 @@ export function ServerToggle({
         ]
           .filter(Boolean)
           .join(' ')}
-        title={`${server.name} - ${isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Click to connect'}`}
+        title={serverLabel}
+        aria-pressed={isSelected}
+        aria-label={serverLabel}
       >
         <div className="flex items-center gap-1.5">
           <StatusIndicator status={server.status} />
           {server.logo_url && (
             <img src={server.logo_url} alt="" className="w-3 h-3 rounded" />
           )}
-          <span className="text-sm">{server.name}</span>
+          <span className="text-sm" aria-hidden="true">
+            {server.name}
+          </span>
         </div>
       </Toggle>
       {showDisconnect && (
@@ -86,8 +89,8 @@ export function ServerToggle({
                     hover:bg-red-50 hover:text-red-600 hover:border-red-300
                     dark:hover:bg-red-950 dark:hover:text-red-400 dark:hover:border-red-700
                   "
-          aria-label={`Disconnect from ${server.name}`}
-          title="Disconnect"
+          aria-label={disconnectLabel}
+          title={disconnectLabel}
         >
           <Plug className="w-3 h-3" aria-hidden="true" />
         </Button>
