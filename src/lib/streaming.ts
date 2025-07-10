@@ -330,7 +330,21 @@ export function streamText(
                 ),
               )
               break
+            // Web search tool events
             default:
+              if (
+                chunk.type &&
+                chunk.type.startsWith('response.web_search_call.')
+              ) {
+                controller.enqueue(
+                  encoder.encode(
+                    `t:${JSON.stringify({
+                      ...chunk,
+                    })}\n`,
+                  ),
+                )
+                break
+              }
               // Skip unknown chunk types, but log them for debugging
               console.warn(
                 '[streamText] Skipping unknown chunk type:',

@@ -6,6 +6,7 @@ import { streamText } from '../../lib/streaming'
 import {
   getSystemPrompt,
   isCodeInterpreterSupported,
+  isWebSearchSupported, // NEW
 } from '../../lib/utils/prompting'
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
@@ -39,7 +40,8 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         })
       }
 
-      const { messages, servers, model, userId, codeInterpreter } = result.data
+      const { messages, servers, model, userId, codeInterpreter, webSearch } =
+        result.data
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
@@ -52,6 +54,18 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         return new Response(
           JSON.stringify({
             error: `Code interpreter is not supported for model: ${model}. Please use a supported model like GPT-4o or o3-series.`,
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
+      }
+
+      if (webSearch && !isWebSearchSupported(model)) {
+        return new Response(
+          JSON.stringify({
+            error: `Web search is not supported for model: ${model}.`,
           }),
           {
             status: 400,
@@ -90,13 +104,14 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         tools.push({
           type: 'code_interpreter',
           container: { type: 'auto' },
-        } as Tool)
-      } else if (codeInterpreter) {
-        console.log(
-          `[MCP] Code interpreter tool requested but NOT supported for model: ${model}`,
-        )
-      } else {
-        console.log('[MCP] Code interpreter tool NOT enabled for this request.')
+        })
+      }
+
+      // Add web search tool if enabled and supported by model
+      if (webSearch && isWebSearchSupported(model)) {
+        tools.push({
+          type: 'web_search_preview',
+        })
       }
 
       // System prompt for proper markdown formatting (conditionally includes code interpreter instructions and chart enhancements)

@@ -69,6 +69,7 @@ export const chatRequestSchema = z.object({
   model: z.string(),
   userId: z.string(),
   codeInterpreter: z.boolean().default(false),
+  webSearch: z.boolean().default(false), // NEW: enable web search
 })
 
 // Disconnect request schema
@@ -129,3 +130,5 @@ export const containerFileQuerySchema = z.object({
 })
 
 export type ContainerFileQuery = z.infer<typeof containerFileQuerySchema>
+
+export type ChatRequest = z.infer<typeof chatRequestSchema>
