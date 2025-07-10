@@ -34,20 +34,25 @@ Only use the code interpreter tool when it's actually needed for calculations or
 
 /**
  * Checks if the given model supports code interpreter functionality
+ * Updated: Only allow models that are officially supported by OpenAI for code interpreter.
+ * See: https://platform.openai.com/docs/guides/tools-code-interpreter
  */
-export function isCodeInterpreterSupported(model: string): boolean {
-  const normalizedModel = model.toLowerCase()
+const CODE_INTERPRETER_SUPPORTED_MODELS = Object.freeze(
+  new Set([
+    // Official OpenAI models with code interpreter support (as of June 2024)
+    'gpt-4o',
+    'gpt-4.1',
+    'gpt-4',
+    'o4-mini',
+    'o3',
+  ]),
+)
 
-  return (
-    // GPT-4o family
-    normalizedModel.includes('gpt-4o') ||
-    // GPT-4.1 family
-    normalizedModel.includes('gpt-4.1') ||
-    // o-series models (o3, o4-mini, etc.)
-    !!normalizedModel.match(/^o[3-9]/) ||
-    normalizedModel.includes('o3') ||
-    normalizedModel.includes('o4')
-  )
+export function isCodeInterpreterSupported(model: string): boolean {
+  if (!model) return false
+  const normalizedModel = model.toLowerCase().replace(/\s+/g, '')
+
+  return CODE_INTERPRETER_SUPPORTED_MODELS.has(normalizedModel)
 }
 
 /**
