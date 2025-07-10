@@ -37,7 +37,7 @@ Only use the code interpreter tool when it's actually needed for calculations or
  * Updated: Only allow models that are officially supported by OpenAI for code interpreter.
  * See: https://platform.openai.com/docs/guides/tools-code-interpreter
  */
-const CODE_INTERPRETER_SUPPORTED_MODELS = Object.freeze(
+export const CODE_INTERPRETER_SUPPORTED_MODELS = Object.freeze(
   new Set([
     // Official OpenAI models with code interpreter support (as of June 2024)
     'gpt-4o',
@@ -53,6 +53,30 @@ export function isCodeInterpreterSupported(model: string): boolean {
   const normalizedModel = model.toLowerCase().replace(/\s+/g, '')
 
   return CODE_INTERPRETER_SUPPORTED_MODELS.has(normalizedModel)
+}
+
+/**
+ * Checks if the given model supports web search functionality
+ * Updated: Only allow models that are officially supported by OpenAI for web search.
+ * See: https://platform.openai.com/docs/guides/tools-web-search?api-mode=responses
+ */
+export const WEB_SEARCH_SUPPORTED_MODELS = Object.freeze(
+  new Set([
+    // Official OpenAI models with web search support (as of June 2024)
+    'gpt-4o',
+    'gpt-4.1',
+    'gpt-4',
+    'gpt-3.5-turbo',
+    'o4-mini',
+    'o3',
+  ]),
+)
+
+export function isWebSearchSupported(model: string): boolean {
+  if (!model) return false
+  const normalizedModel = model.toLowerCase().replace(/\s+/g, '')
+
+  return WEB_SEARCH_SUPPORTED_MODELS.has(normalizedModel)
 }
 
 /**
