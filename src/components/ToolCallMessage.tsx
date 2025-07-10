@@ -1,5 +1,7 @@
 import { getStatusIcon } from '@/lib/toolStatus'
-import { Wrench, ChevronRight, ArrowRight } from 'lucide-react'
+import { Wrench, ArrowRight } from 'lucide-react'
+import { CollapsibleSection } from './ui/collapsible-section'
+import { MessageAvatar } from './MessageAvatar'
 
 type ToolCallMessageProps<T = Record<string, unknown>> = {
   name: string
@@ -38,30 +40,19 @@ const getStatusText = (status?: string, error?: string) => {
   return 'Tool call'
 }
 
-const getColorClasses = (status?: string, error?: string) => {
+const getVariant = (status?: string, error?: string) => {
   // Red for failed/error states
   if (error || status?.includes('failed')) {
-    return {
-      icon: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300',
-      content: 'bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-100',
-    }
+    return 'error'
   }
 
   // Green for completed/done states
   if (status?.includes('completed') || status?.includes('done')) {
-    return {
-      icon: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300',
-      content:
-        'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-100',
-    }
+    return 'completed'
   }
 
   // Yellow for loading/working states (in progress, preparing, etc.)
-  return {
-    icon: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-300',
-    content:
-      'bg-yellow-50 text-yellow-900 dark:bg-yellow-950 dark:text-yellow-100',
-  }
+  return 'processing'
 }
 
 const getTitle = (name: string, args: ToolCallMessageProps['args']) => {
@@ -77,33 +68,29 @@ const getTitle = (name: string, args: ToolCallMessageProps['args']) => {
 }
 
 export function ToolCallMessage({ name, args }: ToolCallMessageProps) {
-  const colorClasses = getColorClasses(args.status, args.error)
+  const variant = getVariant(args.status, args.error)
+  const summaryContent = (
+    <>
+      {getStatusIcon(args.status, args.error)}
+      <span className="sr-only">{getStatusText(args.status, args.error)}</span>
+    </>
+  )
 
   return (
     <div className="flex w-full max-w-full gap-2 py-2 animate-in fade-in justify-start">
-      <div
-        className={`flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md ${colorClasses.icon}`}
-      >
-        <Wrench className="h-5 w-5" />
-      </div>
+      <MessageAvatar icon={<Wrench className="h-5 w-5" />} variant={variant} />
 
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
-        <details
-          className={`rounded-2xl px-4 py-2 text-sm w-full group [&:not([open])]:h-8 [&:not([open])]:flex [&:not([open])]:items-center [&:not([open])]:py-0 ${colorClasses.content}`}
+        <CollapsibleSection
+          title={getTitle(name, args)}
+          variant={variant}
+          additionalSummaryContent={summaryContent}
         >
-          <summary className="font-medium mb-1 flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden cursor-pointer group-[&:not([open])]:mb-0">
-            <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
-            {getTitle(name, args)}
-            {getStatusIcon(args.status, args.error)}
-            <span className="sr-only">
-              {getStatusText(args.status, args.error)}
-            </span>
-          </summary>
           {args.error && <span>Error: {args.error}</span>}
           <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-words break-all">
             {JSON.stringify(args, null, 2)}
           </pre>
-        </details>
+        </CollapsibleSection>
       </div>
     </div>
   )

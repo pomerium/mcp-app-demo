@@ -3,6 +3,10 @@ import { chatRequestSchema } from '../../lib/schemas'
 import OpenAI from 'openai'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
 import { streamText } from '../../lib/streaming'
+import {
+  getSystemPrompt,
+  isCodeInterpreterSupported,
+} from '../../lib/utils/prompting'
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
@@ -35,13 +39,25 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         })
       }
 
-      const { messages, servers, model, userId } = result.data
+      const { messages, servers, model, userId, codeInterpreter } = result.data
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
         })
+      }
+
+      if (codeInterpreter && !isCodeInterpreterSupported(model)) {
+        return new Response(
+          JSON.stringify({
+            error: `Code interpreter is not supported for model: ${model}. Please use a supported model like GPT-4o or o3-series.`,
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
       }
 
       // Function to sanitize server labels for OpenAI API requirements
@@ -52,38 +68,45 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           .replace(/_{2,}/g, '_') // Replace multiple underscores with single one
       }
 
-      const tools = Object.entries(servers)
-        .filter(([_, server]) => server.status === 'connected')
-        .map(([_id, server]) => ({
-          type: 'mcp',
-          server_label: sanitizeServerLabel(server.name),
-          server_url: server.url,
-          require_approval: 'never',
-          headers: {
-            Authorization: `Bearer ${bearerToken}`,
-          },
-        })) satisfies Tool[]
+      const tools: Tool[] = [
+        ...Object.entries(servers)
+          .filter(([_, server]) => server.status === 'connected')
+          .map(
+            ([_id, server]) =>
+              ({
+                type: 'mcp',
+                server_label: sanitizeServerLabel(server.name),
+                server_url: server.url,
+                require_approval: 'never',
+                headers: {
+                  Authorization: `Bearer ${bearerToken}`,
+                },
+              }) as Tool,
+          ),
+      ]
 
-      // System prompt for proper markdown formatting
-      const systemPrompt = `You are a helpful AI assistant that communicates using properly formatted markdown. Follow these strict formatting rules:
+      // Add code interpreter tool if enabled and supported by model
+      if (codeInterpreter && isCodeInterpreterSupported(model)) {
+        tools.push({
+          type: 'code_interpreter',
+          container: { type: 'auto' },
+        } as Tool)
+      } else if (codeInterpreter) {
+        console.log(
+          `[MCP] Code interpreter tool requested but NOT supported for model: ${model}`,
+        )
+      } else {
+        console.log('[MCP] Code interpreter tool NOT enabled for this request.')
+      }
 
-MARKDOWN FORMATTING REQUIREMENTS:
-1. **Lists**: Always keep list items on the same line as the marker
-   - ✅ CORRECT: "1. Lorem ipsum dolor sit amet..."
-   - ❌ WRONG: "1.  \\nLorem ipsum dolor sit amet..."
-
-2. **No line breaks after list markers**: Never put a line break immediately after numbered lists (1. 2. 3.) or bullet lists (- * +)
-
-3. **Proper list syntax**:
-   - Numbered lists: "1. Content here"
-   - Bullet lists: "- Content here" or "* Content here"
-   - No extra spaces or line breaks between marker and content
-
-4. **Other markdown**: Use standard markdown for headers, emphasis, links, tables, and code blocks
-
-5. **Consistency**: Maintain consistent formatting throughout your response
-
-Remember: Keep list content on the same line as the list marker to ensure proper rendering.`
+      // System prompt for proper markdown formatting (conditionally includes code interpreter instructions and chart enhancements)
+      const latestUserMessage = messages[messages.length - 1]
+      const systemPrompt = getSystemPrompt(
+        codeInterpreter,
+        latestUserMessage?.role === 'user'
+          ? latestUserMessage.content
+          : undefined,
+      )
 
       // Format the conversation history into a single input string with proper message parts
       const conversationHistory = messages
@@ -102,17 +125,15 @@ Remember: Keep list content on the same line as the list marker to ensure proper
         )
         .join('\n\n')
 
-      // Combine system prompt with conversation
-      const input = `${systemPrompt}\n\n--- CONVERSATION ---\n\n${conversationHistory}`
-
       const client = new OpenAI()
 
       let answer
       try {
         answer = await client.responses.create({
+          instructions: systemPrompt,
           model,
           tools,
-          input,
+          input: conversationHistory,
           stream: true,
           user: userId,
           ...(model.startsWith('o3') || model.startsWith('o4')
@@ -128,7 +149,7 @@ Remember: Keep list content on the same line as the list marker to ensure proper
 
         // Handle specific OpenAI API errors
         if (error instanceof OpenAI.APIError) {
-          const statusCode = error.statusCode || 500
+          const statusCode = error.status || 500
           let clientMessage = 'An error occurred while processing your request'
 
           // Map status codes to client messages
@@ -155,7 +176,7 @@ Remember: Keep list content on the same line as the list marker to ensure proper
               error: clientMessage,
               details:
                 process.env.NODE_ENV === 'development'
-                  ? errorMessage
+                  ? error.message
                   : undefined,
             }),
             {

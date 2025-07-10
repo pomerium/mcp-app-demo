@@ -14,13 +14,30 @@ import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
 import { MessageSquarePlus } from 'lucide-react'
+import { CodeInterpreterToggle } from './CodeInterpreterToggle'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
-import { stopStreamProcessing } from '@/lib/streaming'
+import { stopStreamProcessing } from '@/lib/utils/streaming'
+import { CodeInterpreterMessage } from './CodeInterpreterMessage'
+import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
+import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
+import { useHasMounted } from '@/hooks/useHasMounted'
 
 type StreamEvent =
-  | { type: 'assistant'; id: string; content: string }
+  | {
+      type: 'assistant'
+      id: string
+      content: string
+      fileAnnotations?: Array<{
+        type: string
+        container_id: string
+        file_id: string
+        filename: string
+        start_index?: number
+        end_index?: number
+      }>
+    }
   | {
       type: 'tool'
       toolType: string
@@ -38,6 +55,37 @@ type StreamEvent =
         | 'arguments_delta'
         | 'arguments_done'
         | 'failed'
+    }
+  | {
+      type: 'code_interpreter'
+      itemId: string
+      code?: string
+      delta?: string
+      annotation?: {
+        type: string
+        container_id: string
+        file_id: string
+        filename: string
+        start_index: number
+        end_index: number
+      }
+      eventType:
+        | 'code_interpreter_call_in_progress'
+        | 'code_interpreter_call_code_delta'
+        | 'code_interpreter_call_code_done'
+        | 'code_interpreter_call_interpreting'
+        | 'code_interpreter_call_completed'
+    }
+  | {
+      type: 'code_interpreter_file_annotation'
+      annotation: {
+        type: string
+        container_id: string
+        file_id: string
+        filename: string
+        start_index: number
+        end_index: number
+      }
     }
   | { type: 'user'; id: string; content: string }
   | {
@@ -82,6 +130,9 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
         event.itemId || `tool-${idx}-${event.toolType}-${event.serverLabel}`
       )
     }
+    if (event.type === 'code_interpreter') {
+      return `code-interpreter-${event.itemId}`
+    }
     if (event.type === 'assistant') {
       return `assistant-${event.id}`
     }
@@ -94,11 +145,17 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
     if (event.type === 'error') {
       return `error-${idx}`
     }
+    if (event.type === 'code_interpreter_file_annotation') {
+      // Use file_id or a combination for uniqueness
+      return `file-annotation-${event.annotation.file_id || idx}`
+    }
   }
-  return `message-${event.id}`
+  // Fallback: use idx if id is not present
+  return `message-${'id' in event ? (event as any).id : idx}`
 }
 
 export function Chat() {
+  const hasMounted = useHasMounted()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
@@ -106,8 +163,17 @@ export function Chat() {
   const [selectedServers, setSelectedServers] = useState<string[]>([])
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
+  const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
+
+  const handleModelChange = (newModel: string) => {
+    setSelectedModel(newModel)
+
+    if (!isCodeInterpreterSupported(newModel)) {
+      setUseCodeInterpreter(false)
+    }
+  }
 
   const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const textBufferRef = useRef<string>('')
@@ -119,9 +185,10 @@ export function Chat() {
       const assistantId = lastAssistantIdRef.current
       const textToAdd = textBufferRef.current
 
-      setStreamBuffer((prev) => {
+      setStreamBuffer((prev: StreamEvent[]) => {
         const existingIndex = prev.findIndex(
-          (event) => event.type === 'assistant' && event.id === assistantId,
+          (event: StreamEvent) =>
+            event.type === 'assistant' && event.id === assistantId,
         )
 
         if (existingIndex !== -1) {
@@ -158,13 +225,23 @@ export function Chat() {
     }
 
     if (pendingStreamEventsRef.current.length > 0) {
-      setStreamBuffer((prev) => [...prev, ...pendingStreamEventsRef.current])
+      setStreamBuffer((prev: StreamEvent[]) => [
+        ...prev,
+        ...pendingStreamEventsRef.current,
+      ])
       pendingStreamEventsRef.current = []
     }
   }, [])
 
   const updateAssistantText = useCallback(
     (text: string, assistantId: string) => {
+      // If the assistantId changes, flush the buffer first
+      if (
+        lastAssistantIdRef.current &&
+        lastAssistantIdRef.current !== assistantId
+      ) {
+        flushTextBuffer()
+      }
       textBufferRef.current += text
       lastAssistantIdRef.current = assistantId
 
@@ -205,13 +282,14 @@ export function Chat() {
       ),
       model: selectedModel,
       userId: user?.id,
+      codeInterpreter: useCodeInterpreter,
     }),
-    [selectedServers, servers, selectedModel, user?.id],
+    [selectedServers, servers, selectedModel, user?.id, useCodeInterpreter],
   )
 
   const handleError = useCallback((error: Error) => {
     console.error('Chat error:', error)
-    setStreamBuffer((prev) => [
+    setStreamBuffer((prev: StreamEvent[]) => [
       ...prev,
       {
         type: 'error',
@@ -230,7 +308,7 @@ export function Chat() {
           response.status,
           response.statusText,
         )
-        setStreamBuffer((prev) => [
+        setStreamBuffer((prev: StreamEvent[]) => [
           ...prev,
           {
             type: 'error',
@@ -250,7 +328,7 @@ export function Chat() {
       stopStreamProcessing(response)
 
       if (!reader) {
-        setStreamBuffer((prev) => [
+        setStreamBuffer((prev: StreamEvent[]) => [
           ...prev,
           {
             type: 'error',
@@ -271,7 +349,7 @@ export function Chat() {
           try {
             const errorData = JSON.parse(line.slice(2))
             // Process error events immediately instead of buffering
-            setStreamBuffer((prev) => [
+            setStreamBuffer((prev: StreamEvent[]) => [
               ...prev,
               {
                 type: 'error',
@@ -282,7 +360,7 @@ export function Chat() {
             ])
           } catch (e) {
             console.error('Failed to parse error data:', e)
-            setStreamBuffer((prev) => [
+            setStreamBuffer((prev: StreamEvent[]) => [
               ...prev,
               {
                 type: 'error',
@@ -302,10 +380,14 @@ export function Chat() {
             }
 
             const toolState = JSON.parse(toolStateStr)
+            // Handle tool_call_completed events
+            if (toolState.type === 'tool_call_completed') {
+              return
+            }
 
             // Handle reasoning summary streaming
             if (toolState.type === 'reasoning_summary_delta') {
-              setStreamBuffer((prev) => {
+              setStreamBuffer((prev: StreamEvent[]) => {
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
@@ -340,7 +422,7 @@ export function Chat() {
             }
 
             if (toolState.type === 'reasoning_summary_done') {
-              setStreamBuffer((prev) => {
+              setStreamBuffer((prev: StreamEvent[]) => {
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
@@ -371,6 +453,125 @@ export function Chat() {
                 temperature: toolState.temperature,
                 topP: toolState.topP,
               })
+              return
+            }
+
+            // Handle code interpreter events
+            if (toolState.type.startsWith('code_interpreter')) {
+              const codeInterpreterEvent: Extract<
+                StreamEvent,
+                { type: 'code_interpreter' }
+              > = {
+                type: 'code_interpreter',
+                itemId: toolState.itemId,
+                eventType: toolState.type as any,
+                code: toolState.code,
+                delta: toolState.delta,
+                annotation: toolState.annotation,
+              }
+
+              // Special handling for file annotations - they have different itemIds
+              if (toolState.type === 'code_interpreter_file_annotation') {
+                const annotationItemId = toolState.itemId
+                const annotation = codeInterpreterEvent.annotation
+                if (annotation) {
+                  setStreamBuffer((prev: StreamEvent[]) => {
+                    // Find the last assistant message
+                    const lastAssistantIdx = [...prev]
+                      .reverse()
+                      .findIndex(
+                        (event: StreamEvent) => event.type === 'assistant',
+                      )
+                    if (lastAssistantIdx !== -1) {
+                      const actualIdx = prev.length - 1 - lastAssistantIdx
+                      const existingEvent = prev[actualIdx]
+                      const updatedEvent = {
+                        ...existingEvent,
+                        fileAnnotations: [
+                          ...((existingEvent.type === 'assistant' &&
+                            existingEvent.fileAnnotations) ||
+                            []),
+                          annotation,
+                        ],
+                      }
+                      return [
+                        ...prev.slice(0, actualIdx),
+                        updatedEvent,
+                        ...prev.slice(actualIdx + 1),
+                      ]
+                    }
+                    // fallback: add as its own message
+                    return [
+                      ...prev,
+                      {
+                        type: 'assistant',
+                        id: `file-annotation-${annotationItemId}`,
+                        content: '',
+                        fileAnnotations: [annotation],
+                      },
+                    ]
+                  })
+                  return
+                }
+                // If no annotation, skip
+                return
+              }
+
+              // Handle other code interpreter events by itemId
+              if (codeInterpreterEvent.itemId) {
+                setStreamBuffer((prev: StreamEvent[]) => {
+                  const existingIndex = prev.findIndex(
+                    (event: StreamEvent) =>
+                      event.type === 'code_interpreter' &&
+                      event.itemId === codeInterpreterEvent.itemId,
+                  )
+
+                  if (existingIndex !== -1) {
+                    const existingEvent = prev[existingIndex] as Extract<
+                      StreamEvent,
+                      { type: 'code_interpreter' }
+                    >
+
+                    // Handle code accumulation for delta events
+                    let updatedCode = existingEvent.code || ''
+                    if (
+                      toolState.type === 'code_interpreter_call_code_delta' &&
+                      codeInterpreterEvent.delta
+                    ) {
+                      // Accumulate delta into existing code
+                      updatedCode =
+                        (existingEvent.code || '') + codeInterpreterEvent.delta
+                    } else if (
+                      toolState.type === 'code_interpreter_call_code_done' &&
+                      codeInterpreterEvent.code
+                    ) {
+                      // Replace with full code when done
+                      updatedCode = codeInterpreterEvent.code
+                    }
+
+                    const updatedEvent = {
+                      ...existingEvent,
+                      eventType: codeInterpreterEvent.eventType,
+                      code: updatedCode,
+                      delta: codeInterpreterEvent.delta || existingEvent.delta,
+                      annotation:
+                        codeInterpreterEvent.annotation ||
+                        existingEvent.annotation,
+                    }
+                    return [
+                      ...prev.slice(0, existingIndex),
+                      updatedEvent,
+                      ...prev.slice(existingIndex + 1),
+                    ]
+                  }
+                  return [...prev, codeInterpreterEvent]
+                })
+                return
+              }
+              setStreamBuffer((prev: StreamEvent[]) => [
+                ...prev,
+                codeInterpreterEvent,
+              ])
               return
             }
 
@@ -410,11 +611,11 @@ export function Chat() {
             }
 
             // Use immediate update for tool events to maintain responsiveness
-            setStreamBuffer((prev) => {
+            setStreamBuffer((prev: StreamEvent[]) => {
               const itemId = toolState.itemId
               if (itemId) {
                 const existingIndex = prev.findIndex(
-                  (event) =>
+                  (event: StreamEvent) =>
                     event.type === 'tool' &&
                     'itemId' in event &&
                     event.itemId === itemId,
@@ -449,7 +650,34 @@ export function Chat() {
           } catch (e) {
             console.error('Failed to parse tool state:', e)
           }
-        } else if (line.startsWith('0:')) {
+        }
+        // --- NEW: Handle OpenAI response.content_part.done JSON chunks ---
+        // These are full JSON objects, not prefixed with 0:, t:, or e:
+        try {
+          const chunkObj = JSON.parse(line)
+          if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
+            // Flush any pending text buffer before appending a new assistant message
+            flushTextBuffer()
+            const { item_id, part } = chunkObj
+            setStreamBuffer((prev: StreamEvent[]) => [
+              ...prev.filter(
+                (event: StreamEvent) =>
+                  !(event.type === 'assistant' && event.id === item_id),
+              ),
+              {
+                type: 'assistant',
+                id: item_id,
+                content: part.text,
+                fileAnnotations: part.annotations || [],
+              },
+            ])
+            return
+          }
+        } catch (e) {
+          // Not a JSON chunk, fall through to legacy 0: handler
+        }
+
+        if (line.startsWith('0:')) {
           try {
             const text = JSON.parse(line.slice(2))
             if (!assistantId) {
@@ -483,7 +711,7 @@ export function Chat() {
           readChunk()
         } catch (error) {
           console.error('Error reading stream chunk:', error)
-          setStreamBuffer((prev) => [
+          setStreamBuffer((prev: StreamEvent[]) => [
             ...prev,
             {
               type: 'error',
@@ -527,12 +755,34 @@ export function Chat() {
     return messages
   }, [streaming, streamBuffer, messages, hasStartedChat, initialMessage])
 
+  // Extract file annotations from code interpreter events
+  const fileAnnotations = useMemo(() => {
+    const annotations: Array<AnnotatedFile> = []
+
+    renderEvents.forEach((event) => {
+      if (
+        'type' in event &&
+        event.type === 'code_interpreter' &&
+        event.annotation
+      ) {
+        annotations.push({
+          type: event.annotation.type,
+          container_id: event.annotation.container_id,
+          file_id: event.annotation.file_id,
+          filename: event.annotation.filename,
+        })
+      }
+    })
+
+    return annotations
+  }, [renderEvents])
+
   const handleSendMessage = useCallback(
     (prompt: string) => {
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
-      setStreamBuffer((prev) => [
+      setStreamBuffer((prev: StreamEvent[]) => [
         ...prev,
         {
           type: 'user',
@@ -565,6 +815,7 @@ export function Chat() {
     setMessages([]) // Clear messages completely - initialMessage will be shown via renderEvents logic
     setInput('')
     setFocusTimestamp(Date.now())
+    setUseCodeInterpreter(false)
 
     textBufferRef.current = ''
     lastAssistantIdRef.current = null
@@ -586,7 +837,7 @@ export function Chat() {
           <MessageSquarePlus className="size-4" />
           <span className="sr-only sm:not-sr-only">New Chat</span>
         </Button>
-        <ModelSelect value={selectedModel} onValueChange={setSelectedModel} />
+        <ModelSelect value={selectedModel} onValueChange={handleModelChange} />
       </div>
       <div className="flex-1">
         <div className="p-4 space-y-4">
@@ -625,6 +876,38 @@ export function Chat() {
                     isLoading={streaming && idx === renderEvents.length - 1}
                   />
                 )
+              } else if ('type' in event && event.type === 'code_interpreter') {
+                return (
+                  <CodeInterpreterMessage
+                    key={key}
+                    name="Code Interpreter"
+                    args={{
+                      type: event.eventType,
+                      itemId: event.itemId,
+                      code: event.code,
+                      delta: event.delta,
+                      annotation: event.annotation,
+                    }}
+                  />
+                )
+              } else if (
+                'type' in event &&
+                event.type === 'code_interpreter_file_annotation'
+              ) {
+                // Render the file annotation as its own BotMessage
+                return (
+                  <BotMessage
+                    key={key}
+                    message={{
+                      id: key,
+                      content: '', // No text, just the file
+                      sender: 'agent',
+                      timestamp: new Date(),
+                      status: 'sent',
+                    }}
+                    fileAnnotations={[event.annotation]}
+                  />
+                )
               } else if ('type' in event && event.type === 'error') {
                 return <BotError key={key} message={event.message} />
               } else if ('type' in event && event.type === 'assistant') {
@@ -638,7 +921,7 @@ export function Chat() {
                       timestamp: new Date(),
                       status: 'sent',
                     }}
-                    isLoading={streaming && idx === renderEvents.length - 1}
+                    fileAnnotations={event.fileAnnotations || []}
                   />
                 )
               } else if ('type' in event && event.type === 'user') {
@@ -657,37 +940,39 @@ export function Chat() {
               } else {
                 // Fallback for Message type (from useChat)
                 const message = event as Message
-                const isAssistant = message.role === 'assistant'
-                if (isAssistant) {
-                  return (
-                    <BotMessage
-                      key={key}
-                      message={{
-                        id: message.id,
-                        content: message.content,
-                        sender: 'agent',
-                        timestamp: new Date(),
-                        status: 'sent',
-                      }}
-                      isLoading={
-                        (isLoading || streaming) && message === messages.at(-1)
-                      }
-                    />
-                  )
-                } else {
-                  return (
-                    <UserMessage
-                      key={key}
-                      message={{
-                        id: message.id,
-                        content: message.content,
-                        sender: 'user',
-                        timestamp: new Date(),
-                        status: 'sent',
-                      }}
-                    />
-                  )
+                // Only render if the event has an 'id' property (i.e., is a Message)
+                if ('id' in event) {
+                  const isAssistant = message.role === 'assistant'
+                  if (isAssistant) {
+                    return (
+                      <BotMessage
+                        key={key}
+                        message={{
+                          id: message.id,
+                          content: message.content,
+                          sender: 'agent',
+                          timestamp: new Date(),
+                          status: 'sent',
+                        }}
+                      />
+                    )
+                  } else {
+                    return (
+                      <UserMessage
+                        key={key}
+                        message={{
+                          id: message.id,
+                          content: message.content,
+                          sender: 'user',
+                          timestamp: new Date(),
+                          status: 'sent',
+                        }}
+                      />
+                    )
+                  }
                 }
+                // If not a Message (e.g., code_interpreter_file_annotation), skip rendering in fallback
+                return null
               }
             })}
             {streaming && <BotThinking />}
@@ -724,15 +1009,24 @@ export function Chat() {
             </Button>
           </div>
         )}
-        <div className="md:border-t border-gray-200 dark:border-gray-800 bg-background p-2 md:p-4">
-          <ServerSelector
-            servers={servers}
-            onServersChange={setServers}
-            selectedServers={selectedServers}
-            onServerToggle={handleServerToggle}
-            disabled={hasStartedChat}
-          />
-        </div>
+        {hasMounted && (
+          <div className="md:border-t border-gray-200 dark:border-gray-800 bg-background p-2 md:p-4">
+            <ServerSelector
+              servers={servers}
+              onServersChange={setServers}
+              selectedServers={selectedServers}
+              onServerToggle={handleServerToggle}
+              disabled={hasStartedChat}
+            >
+              <CodeInterpreterToggle
+                useCodeInterpreter={useCodeInterpreter}
+                onToggle={setUseCodeInterpreter}
+                selectedModel={selectedModel}
+                disabled={hasStartedChat}
+              />
+            </ServerSelector>
+          </div>
+        )}
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading || streaming}

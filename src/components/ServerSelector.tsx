@@ -1,6 +1,6 @@
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useId, Children, type ReactElement } from 'react'
 import { Button } from './ui/button'
-import { RefreshCw, Check, Info, Wrench, Plug } from 'lucide-react'
+import { RefreshCw, Info, Wrench, Server as ServerIcon } from 'lucide-react'
 import {
   Drawer,
   DrawerClose,
@@ -17,6 +17,7 @@ import {
   type Servers,
 } from '../lib/schemas'
 import { useDisconnectServer } from '@/hooks/useDisconnectServer'
+import { ServerToggle } from './ServerToggle'
 
 // Constants
 const POMERIUM_ROUTES_ENDPOINT = '/.pomerium/mcp/routes'
@@ -29,47 +30,6 @@ type ServerSelectorProps = {
   onServerToggle: (serverId: string) => void
   disabled?: boolean
   children?: React.ReactNode
-}
-
-const StatusIndicator = ({ status }: { status: Server['status'] }) => {
-  const getStatusColor = () => {
-    switch (status) {
-      case 'connected':
-        return 'bg-green-600'
-      case 'connecting':
-        return 'bg-orange-600'
-      case 'error':
-        return 'bg-red-600'
-      default:
-        return 'bg-gray-500'
-    }
-  }
-
-  const getStatusText = () => {
-    switch (status) {
-      case 'connected':
-        return 'Connected'
-      case 'connecting':
-        return 'Connecting'
-      case 'error':
-        return 'Error'
-      default:
-        return 'Disconnected'
-    }
-  }
-
-  return (
-    <div
-      className="flex items-center gap-1"
-      role="img"
-      aria-label={getStatusText()}
-    >
-      <div
-        className={`w-2 h-2 rounded-full ${getStatusColor()}`}
-        aria-hidden="true"
-      />
-    </div>
-  )
 }
 
 // Extracted header component to reduce complexity
@@ -158,190 +118,117 @@ const ServerSelectionContent = ({
   error,
   onRefresh,
   children,
+  showHeader = true,
 }: ServerSelectorProps & {
   isLoading: boolean
   error: string | null
   onRefresh: () => void
+  showHeader?: boolean
 }) => {
   const connectToServer = async (serverId: string) => {
     const server = servers[serverId]
     if (!server) return
-
-    // Use Pomerium MCP connection flow
     const currentUrl = window.location.href
     const connectUrl = `${server.url}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
-
-    // Redirect to the connection URL - this will handle the OAuth flow
     window.location.href = connectUrl
   }
-
-  // Use the custom hook for disconnecting
   const disconnectMutation = useDisconnectServer(servers, onServersChange)
-
   const disconnectFromServer = async (serverId: string) => {
     const server = servers[serverId]
     if (!server || !server.needs_oauth) return
-
     try {
       await disconnectMutation.mutateAsync(serverId)
     } catch (error) {
       console.error('Failed to disconnect from server:', error)
     }
   }
-
   const handleServerClick = (serverId: string) => {
     const server = servers[serverId]
     if (!server) return
-
     if (server.status === 'connected') {
       onServerToggle(serverId)
     } else {
       connectToServer(serverId)
     }
   }
-
   const serverList = Object.values(servers).sort((a, b) =>
     a.url.localeCompare(b.url),
   )
 
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <ServerSelectorHeader
-          isLoading={isLoading}
-          disabled={disabled}
-          onRefresh={onRefresh}
-        />
-        <div
-          role="status"
-          aria-live="polite"
-          className="text-sm text-red-600 dark:text-red-400 text-center py-4"
-        >
-          Error loading servers: {error}
-        </div>
-        {children}
-      </div>
-    )
-  }
-
-  if (serverList.length === 0 && !isLoading) {
-    return (
-      <div className="space-y-4">
-        <ServerSelectorHeader
-          isLoading={isLoading}
-          disabled={disabled}
-          onRefresh={onRefresh}
-        />
-        <div
-          role="status"
-          aria-live="polite"
-          className="text-sm text-gray-500 dark:text-gray-400 text-center py-4"
-        >
-          No MCP servers are currently configured in this Pomerium cluster.
-        </div>
-        {children}
-      </div>
-    )
-  }
-
+  // Always render the same shell: header and <ul>
   return (
     <div className="space-y-4">
-      <ServerSelectorHeader
-        isLoading={isLoading}
-        disabled={disabled}
-        onRefresh={onRefresh}
-        showHelp={!disabled}
-      />
-
-      {isLoading && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="text-sm text-gray-500 dark:text-gray-400"
-        >
-          Loading servers...
-        </div>
+      {showHeader && (
+        <ServerSelectorHeader
+          isLoading={isLoading}
+          disabled={disabled}
+          onRefresh={onRefresh}
+          showHelp={!disabled}
+        />
       )}
-
       <ul
-        className="flex flex-wrap gap-2 list-none p-0 m-0"
+        className="flex flex-wrap gap-2 list-none p-0 m-0 min-h-[48px]"
         role="group"
         aria-labelledby="server-list-label"
       >
-        {serverList.map((server) => {
-          const isSelected = selectedServers.includes(server.id)
-          const isConnected = server.status === 'connected'
-          const canDisconnect = isConnected && server.needs_oauth
-
-          const buttonAriaLabel = isConnected
-            ? `${server.name} - ${server.status}${isSelected ? ', selected' : ', click to ' + (isSelected ? 'deselect' : 'select')}`
-            : `${server.name} - ${server.status}, click to connect`
-
-          return (
-            <li key={server.id} className="flex items-center">
-              <Button
-                onClick={() => handleServerClick(server.id)}
-                disabled={disabled}
-                variant={isSelected ? 'default' : 'outline'}
-                size="sm"
-                className={`
-                  flex items-center gap-2 text-xs transition-all
-                  ${isSelected ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
-                  ${!isConnected ? 'opacity-70' : ''}
-                  ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-                  ${canDisconnect ? 'rounded-r-none border-r-0' : ''}
-                `}
-                aria-label={buttonAriaLabel}
-                aria-pressed={isConnected ? isSelected : undefined}
+        {isLoading ? (
+          <li className="flex items-center w-full">
+            <span
+              role="status"
+              aria-live="polite"
+              className="text-sm text-gray-500 dark:text-gray-400 text-center w-full"
+            >
+              Loading servers and tools...
+            </span>
+          </li>
+        ) : error ? (
+          <li className="flex items-center w-full">
+            <div
+              role="status"
+              aria-live="polite"
+              className="text-sm text-red-600 dark:text-red-400 text-center w-full"
+            >
+              Error loading servers: {error}
+            </div>
+          </li>
+        ) : Children.toArray(children).length === 0 &&
+          serverList.length === 0 ? (
+          <li className="flex items-center w-full">
+            <span
+              role="status"
+              aria-live="polite"
+              className="text-sm text-gray-500 dark:text-gray-400 text-center w-full"
+            >
+              No MCP servers or tools available.
+            </span>
+          </li>
+        ) : (
+          <>
+            {Children.toArray(children).map((child, idx) => (
+              <li
+                key={(child as ReactElement)?.key ?? `tool-${idx}`}
+                className="flex items-center"
               >
-                <div className="flex items-center gap-1.5">
-                  {server.logo_url && (
-                    <img
-                      src={server.logo_url}
-                      alt=""
-                      title={server.name}
-                      className="w-3 h-3 rounded"
-                    />
-                  )}
-                  <StatusIndicator status={server.status} />
-                  <span>{server.name}</span>
-                  {isSelected && (
-                    <Check className="w-3 h-3" aria-hidden="true" />
-                  )}
-                  {!isConnected && !disabled && (
-                    <span className="text-xs opacity-70" aria-hidden="true">
-                      (Click to connect)
-                    </span>
-                  )}
-                </div>
-              </Button>
-
-              {canDisconnect && (
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    disconnectFromServer(server.id)
-                  }}
-                  disabled={disabled}
-                  variant="outline"
-                  size="sm"
-                  className="
-                    h-8 w-8 p-0 rounded-l-none -ml-px text-xs
-                    hover:bg-red-50 hover:text-red-600 hover:border-red-300
-                    dark:hover:bg-red-950 dark:hover:text-red-400 dark:hover:border-red-700
-                  "
-                  aria-label={`Disconnect from ${server.name}`}
-                  title="Disconnect"
-                >
-                  <Plug className="w-3 h-3" aria-hidden="true" />
-                </Button>
-              )}
-            </li>
-          )
-        })}
+                {child}
+              </li>
+            ))}
+            {serverList.map((server) => {
+              const isSelected = selectedServers.includes(server.id)
+              return (
+                <li key={server.id} className="flex items-center">
+                  <ServerToggle
+                    server={server}
+                    isSelected={isSelected}
+                    onToggle={() => handleServerClick(server.id)}
+                    disabled={disabled}
+                    onDisconnect={disconnectFromServer}
+                  />
+                </li>
+              )
+            })}
+          </>
+        )}
       </ul>
-
-      {children}
     </div>
   )
 }
@@ -354,10 +241,10 @@ export function ServerSelector({
   disabled = false,
   children,
 }: ServerSelectorProps) {
-  const [isLoading, setIsLoading] = useState(false)
+  const isMobile = useMediaQuery('(max-width: 768px)')
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const isMobile = useMediaQuery('(max-width: 768px)')
   const descriptionId = useId()
 
   // Fetch servers from Pomerium MCP endpoint
@@ -377,7 +264,7 @@ export function ServerSelector({
         throw new Error('Invalid server data format')
       }
 
-      // Convert Pomerium server info to our local server format
+      // Transform server data
       const newServers: Servers = {}
       result.data.servers.forEach((serverInfo) => {
         const id = serverInfo.url // Use URL as unique identifier
@@ -398,13 +285,36 @@ export function ServerSelector({
       })
 
       onServersChange(newServers)
+      setIsLoading(false)
     } catch (error) {
       console.error('Failed to fetch servers:', error)
       setError(
         error instanceof Error ? error.message : 'Failed to fetch servers',
       )
-    } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Connect to server via Pomerium OAuth flow
+  const connectToServer = (serverId: string) => {
+    const server = servers[serverId]
+    if (!server) return
+
+    const currentUrl = window.location.href
+    const connectUrl = `${server.url}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
+
+    window.location.href = connectUrl
+  }
+
+  // Handle server click - toggle if connected, connect if disconnected
+  const handleServerClick = (serverId: string) => {
+    const server = servers[serverId]
+    if (!server) return
+
+    if (server.status === 'connected') {
+      onServerToggle(serverId)
+    } else {
+      connectToServer(serverId)
     }
   }
 
@@ -428,9 +338,12 @@ export function ServerSelector({
   // On mobile, show drawer trigger with selected server count
   if (isMobile) {
     const selectedCount = selectedServers.length
-    const totalServers = Object.keys(servers).length
+    // Count both servers and children as selectable items
+    const childrenCount = Children.toArray(children).length
+    const totalServers = Object.keys(servers).length + childrenCount
     const description = `Opens server selection. ${selectedCount} of ${totalServers} servers selected${disabled ? '. Selection is locked after first message.' : ''}`
 
+    // Only render the button and drawer outside; ServerSelectionContent only inside DrawerContent
     return (
       <div className="space-y-4">
         <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
@@ -442,9 +355,15 @@ export function ServerSelector({
               aria-describedby={descriptionId}
             >
               <div className="flex items-center gap-2">
-                <Wrench className="w-4 h-4" aria-hidden="true" />
+                <span className="relative flex items-center justify-center">
+                  <ServerIcon className="w-4 h-4" aria-hidden="true" />
+                  <Wrench
+                    className="absolute -top-1.5 -right-2 bg-gray-100 dark:bg-gray-600 rounded-full p-0.5"
+                    aria-hidden="true"
+                  />
+                </span>
                 <span className="text-sm">
-                  MCP Servers ({selectedCount}/{totalServers})
+                  Servers & Tools ({selectedCount}/{totalServers})
                 </span>
               </div>
               {disabled && (
@@ -461,9 +380,15 @@ export function ServerSelector({
             {description}
           </div>
           <DrawerContent>
+            {/* Only render header/loading/error inside the drawer */}
             <DrawerHeader>
               <DrawerTitle className="text-left">
-                MCP Server Selection
+                <ServerSelectorHeader
+                  isLoading={isLoading}
+                  disabled={disabled}
+                  onRefresh={fetchPomeriumServers}
+                  showHelp={!disabled}
+                />
               </DrawerTitle>
             </DrawerHeader>
             <div
@@ -471,7 +396,7 @@ export function ServerSelector({
               role="region"
               aria-label="Server selection content"
             >
-              <ServerSelectionContent {...sharedProps} />
+              <ServerSelectionContent {...sharedProps} showHeader={false} />
             </div>
             <div className="p-4 border-t">
               <DrawerClose asChild>
@@ -482,11 +407,9 @@ export function ServerSelector({
             </div>
           </DrawerContent>
         </Drawer>
-        {children}
       </div>
     )
   }
 
-  // On desktop, show inline server selection (current behavior)
   return <ServerSelectionContent {...sharedProps} />
 }
