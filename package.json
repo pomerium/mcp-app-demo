@@ -13,7 +13,7 @@
     "format": "prettier",
     "check": "prettier --write . && eslint --fix",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "npm ci && storybook build"
   },
   "dependencies": {
     "@pomerium/js-sdk": "^1.1.0",
