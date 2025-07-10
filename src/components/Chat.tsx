@@ -25,7 +25,19 @@ import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
 
 type StreamEvent =
-  | { type: 'assistant'; id: string; content: string }
+  | {
+      type: 'assistant'
+      id: string
+      content: string
+      fileAnnotations?: Array<{
+        type: string
+        container_id: string
+        file_id: string
+        filename: string
+        start_index?: number
+        end_index?: number
+      }>
+    }
   | {
       type: 'tool'
       toolType: string
@@ -133,8 +145,13 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
     if (event.type === 'error') {
       return `error-${idx}`
     }
+    if (event.type === 'code_interpreter_file_annotation') {
+      // Use file_id or a combination for uniqueness
+      return `file-annotation-${event.annotation.file_id || idx}`
+    }
   }
-  return `message-${event.id}`
+  // Fallback: use idx if id is not present
+  return `message-${'id' in event ? (event as any).id : idx}`
 }
 
 export function Chat() {
@@ -168,9 +185,10 @@ export function Chat() {
       const assistantId = lastAssistantIdRef.current
       const textToAdd = textBufferRef.current
 
-      setStreamBuffer((prev) => {
+      setStreamBuffer((prev: StreamEvent[]) => {
         const existingIndex = prev.findIndex(
-          (event) => event.type === 'assistant' && event.id === assistantId,
+          (event: StreamEvent) =>
+            event.type === 'assistant' && event.id === assistantId,
         )
 
         if (existingIndex !== -1) {
@@ -207,13 +225,23 @@ export function Chat() {
     }
 
     if (pendingStreamEventsRef.current.length > 0) {
-      setStreamBuffer((prev) => [...prev, ...pendingStreamEventsRef.current])
+      setStreamBuffer((prev: StreamEvent[]) => [
+        ...prev,
+        ...pendingStreamEventsRef.current,
+      ])
       pendingStreamEventsRef.current = []
     }
   }, [])
 
   const updateAssistantText = useCallback(
     (text: string, assistantId: string) => {
+      // If the assistantId changes, flush the buffer first
+      if (
+        lastAssistantIdRef.current &&
+        lastAssistantIdRef.current !== assistantId
+      ) {
+        flushTextBuffer()
+      }
       textBufferRef.current += text
       lastAssistantIdRef.current = assistantId
 
@@ -261,7 +289,7 @@ export function Chat() {
 
   const handleError = useCallback((error: Error) => {
     console.error('Chat error:', error)
-    setStreamBuffer((prev) => [
+    setStreamBuffer((prev: StreamEvent[]) => [
       ...prev,
       {
         type: 'error',
@@ -280,7 +308,7 @@ export function Chat() {
           response.status,
           response.statusText,
         )
-        setStreamBuffer((prev) => [
+        setStreamBuffer((prev: StreamEvent[]) => [
           ...prev,
           {
             type: 'error',
@@ -300,7 +328,7 @@ export function Chat() {
       stopStreamProcessing(response)
 
       if (!reader) {
-        setStreamBuffer((prev) => [
+        setStreamBuffer((prev: StreamEvent[]) => [
           ...prev,
           {
             type: 'error',
@@ -321,7 +349,7 @@ export function Chat() {
           try {
             const errorData = JSON.parse(line.slice(2))
             // Process error events immediately instead of buffering
-            setStreamBuffer((prev) => [
+            setStreamBuffer((prev: StreamEvent[]) => [
               ...prev,
               {
                 type: 'error',
@@ -332,7 +360,7 @@ export function Chat() {
             ])
           } catch (e) {
             console.error('Failed to parse error data:', e)
-            setStreamBuffer((prev) => [
+            setStreamBuffer((prev: StreamEvent[]) => [
               ...prev,
               {
                 type: 'error',
@@ -359,7 +387,7 @@ export function Chat() {
 
             // Handle reasoning summary streaming
             if (toolState.type === 'reasoning_summary_delta') {
-              setStreamBuffer((prev) => {
+              setStreamBuffer((prev: StreamEvent[]) => {
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
@@ -394,7 +422,7 @@ export function Chat() {
             }
 
             if (toolState.type === 'reasoning_summary_done') {
-              setStreamBuffer((prev) => {
+              setStreamBuffer((prev: StreamEvent[]) => {
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
@@ -442,64 +470,60 @@ export function Chat() {
                 annotation: toolState.annotation,
               }
 
-              // Use immediate update for code interpreter events
-              setStreamBuffer((prev) => {
-                const itemId = toolState.itemId
-
-                // Special handling for file annotations - they have different itemIds
-                if (toolState.type === 'code_interpreter_file_annotation') {
-                  // Extract the shared suffix from the annotation itemId
-                  // msg_6867ef114df4819cab4b74c2c6f7546001ba7a3d8f0c4a9a -> 01ba7a3d8f0c4a9a
-                  const annotationItemId = toolState.itemId
-                  const sharedSuffix = annotationItemId.slice(-16) // Last 16 characters
-
-                  // Find code interpreter event with matching suffix
-                  const matchingIndex = [...prev]
-                    .reverse()
-                    .findIndex(
-                      (event) =>
-                        event.type === 'code_interpreter' &&
-                        event.itemId.endsWith(sharedSuffix),
-                    )
-
-                  if (matchingIndex !== -1) {
-                    const actualIndex = prev.length - 1 - matchingIndex
-                    const existingEvent = prev[actualIndex] as Extract<
-                      StreamEvent,
-                      { type: 'code_interpreter' }
-                    >
-
-                    const updatedEvent = {
-                      ...existingEvent,
-                      annotation: codeInterpreterEvent.annotation,
+              // Special handling for file annotations - they have different itemIds
+              if (toolState.type === 'code_interpreter_file_annotation') {
+                const annotationItemId = toolState.itemId
+                const annotation = codeInterpreterEvent.annotation
+                if (annotation) {
+                  setStreamBuffer((prev: StreamEvent[]) => {
+                    // Find the last assistant message
+                    const lastAssistantIdx = [...prev]
+                      .reverse()
+                      .findIndex(
+                        (event: StreamEvent) => event.type === 'assistant',
+                      )
+                    if (lastAssistantIdx !== -1) {
+                      const actualIdx = prev.length - 1 - lastAssistantIdx
+                      const existingEvent = prev[actualIdx]
+                      const updatedEvent = {
+                        ...existingEvent,
+                        fileAnnotations: [
+                          ...((existingEvent.type === 'assistant' &&
+                            existingEvent.fileAnnotations) ||
+                            []),
+                          annotation,
+                        ],
+                      }
+                      return [
+                        ...prev.slice(0, actualIdx),
+                        updatedEvent,
+                        ...prev.slice(actualIdx + 1),
+                      ]
                     }
-
-                    console.log(
-                      '[Chat] Updated event with annotation:',
-                      updatedEvent,
-                    )
-
+                    // fallback: add as its own message
                     return [
-                      ...prev.slice(0, actualIndex),
-                      updatedEvent,
-                      ...prev.slice(actualIndex + 1),
+                      ...prev,
+                      {
+                        type: 'assistant',
+                        id: `file-annotation-${annotationItemId}`,
+                        content: '',
+                        fileAnnotations: [annotation],
+                      },
                     ]
-                  }
-
-                  // If no matching code interpreter found, skip this annotation
-                  console.warn(
-                    '[Chat] No matching code interpreter found for suffix:',
-                    sharedSuffix,
-                  )
-                  return prev
+                  })
+                  return
                 }
+                // If no annotation, skip
+                return
+              }
 
-                // Handle other code interpreter events by itemId
-                if (itemId) {
+              // Handle other code interpreter events by itemId
+              if (codeInterpreterEvent.itemId) {
+                setStreamBuffer((prev: StreamEvent[]) => {
                   const existingIndex = prev.findIndex(
-                    (event) =>
+                    (event: StreamEvent) =>
                       event.type === 'code_interpreter' &&
-                      event.itemId === itemId,
+                      event.itemId === codeInterpreterEvent.itemId,
                   )
 
                   if (existingIndex !== -1) {
@@ -540,9 +564,14 @@ export function Chat() {
                       ...prev.slice(existingIndex + 1),
                     ]
                   }
-                }
-                return [...prev, codeInterpreterEvent]
-              })
+                  return [...prev, codeInterpreterEvent]
+                })
+                return
+              }
+              setStreamBuffer((prev: StreamEvent[]) => [
+                ...prev,
+                codeInterpreterEvent,
+              ])
               return
             }
 
@@ -582,11 +611,11 @@ export function Chat() {
             }
 
             // Use immediate update for tool events to maintain responsiveness
-            setStreamBuffer((prev) => {
+            setStreamBuffer((prev: StreamEvent[]) => {
               const itemId = toolState.itemId
               if (itemId) {
                 const existingIndex = prev.findIndex(
-                  (event) =>
+                  (event: StreamEvent) =>
                     event.type === 'tool' &&
                     'itemId' in event &&
                     event.itemId === itemId,
@@ -627,38 +656,21 @@ export function Chat() {
         try {
           const chunkObj = JSON.parse(line)
           if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
-            // This is an assistant message part with possible annotations
+            // Flush any pending text buffer before appending a new assistant message
+            flushTextBuffer()
             const { item_id, part } = chunkObj
-            // Find or create the assistant message in the buffer
-            setStreamBuffer((prev) => {
-              const existingIndex = prev.findIndex(
-                (event) => event.type === 'assistant' && event.id === item_id,
-              )
-              if (existingIndex !== -1) {
-                // Update existing assistant message with content and annotations
-                const updatedEvent = {
-                  ...prev[existingIndex],
-                  content: part.text,
-                  fileAnnotations: part.annotations || [],
-                }
-                return [
-                  ...prev.slice(0, existingIndex),
-                  updatedEvent,
-                  ...prev.slice(existingIndex + 1),
-                ]
-              } else {
-                // Create new assistant message with content and annotations
-                return [
-                  ...prev,
-                  {
-                    type: 'assistant',
-                    id: item_id,
-                    content: part.text,
-                    fileAnnotations: part.annotations || [],
-                  },
-                ]
-              }
-            })
+            setStreamBuffer((prev: StreamEvent[]) => [
+              ...prev.filter(
+                (event: StreamEvent) =>
+                  !(event.type === 'assistant' && event.id === item_id),
+              ),
+              {
+                type: 'assistant',
+                id: item_id,
+                content: part.text,
+                fileAnnotations: part.annotations || [],
+              },
+            ])
             return
           }
         } catch (e) {
@@ -699,7 +711,7 @@ export function Chat() {
           readChunk()
         } catch (error) {
           console.error('Error reading stream chunk:', error)
-          setStreamBuffer((prev) => [
+          setStreamBuffer((prev: StreamEvent[]) => [
             ...prev,
             {
               type: 'error',
@@ -770,7 +782,7 @@ export function Chat() {
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
-      setStreamBuffer((prev) => [
+      setStreamBuffer((prev: StreamEvent[]) => [
         ...prev,
         {
           type: 'user',
