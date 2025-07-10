@@ -1,6 +1,6 @@
-import { Toggle } from './ui/toggle'
 import { Code2 } from 'lucide-react'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
+import { ToolToggle } from './ToolToggle'
 
 interface CodeInterpreterToggleProps {
   useCodeInterpreter: boolean
@@ -16,18 +16,16 @@ export function CodeInterpreterToggle({
   disabled = false,
 }: CodeInterpreterToggleProps) {
   const isSupported = isCodeInterpreterSupported(selectedModel)
-  const isDisabled = disabled || !isSupported
 
   return (
-    <Toggle
+    <ToolToggle
       isSelected={useCodeInterpreter}
-      onToggle={() => onToggle(!useCodeInterpreter)}
-      disabled={isDisabled}
-      className={!isSupported ? 'opacity-50' : ''}
-      title={`Execute Python code for calculations, data analysis, and visualizations.${!isSupported ? ` Not supported by ${selectedModel}` : ''}`}
-    >
-      <Code2 className="h-4 w-4" />
-      <span className="sr-only text-sm md:not-sr-only">Code Interpreter</span>
-    </Toggle>
+      onToggle={onToggle}
+      isSupported={isSupported}
+      icon={<Code2 className="h-4 w-4" />}
+      label="Code Interpreter"
+      tooltip={`Execute Python code for calculations, data analysis, and visualizations.${!isSupported ? ` Not supported by ${selectedModel}` : ''}`}
+      disabled={!isSupported || disabled}
+    />
   )
 }

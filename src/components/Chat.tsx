@@ -15,6 +15,7 @@ import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
 import { MessageSquarePlus } from 'lucide-react'
 import { CodeInterpreterToggle } from './CodeInterpreterToggle'
+import { WebSearchToggle } from './WebSearchToggle'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
@@ -23,6 +24,7 @@ import { CodeInterpreterMessage } from './CodeInterpreterMessage'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
+import { WebSearchMessage } from './WebSearchMessage'
 
 type StreamEvent =
   | {
@@ -103,6 +105,15 @@ type StreamEvent =
       message: string
       details?: unknown
     }
+  | {
+      type: 'web_search'
+      id: string
+      status: 'in_progress' | 'searching' | 'completed' | 'failed' | 'result'
+      query?: string
+      results?: Array<{ title: string; url: string; snippet?: string }>
+      error?: string
+      raw?: unknown
+    }
 
 const getToolStatus = (
   toolType: string,
@@ -149,6 +160,9 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
       // Use file_id or a combination for uniqueness
       return `file-annotation-${event.annotation.file_id || idx}`
     }
+    if (event.type === 'web_search') {
+      return `web-search-${event.id}`
+    }
   }
   // Fallback: use idx if id is not present
   return `message-${'id' in event ? (event as any).id : idx}`
@@ -164,6 +178,7 @@ export function Chat() {
   const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
   const [streaming, setStreaming] = useState(false)
   const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
+  const [useWebSearch, setUseWebSearch] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
 
@@ -283,8 +298,16 @@ export function Chat() {
       model: selectedModel,
       userId: user?.id,
       codeInterpreter: useCodeInterpreter,
+      webSearch: useWebSearch,
     }),
-    [selectedServers, servers, selectedModel, user?.id, useCodeInterpreter],
+    [
+      selectedServers,
+      servers,
+      selectedModel,
+      user?.id,
+      useCodeInterpreter,
+      useWebSearch,
+    ],
   )
 
   const handleError = useCallback((error: Error) => {
@@ -575,6 +598,52 @@ export function Chat() {
               return
             }
 
+            // --- Web Search streaming events ---
+            if (
+              toolState.type &&
+              toolState.type.startsWith('response.web_search_call.')
+            ) {
+              // Map event type to status
+              let status:
+                | 'in_progress'
+                | 'searching'
+                | 'completed'
+                | 'failed'
+                | 'result' = 'in_progress'
+              if (toolState.type.endsWith('in_progress')) status = 'in_progress'
+              else if (toolState.type.endsWith('searching'))
+                status = 'searching'
+              else if (toolState.type.endsWith('completed'))
+                status = 'completed'
+              else if (toolState.type.endsWith('failed')) status = 'failed'
+              else if (toolState.type.endsWith('result')) status = 'result'
+              setStreamBuffer((prev: StreamEvent[]) => {
+                const existingIdx = prev.findIndex(
+                  (e) => e.type === 'web_search' && e.id === toolState.item_id,
+                )
+                const newEvent: Extract<StreamEvent, { type: 'web_search' }> = {
+                  type: 'web_search',
+                  id: toolState.item_id,
+                  status,
+                  query: toolState.query,
+                  error: toolState.error,
+                  raw: toolState,
+                }
+                if (existingIdx !== -1) {
+                  // Replace the old event
+                  return [
+                    ...prev.slice(0, existingIdx),
+                    newEvent,
+                    ...prev.slice(existingIdx + 1),
+                  ]
+                } else {
+                  // Add new event
+                  return [...prev, newEvent]
+                }
+              })
+              return
+            }
+
             if ('delta' in toolState) {
               try {
                 toolState.delta =
@@ -816,6 +885,7 @@ export function Chat() {
     setInput('')
     setFocusTimestamp(Date.now())
     setUseCodeInterpreter(false)
+    setUseWebSearch(false)
 
     textBufferRef.current = ''
     lastAssistantIdRef.current = null
@@ -937,6 +1007,8 @@ export function Chat() {
                     }}
                   />
                 )
+              } else if ('type' in event && event.type === 'web_search') {
+                return <WebSearchMessage key={key} event={event} />
               } else {
                 // Fallback for Message type (from useChat)
                 const message = event as Message
@@ -1021,6 +1093,12 @@ export function Chat() {
               <CodeInterpreterToggle
                 useCodeInterpreter={useCodeInterpreter}
                 onToggle={setUseCodeInterpreter}
+                selectedModel={selectedModel}
+                disabled={hasStartedChat}
+              />
+              <WebSearchToggle
+                useWebSearch={useWebSearch}
+                onToggle={setUseWebSearch}
                 selectedModel={selectedModel}
                 disabled={hasStartedChat}
               />
