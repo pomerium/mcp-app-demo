@@ -331,9 +331,9 @@ export function streamText(
               )
               break
             default:
-              // Log unknown tool messages for debugging
+              // Skip unknown chunk types, but log them for debugging
               console.warn(
-                '[streamText] Unknown chunk type:',
+                '[streamText] Skipping unknown chunk type:',
                 chunk.type,
                 chunk,
               )

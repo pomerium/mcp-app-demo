@@ -63,7 +63,17 @@ type StreamEvent =
         | 'code_interpreter_call_code_done'
         | 'code_interpreter_call_interpreting'
         | 'code_interpreter_call_completed'
-        | 'code_interpreter_file_annotation'
+    }
+  | {
+      type: 'code_interpreter_file_annotation'
+      annotation: {
+        type: string
+        container_id: string
+        file_id: string
+        filename: string
+        start_index: number
+        end_index: number
+      }
     }
   | { type: 'user'; id: string; content: string }
   | {
@@ -611,7 +621,51 @@ export function Chat() {
           } catch (e) {
             console.error('Failed to parse tool state:', e)
           }
-        } else if (line.startsWith('0:')) {
+        }
+        // --- NEW: Handle OpenAI response.content_part.done JSON chunks ---
+        // These are full JSON objects, not prefixed with 0:, t:, or e:
+        try {
+          const chunkObj = JSON.parse(line)
+          if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
+            // This is an assistant message part with possible annotations
+            const { item_id, part } = chunkObj
+            // Find or create the assistant message in the buffer
+            setStreamBuffer((prev) => {
+              const existingIndex = prev.findIndex(
+                (event) => event.type === 'assistant' && event.id === item_id,
+              )
+              if (existingIndex !== -1) {
+                // Update existing assistant message with content and annotations
+                const updatedEvent = {
+                  ...prev[existingIndex],
+                  content: part.text,
+                  fileAnnotations: part.annotations || [],
+                }
+                return [
+                  ...prev.slice(0, existingIndex),
+                  updatedEvent,
+                  ...prev.slice(existingIndex + 1),
+                ]
+              } else {
+                // Create new assistant message with content and annotations
+                return [
+                  ...prev,
+                  {
+                    type: 'assistant',
+                    id: item_id,
+                    content: part.text,
+                    fileAnnotations: part.annotations || [],
+                  },
+                ]
+              }
+            })
+            return
+          }
+        } catch (e) {
+          // Not a JSON chunk, fall through to legacy 0: handler
+        }
+
+        if (line.startsWith('0:')) {
           try {
             const text = JSON.parse(line.slice(2))
             if (!assistantId) {
@@ -824,6 +878,24 @@ export function Chat() {
                     }}
                   />
                 )
+              } else if (
+                'type' in event &&
+                event.type === 'code_interpreter_file_annotation'
+              ) {
+                // Render the file annotation as its own BotMessage
+                return (
+                  <BotMessage
+                    key={key}
+                    message={{
+                      id: key,
+                      content: '', // No text, just the file
+                      sender: 'agent',
+                      timestamp: new Date(),
+                      status: 'sent',
+                    }}
+                    fileAnnotations={[event.annotation]}
+                  />
+                )
               } else if ('type' in event && event.type === 'error') {
                 return <BotError key={key} message={event.message} />
               } else if ('type' in event && event.type === 'assistant') {
@@ -837,7 +909,7 @@ export function Chat() {
                       timestamp: new Date(),
                       status: 'sent',
                     }}
-                    fileAnnotations={fileAnnotations}
+                    fileAnnotations={event.fileAnnotations || []}
                   />
                 )
               } else if ('type' in event && event.type === 'user') {
@@ -856,35 +928,39 @@ export function Chat() {
               } else {
                 // Fallback for Message type (from useChat)
                 const message = event as Message
-                const isAssistant = message.role === 'assistant'
-                if (isAssistant) {
-                  return (
-                    <BotMessage
-                      key={key}
-                      message={{
-                        id: message.id,
-                        content: message.content,
-                        sender: 'agent',
-                        timestamp: new Date(),
-                        status: 'sent',
-                      }}
-                      fileAnnotations={fileAnnotations}
-                    />
-                  )
-                } else {
-                  return (
-                    <UserMessage
-                      key={key}
-                      message={{
-                        id: message.id,
-                        content: message.content,
-                        sender: 'user',
-                        timestamp: new Date(),
-                        status: 'sent',
-                      }}
-                    />
-                  )
+                // Only render if the event has an 'id' property (i.e., is a Message)
+                if ('id' in event) {
+                  const isAssistant = message.role === 'assistant'
+                  if (isAssistant) {
+                    return (
+                      <BotMessage
+                        key={key}
+                        message={{
+                          id: message.id,
+                          content: message.content,
+                          sender: 'agent',
+                          timestamp: new Date(),
+                          status: 'sent',
+                        }}
+                      />
+                    )
+                  } else {
+                    return (
+                      <UserMessage
+                        key={key}
+                        message={{
+                          id: message.id,
+                          content: message.content,
+                          sender: 'user',
+                          timestamp: new Date(),
+                          status: 'sent',
+                        }}
+                      />
+                    )
+                  }
                 }
+                // If not a Message (e.g., code_interpreter_file_annotation), skip rendering in fallback
+                return null
               }
             })}
             {streaming && <BotThinking />}
