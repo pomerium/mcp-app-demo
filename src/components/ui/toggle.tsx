@@ -8,6 +8,7 @@ interface ToggleProps {
   title?: string
   className?: string
   children: ReactNode
+  ariaPressed?: boolean
 }
 
 export function Toggle({
@@ -17,6 +18,8 @@ export function Toggle({
   title,
   className = '',
   children,
+  ariaPressed = false,
+  ...rest
 }: ToggleProps) {
   return (
     <Button
@@ -35,6 +38,8 @@ export function Toggle({
         ${className}
       `}
       title={title}
+      aria-pressed={ariaPressed}
+      {...rest}
     >
       {children}
     </Button>
