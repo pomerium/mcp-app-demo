@@ -41,10 +41,14 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
   const processedContent = message.content
 
   // Separate image and non-image files
-  const imageFiles = fileAnnotations.filter((annotation) =>
+  // Only treat annotations with type 'file' or 'image' as downloadable
+  const fileLikeAnnotations = fileAnnotations.filter(
+    (annotation) => annotation.type === 'file' || annotation.type === 'image',
+  )
+  const imageFiles = fileLikeAnnotations.filter((annotation) =>
     isImageFile(annotation.filename),
   )
-  const otherFiles = fileAnnotations.filter(
+  const otherFiles = fileLikeAnnotations.filter(
     (annotation) => !isImageFile(annotation.filename),
   )
 
