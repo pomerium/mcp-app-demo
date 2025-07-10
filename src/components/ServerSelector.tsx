@@ -191,15 +191,15 @@ const ServerSelectionContent = ({
               Error loading servers: {error}
             </div>
           </li>
-        ) : serverList.length === 0 ? (
+        ) : Children.toArray(children).length === 0 &&
+          serverList.length === 0 ? (
           <li className="flex items-center w-full">
             <span
               role="status"
               aria-live="polite"
               className="text-sm text-gray-500 dark:text-gray-400 text-center w-full"
             >
-              {Children.toArray(children).length === 0 &&
-                'No MCP servers or tools available.'}
+              No MCP servers or tools available.
             </span>
           </li>
         ) : (
