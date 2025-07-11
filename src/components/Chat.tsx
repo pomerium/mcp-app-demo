@@ -823,15 +823,7 @@ export function Chat() {
     [updateAssistantText, flushTextBuffer],
   )
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    setMessages,
-    setInput,
-  } = useChat({
+  const { messages, isLoading, setMessages, append } = useChat({
     body: chatBody,
     onError: handleError,
     onResponse: handleResponse,
@@ -885,10 +877,9 @@ export function Chat() {
           timestamp: getTimestamp(),
         },
       ])
-
-      handleSubmit(new Event('submit'))
+      append({ role: 'user', content: prompt })
     },
-    [hasStartedChat, handleSubmit],
+    [hasStartedChat, append],
   )
 
   const handleServerToggle = useCallback((serverId: string) => {
@@ -908,8 +899,7 @@ export function Chat() {
     setStreamBuffer([])
     setStreaming(false)
     setTimedOut(false)
-    setMessages([]) // Clear messages completely - initialMessage will be shown via renderEvents logic
-    setInput('')
+    setMessages([])
     setFocusTimestamp(Date.now())
     setUseCodeInterpreter(false)
     setUseWebSearch(false)
@@ -917,7 +907,7 @@ export function Chat() {
     textBufferRef.current = ''
     lastAssistantIdRef.current = null
     pendingStreamEventsRef.current = []
-  }, [setMessages, setInput])
+  }, [setMessages])
 
   const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -1190,8 +1180,6 @@ export function Chat() {
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading || streaming}
-          value={input}
-          onChange={handleInputChange}
           focusTimestamp={focusTimestamp}
         />
       </div>
