@@ -39,12 +39,14 @@ Only use the code interpreter tool when it's actually needed for calculations or
  */
 export const CODE_INTERPRETER_SUPPORTED_MODELS = Object.freeze(
   new Set([
-    // Official OpenAI models with code interpreter support (as of June 2024)
     'gpt-4o',
     'gpt-4.1',
     'gpt-4',
     'o4-mini',
+    'o4-mini-deep-research-2025-06-26',
     'o3',
+    'o3-pro',
+    'o3-deep-research-2025-06-26',
   ]),
 )
 
@@ -62,13 +64,15 @@ export function isCodeInterpreterSupported(model: string): boolean {
  */
 export const WEB_SEARCH_SUPPORTED_MODELS = Object.freeze(
   new Set([
-    // Official OpenAI models with web search support (as of June 2024)
     'gpt-4o',
     'gpt-4.1',
     'gpt-4',
     'gpt-3.5-turbo',
     'o4-mini',
+    'o4-mini-deep-research-2025-06-26',
     'o3',
+    'o3-pro',
+    'o3-deep-research-2025-06-26',
   ]),
 )
 

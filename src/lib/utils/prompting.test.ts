@@ -8,7 +8,16 @@ import {
 // These tests reflect the current allow-list logic: only exact matches to the supported model names are considered supported.
 describe('isCodeInterpreterSupported', () => {
   // Supported models (should return true)
-  const supported = ['gpt-4o', 'gpt-4.1', 'gpt-4', 'o4-mini', 'o3']
+  const supported = [
+    'gpt-4o',
+    'gpt-4.1',
+    'gpt-4',
+    'o4-mini',
+    'o4-mini-deep-research-2025-06-26',
+    'o3',
+    'o3-pro',
+    'o3-deep-research-2025-06-26',
+  ]
   supported.forEach((model) => {
     it(`returns true for supported model: ${model}`, () => {
       expect(isCodeInterpreterSupported(model)).toBe(true)
@@ -22,9 +31,6 @@ describe('isCodeInterpreterSupported', () => {
     'gpt-4.1-mini',
     'gpt-4.1-nano',
     'gpt-4-0613',
-    'o4-mini-deep-research',
-    'o3-pro',
-    'o3-deep-research',
     'gpt-4-turbo',
     'gpt-4-turbo-2024-04-09',
     'o3-mini',
@@ -52,7 +58,10 @@ describe('isWebSearchSupported', () => {
     'gpt-4',
     'gpt-3.5-turbo',
     'o4-mini',
+    'o4-mini-deep-research-2025-06-26',
     'o3',
+    'o3-pro',
+    'o3-deep-research-2025-06-26',
   ]
   supported.forEach((model) => {
     it(`returns true for supported model: ${model}`, () => {
@@ -67,9 +76,6 @@ describe('isWebSearchSupported', () => {
     'gpt-4.1-mini',
     'gpt-4.1-nano',
     'gpt-4-0613',
-    'o4-mini-deep-research',
-    'o3-pro',
-    'o3-deep-research',
     'gpt-4-turbo',
     'gpt-4-turbo-2024-04-09',
     'o3-mini',
