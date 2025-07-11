@@ -905,6 +905,7 @@ export function Chat() {
     setHasStartedChat(false)
     setStreamBuffer([])
     setStreaming(false)
+    setTimedOut(false)
     setMessages([]) // Clear messages completely - initialMessage will be shown via renderEvents logic
     setInput('')
     setFocusTimestamp(Date.now())
