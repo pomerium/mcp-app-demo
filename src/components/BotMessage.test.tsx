@@ -26,7 +26,7 @@ describe('BotMessage', () => {
       id: 'msg-1',
       content: markdownTable,
       sender: 'agent',
-      timestamp: new Date('2025-07-06T12:00:00Z'),
+      timestamp: '2025-07-06T12:00:00Z',
       status: 'sent',
     }
     const { container } = render(<BotMessage message={message} />)

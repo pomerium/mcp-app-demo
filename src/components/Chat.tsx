@@ -25,6 +25,7 @@ import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
 import { WebSearchMessage } from './WebSearchMessage'
+import { getTimestamp } from '@/lib/utils/date'
 
 type StreamEvent =
   | {
@@ -881,6 +882,7 @@ export function Chat() {
           type: 'user',
           id: generateMessageId(),
           content: prompt,
+          timestamp: getTimestamp(),
         },
       ])
 
@@ -996,7 +998,7 @@ export function Chat() {
                       id: key,
                       content: '', // No text, just the file
                       sender: 'agent',
-                      timestamp: new Date(),
+                      timestamp: getTimestamp(),
                       status: 'sent',
                     }}
                     fileAnnotations={[event.annotation]}
@@ -1012,7 +1014,7 @@ export function Chat() {
                       id: event.id,
                       content: event.content,
                       sender: 'agent',
-                      timestamp: new Date(),
+                      timestamp: getTimestamp(),
                       status: 'sent',
                     }}
                     fileAnnotations={event.fileAnnotations || []}
@@ -1026,7 +1028,7 @@ export function Chat() {
                       id: event.id,
                       content: event.content,
                       sender: 'user',
-                      timestamp: new Date(),
+                      timestamp: getTimestamp(),
                       status: 'sent',
                     }}
                   />
@@ -1040,6 +1042,10 @@ export function Chat() {
                 if ('id' in event) {
                   const isAssistant = message.role === 'assistant'
                   if (isAssistant) {
+                    if (!hasMounted) {
+                      return null
+                    }
+
                     return (
                       <BotMessage
                         key={key}
@@ -1047,7 +1053,7 @@ export function Chat() {
                           id: message.id,
                           content: message.content,
                           sender: 'agent',
-                          timestamp: new Date(),
+                          timestamp: getTimestamp(),
                           status: 'sent',
                         }}
                       />
@@ -1060,7 +1066,7 @@ export function Chat() {
                           id: message.id,
                           content: message.content,
                           sender: 'user',
-                          timestamp: new Date(),
+                          timestamp: getTimestamp(),
                           status: 'sent',
                         }}
                       />
