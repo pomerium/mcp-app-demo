@@ -168,6 +168,9 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
   return `message-${'id' in event ? (event as any).id : idx}`
 }
 
+const TIMEOUT_ERROR_MESSAGE =
+  'Your connection was interrupted after 30 seconds, possibly due to a Pomerium proxy timeout.'
+
 export function Chat() {
   const hasMounted = useHasMounted()
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -181,6 +184,8 @@ export function Chat() {
   const [useWebSearch, setUseWebSearch] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
+  const [requestId, setRequestId] = useState<string | null>(null)
+  const [timedOut, setTimedOut] = useState(false)
 
   const handleModelChange = (newModel: string) => {
     setSelectedModel(newModel)
@@ -321,10 +326,15 @@ export function Chat() {
       },
     ])
     setStreaming(false)
+    setTimedOut(false)
   }, [])
 
   const handleResponse = useCallback(
     (response: Response) => {
+      // Extract x-request-id header for timeout troubleshooting
+      const xRequestId = response.headers.get('x-request-id')
+      setRequestId(xRequestId)
+
       if (!response.ok) {
         console.error(
           'Chat response error:',
@@ -339,10 +349,12 @@ export function Chat() {
           },
         ])
         setStreaming(false)
+        setTimedOut(false)
         return
       }
 
       setStreaming(true)
+      setTimedOut(false)
 
       // Clone the response to handle our custom streaming while letting useChat handle its own
       const reader = response.clone().body?.getReader()
@@ -359,12 +371,14 @@ export function Chat() {
           },
         ])
         setStreaming(false)
+        setTimedOut(false)
         return
       }
 
       const decoder = new TextDecoder()
       let buffer = ''
       let assistantId: string | null = null
+      let receivedCompletion = false
 
       const processChunk = (line: string) => {
         if (line.startsWith('e:')) {
@@ -405,6 +419,11 @@ export function Chat() {
             const toolState = JSON.parse(toolStateStr)
             // Handle tool_call_completed events
             if (toolState.type === 'tool_call_completed') {
+              return
+            }
+            // Handle stream_done event (signals end of stream)
+            if (toolState.type === 'stream_done') {
+              receivedCompletion = true
               return
             }
 
@@ -766,6 +785,10 @@ export function Chat() {
             // Flush any remaining text buffer
             flushTextBuffer()
             setStreaming(false)
+            // If stream ended but we did not receive a completion event, treat as timeout
+            if (!receivedCompletion) {
+              setTimedOut(true)
+            }
             return
           }
 
@@ -848,6 +871,7 @@ export function Chat() {
 
   const handleSendMessage = useCallback(
     (prompt: string) => {
+      setTimedOut(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
@@ -1048,6 +1072,40 @@ export function Chat() {
               }
             })}
             {streaming && <BotThinking />}
+            {timedOut && (
+              <BotError
+                key="timeout-error"
+                message={
+                  <div className="grid gap-2">
+                    <p>{TIMEOUT_ERROR_MESSAGE}</p>
+                    <p>
+                      See the Pomerium{' '}
+                      <a
+                        href="https://www.pomerium.com/docs/reference/routes/timeouts"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        Timeouts Settings documentation
+                      </a>{' '}
+                      for more information. .
+                    </p>
+                    {requestId && (
+                      <>
+                        <hr />
+                        <dl>
+                          <dt>Request ID</dt>
+                          <dd>{requestId}</dd>
+                        </dl>
+                        <p>
+                          Use this ID to search Pomerium logs for more details.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                }
+              />
+            )}
             <div ref={messagesEndRef} />
           </div>
         </div>

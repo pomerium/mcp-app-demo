@@ -357,6 +357,10 @@ export function streamText(
 
         // Flush any remaining content
         flush()
+        // Emit a final done event to signal successful completion
+        controller.enqueue(
+          encoder.encode(`t:${JSON.stringify({ type: 'stream_done' })}\n`),
+        )
         controller.close()
       } catch (error: unknown) {
         console.error('Error during streamed response:', error)
