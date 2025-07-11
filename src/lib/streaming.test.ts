@@ -143,4 +143,26 @@ describe('streamText', () => {
     // Should include t:{...stream_done...}
     expect(result).toMatch(/t:{\"type\":\"stream_done\"}/)
   })
+
+  it('emits stream_done when an error occurs', async () => {
+    // Simulate an error thrown during streaming
+    const errorIterable = {
+      async *[Symbol.asyncIterator]() {
+        throw new Error('Simulated streaming error')
+      },
+    }
+    const response = streamText(errorIterable)
+    const reader = response.body!.getReader()
+    let result = ''
+    let done = false
+    while (!done) {
+      const { value, done: d } = await reader.read()
+      if (value) result += new TextDecoder().decode(value)
+      done = d
+    }
+    // Should include t:{...stream_done...} even on error
+    expect(result).toMatch(/t:{"type":"stream_done"}/)
+    // Should also include the error event
+    expect(result).toMatch(/e:{"type":"error".*}/)
+  })
 })
