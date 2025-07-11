@@ -1,5 +1,10 @@
 import { APIError } from 'openai'
 
+// Event chunk for stream completion
+const STREAM_DONE_CHUNK = new TextEncoder().encode(
+  `t:${JSON.stringify({ type: 'stream_done' })}\n`,
+)
+
 export function streamText(
   answer: AsyncIterable<any>,
   onMessageId?: (messageId: string) => void,
@@ -358,9 +363,7 @@ export function streamText(
         // Flush any remaining content
         flush()
         // Emit a final done event to signal successful completion
-        controller.enqueue(
-          encoder.encode(`t:${JSON.stringify({ type: 'stream_done' })}\n`),
-        )
+        controller.enqueue(STREAM_DONE_CHUNK)
         controller.close()
       } catch (error: unknown) {
         console.error('Error during streamed response:', error)
@@ -384,6 +387,9 @@ export function streamText(
             })}\n`,
           ),
         )
+
+        // Always emit stream_done after error
+        controller.enqueue(STREAM_DONE_CHUNK)
 
         // Close the stream
         try {
