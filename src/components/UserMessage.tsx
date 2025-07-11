@@ -35,7 +35,7 @@ export function UserMessage({ message }: UserMessageProps) {
           <MarkdownContent content={message.content} />
         </div>
         <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
-          <span>{formatTimestamp(message.timestamp)}</span>
+          <span>{formatTimestamp(new Date(message.timestamp))}</span>
           {statusIcons[message.status]}
         </div>
       </div>

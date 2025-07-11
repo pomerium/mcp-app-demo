@@ -160,8 +160,8 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
           )}
         </div>
         <div className="flex gap-1 items-center text-xs text-gray-500 dark:text-gray-400 space-x-1">
-          <time dateTime={message.timestamp.toISOString()}>
-            {formatTimestamp(message.timestamp)}
+          <time dateTime={message.timestamp}>
+            {formatTimestamp(new Date(message.timestamp))}
           </time>
           <button
             type="button"
