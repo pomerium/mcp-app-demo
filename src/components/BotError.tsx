@@ -1,9 +1,10 @@
 import { AlertTriangle } from 'lucide-react'
 import { CollapsibleSection } from './ui/collapsible-section'
 import { MessageAvatar } from './MessageAvatar'
+import type { ReactNode } from 'react'
 
 interface BotErrorProps {
-  message: string
+  message: ReactNode
 }
 
 export function BotError({ message }: BotErrorProps) {
@@ -15,7 +16,7 @@ export function BotError({ message }: BotErrorProps) {
       />
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
         <CollapsibleSection title="Error" variant="error" open={true}>
-          <div>{message}</div>
+          {message}
         </CollapsibleSection>
       </div>
     </div>
