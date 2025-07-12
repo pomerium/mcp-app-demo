@@ -1,4 +1,4 @@
-import { useState, useEffect, useId, Children, type ReactElement } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { Button } from './ui/button'
 import { RefreshCw, Info, Wrench, Server as ServerIcon } from 'lucide-react'
 import {
@@ -19,9 +19,14 @@ import {
 import { useDisconnectServer } from '@/hooks/useDisconnectServer'
 import { ServerToggle } from './ServerToggle'
 
-// Constants
 const POMERIUM_ROUTES_ENDPOINT = '/.pomerium/mcp/routes'
 const POMERIUM_CONNECT_PATH = '/.pomerium/mcp/connect'
+
+export interface ToolConfig {
+  key: string
+  isActive: boolean
+  component: React.ReactNode
+}
 
 type ServerSelectorProps = {
   servers: Servers
@@ -29,7 +34,7 @@ type ServerSelectorProps = {
   selectedServers: string[]
   onServerToggle: (serverId: string) => void
   disabled?: boolean
-  children?: React.ReactNode
+  toolToggles?: ToolConfig[]
 }
 
 // Extracted header component to reduce complexity
@@ -117,14 +122,18 @@ const ServerSelectionContent = ({
   isLoading,
   error,
   onRefresh,
-  children,
   showHeader = true,
+  toolToggles = [],
 }: ServerSelectorProps & {
   isLoading: boolean
   error: string | null
   onRefresh: () => void
   showHeader?: boolean
+  toolToggles?: ToolConfig[]
 }) => {
+  const serverList = Object.values(servers).sort((a, b) =>
+    a.url.localeCompare(b.url),
+  )
   const connectToServer = async (serverId: string) => {
     const server = servers[serverId]
     if (!server) return
@@ -151,9 +160,6 @@ const ServerSelectionContent = ({
       connectToServer(serverId)
     }
   }
-  const serverList = Object.values(servers).sort((a, b) =>
-    a.url.localeCompare(b.url),
-  )
 
   // Always render the same shell: header and <ul>
   return (
@@ -191,8 +197,7 @@ const ServerSelectionContent = ({
               Error loading servers: {error}
             </div>
           </li>
-        ) : Children.toArray(children).length === 0 &&
-          serverList.length === 0 ? (
+        ) : toolToggles.length === 0 && serverList.length === 0 ? (
           <li className="flex items-center w-full">
             <span
               role="status"
@@ -204,12 +209,9 @@ const ServerSelectionContent = ({
           </li>
         ) : (
           <>
-            {Children.toArray(children).map((child, idx) => (
-              <li
-                key={(child as ReactElement)?.key ?? `tool-${idx}`}
-                className="flex items-center"
-              >
-                {child}
+            {toolToggles.map((tool) => (
+              <li key={tool.key} className="flex items-center">
+                {tool.component}
               </li>
             ))}
             {serverList.map((server) => {
@@ -239,7 +241,7 @@ export function ServerSelector({
   selectedServers,
   onServerToggle,
   disabled = false,
-  children,
+  toolToggles = [],
 }: ServerSelectorProps) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   const [isLoading, setIsLoading] = useState(true)
@@ -332,15 +334,13 @@ export function ServerSelector({
     isLoading,
     error,
     onRefresh: fetchPomeriumServers,
-    children,
   }
 
   // On mobile, show drawer trigger with selected server count
   if (isMobile) {
-    const selectedCount = selectedServers.length
-    // Count both servers and children as selectable items
-    const childrenCount = Children.toArray(children).length
-    const totalServers = Object.keys(servers).length + childrenCount
+    const activeToolCount = toolToggles.filter((t) => t.isActive).length
+    const selectedCount = selectedServers.length + activeToolCount
+    const totalServers = Object.keys(servers).length + toolToggles.length
     const description = `Opens server selection. ${selectedCount} of ${totalServers} servers selected${disabled ? '. Selection is locked after first message.' : ''}`
 
     // Only render the button and drawer outside; ServerSelectionContent only inside DrawerContent
@@ -396,7 +396,11 @@ export function ServerSelector({
               role="region"
               aria-label="Server selection content"
             >
-              <ServerSelectionContent {...sharedProps} showHeader={false} />
+              <ServerSelectionContent
+                {...sharedProps}
+                showHeader={false}
+                toolToggles={toolToggles}
+              />
             </div>
             <div className="p-4 border-t">
               <DrawerClose asChild>
@@ -411,5 +415,5 @@ export function ServerSelector({
     )
   }
 
-  return <ServerSelectionContent {...sharedProps} />
+  return <ServerSelectionContent {...sharedProps} toolToggles={toolToggles} />
 }
