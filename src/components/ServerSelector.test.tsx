@@ -1,26 +1,17 @@
 // @vitest-environment jsdom
-import { screen, fireEvent, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { screen, act, waitFor } from '@testing-library/react'
+import '@testing-library/jest-dom'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import type { Mock } from 'vitest'
 import { ServerSelector } from './ServerSelector'
 import type { Servers } from '@/lib/schemas'
 import { renderWithQueryClient } from '@/test/utils/react-query-test-utils'
+import userEvent from '@testing-library/user-event'
+import { mockMobile, mockDesktop } from '@/test/utils/mocks'
 
-global.fetch = vi.fn()
+global.fetch = vi.fn() as Mock
 
 describe('ServerSelector', () => {
-  // Always restore matchMedia after each test for isolation
-  afterEach(() => {
-    window.matchMedia = vi.fn().mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }))
-  })
   // Default mock for window.matchMedia (desktop)
   beforeAll(() => {
     Object.defineProperty(window, 'matchMedia', {
@@ -51,8 +42,9 @@ describe('ServerSelector', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    // Mock successful fetch response
-    ;(global.fetch as any).mockResolvedValue({
+    vi.restoreAllMocks()
+    mockDesktop()
+    ;(global.fetch as Mock).mockResolvedValue({
       ok: true,
       json: async () => ({
         servers: [
@@ -68,7 +60,7 @@ describe('ServerSelector', () => {
     })
   })
 
-  it('fetches servers and updates the UI on mount', async () => {
+  it('renders and fetches servers, updating the UI on mount', async () => {
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
@@ -76,6 +68,7 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
@@ -94,14 +87,15 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-    fireEvent.click(screen.getByText('Test Server'))
+    await userEvent.click(screen.getByText('Test Server'))
     expect(mockOnServerToggle).toHaveBeenCalledWith('test-server')
   })
 
-  it('disables all interactions when disabled=true', async () => {
+  it('disables all interactions when disabled is true', async () => {
     const servers: Servers = {
       'test-server': { ...baseServer, needs_oauth: true },
     }
@@ -113,6 +107,7 @@ describe('ServerSelector', () => {
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
           disabled
+          toolToggles={[]}
         />,
       )
     })
@@ -121,17 +116,7 @@ describe('ServerSelector', () => {
   })
 
   it('renders mobile drawer UI when matchMedia returns true', async () => {
-    // Mock matchMedia to return matches: true for this test (mobile)
-    window.matchMedia = vi.fn().mockImplementation((query) => ({
-      matches: true,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }))
+    mockMobile()
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
@@ -139,29 +124,20 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-    // Update: look for the actual button name
     expect(
       screen.getByRole('button', { name: /Servers & Tools/i }),
-    ).toBeDefined()
-    fireEvent.click(screen.getByRole('button', { name: /Servers & Tools/i }))
-    expect(screen.getByText('Test Server')).toBeDefined()
-    // Restore default (desktop) after test
-    window.matchMedia = vi.fn().mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }))
+    ).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: /Servers & Tools/i }),
+    )
+    expect(screen.getByText('Test Server')).toBeInTheDocument()
   })
 
-  it('shows empty state when no servers are present', async () => {
+  it('renders empty state when no servers are present', async () => {
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
@@ -169,30 +145,31 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-    expect(screen.getByText(/No MCP servers/i)).toBeDefined()
+    expect(screen.getByText(/No MCP servers/i)).toBeInTheDocument()
   })
 
-  it('shows loading indicator when loading', async () => {
-    // Simulate loading state by making fetch never resolve
-    ;(global.fetch as any).mockImplementation(() => new Promise(() => {}))
-    await act(async () => {
-      renderWithQueryClient(
-        <ServerSelector
-          servers={{}}
-          onServersChange={mockOnServersChange}
-          selectedServers={[]}
-          onServerToggle={mockOnServerToggle}
-        />,
-      )
+  it('renders loading indicator when loading', async () => {
+    ;(global.fetch as Mock).mockImplementation(() => new Promise(() => {}))
+    renderWithQueryClient(
+      <ServerSelector
+        servers={{}}
+        onServersChange={mockOnServersChange}
+        selectedServers={[]}
+        onServerToggle={mockOnServerToggle}
+        toolToggles={[]}
+      />,
+    )
+    expect(await screen.findByRole('status')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByText('Test Server')).not.toBeInTheDocument()
     })
-    // More robust: wait for the loading indicator
-    expect(await screen.findByRole('status')).toBeDefined()
   })
 
-  it('renders children when passed', async () => {
+  it('renders toolToggles children when passed', async () => {
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
@@ -200,17 +177,24 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
-        >
-          <button>Hello</button>
-        </ServerSelector>,
+          toolToggles={[
+            {
+              key: 'hello',
+              isActive: true,
+              component: <button aria-label="Hello">Hello</button>,
+            },
+          ]}
+        />,
       )
     })
     expect(screen.getByRole('button', { name: 'Hello' })).toBeInTheDocument()
   })
 
-  it('handles fetch error and shows fallback UI', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    ;(global.fetch as any).mockResolvedValue({
+  it('renders fallback UI on fetch error', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    ;(global.fetch as Mock).mockResolvedValue({
       ok: false,
       status: 500,
       json: async () => ({ error: 'Server error' }),
@@ -222,23 +206,25 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-    // Check for a generic error/fallback message (update as needed)
     expect(
       screen.queryByText(/error|failed|unavailable|could not/i),
-    ).toBeTruthy()
+    ).toBeInTheDocument()
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to fetch servers:',
-      expect.objectContaining({ message: 'Failed to fetch servers: 500' })
+      expect.objectContaining({ message: 'Failed to fetch servers: 500' }),
     )
     consoleErrorSpy.mockRestore()
   })
 
-  it('handles fetch throwing an exception', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    ;(global.fetch as any).mockImplementation(() => {
+  it('renders fallback UI when fetch throws an exception', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    ;(global.fetch as Mock).mockImplementation(() => {
       throw new Error('Network down')
     })
     await act(async () => {
@@ -248,13 +234,14 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-    expect(screen.getByText(/error|network/i)).toBeDefined()
+    expect(screen.getByText(/error|network/i)).toBeInTheDocument()
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to fetch servers:',
-      expect.objectContaining({ message: 'Network down' })
+      expect.objectContaining({ message: 'Network down' }),
     )
     consoleErrorSpy.mockRestore()
   })
@@ -272,10 +259,10 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-    // Check all servers are rendered in order (Alpha, Bravo, Charlie)
     const serverNames = ['Alpha', 'Bravo', 'Charlie']
     const rendered = serverNames.map((name) => screen.getByText(name))
     expect(rendered[0].textContent).toContain('Alpha')
@@ -283,7 +270,7 @@ describe('ServerSelector', () => {
     expect(rendered[2].textContent).toContain('Charlie')
   })
 
-  it('has correct accessibility attributes', async () => {
+  it('renders correct accessibility attributes for server button', async () => {
     const servers: Servers = {
       'test-server': { ...baseServer, needs_oauth: true },
     }
@@ -294,61 +281,36 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-    // Only check that the server button is present (detailed aria checks are covered in ServerToggle tests)
     const serverButton = screen.getByText('Test Server').closest('button')
     expect(serverButton).toBeInTheDocument()
   })
 
-  it('should render server without disconnect button when can_disconnect is false', async () => {
-    const serversWithoutDisconnect: Servers = {
-      'test-server': {
-        ...baseServer,
-        needs_oauth: false,
-      },
+  it.each([
+    { desc: 'without disconnect', needs_oauth: false },
+    { desc: 'with disconnect', needs_oauth: true },
+  ])('renders server $desc', async ({ needs_oauth }) => {
+    const servers: Servers = {
+      'test-server': { ...baseServer, needs_oauth },
     }
-
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
-          servers={serversWithoutDisconnect}
+          servers={servers}
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-
-    expect(screen.getByText('Test Server')).toBeDefined()
-    // No need to check disconnect button; covered in ServerToggle tests
+    expect(screen.getByText('Test Server')).toBeInTheDocument()
   })
 
-  it('should render server with disconnect button when can_disconnect is true', async () => {
-    const serversWithDisconnect: Servers = {
-      'test-server': {
-        ...baseServer,
-        needs_oauth: true,
-      },
-    }
-
-    await act(async () => {
-      renderWithQueryClient(
-        <ServerSelector
-          servers={serversWithDisconnect}
-          onServersChange={mockOnServersChange}
-          selectedServers={[]}
-          onServerToggle={mockOnServerToggle}
-        />,
-      )
-    })
-
-    expect(screen.getByText('Test Server')).toBeDefined()
-    // No need to check disconnect button; covered in ServerToggle tests
-  })
-
-  it('should not show disconnect button for disconnected servers even if can_disconnect is true', async () => {
+  it('does not show disconnect button for disconnected servers even if can_disconnect is true', async () => {
     const disconnectedServer: Servers = {
       'test-server': {
         ...baseServer,
@@ -357,7 +319,6 @@ describe('ServerSelector', () => {
         needs_oauth: true,
       },
     }
-
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
@@ -365,15 +326,14 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-
-    expect(screen.getByText('Test Server')).toBeDefined()
-    // No need to check disconnect button; covered in ServerToggle tests
+    expect(screen.getByText('Test Server')).toBeInTheDocument()
   })
 
-  it('should call POST request to disconnect endpoint when disconnect button is clicked', async () => {
+  it('calls POST request to disconnect endpoint when disconnect button is clicked', async () => {
     const serversWithDisconnect: Servers = {
       'test-server': {
         ...baseServer,
@@ -381,7 +341,7 @@ describe('ServerSelector', () => {
       },
     }
 
-    // Mock disconnect POST request
+    // Set up the custom fetch mock after beforeEach
     const disconnectFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -390,21 +350,21 @@ describe('ServerSelector', () => {
             name: 'Test Server',
             description: 'A test server',
             url: 'https://test.example.com',
-            connected: false, // After disconnect
+            connected: false,
             needs_oauth: true,
           },
         ],
       }),
     })
 
-    ;(global.fetch as any).mockImplementation((url: string, options?: any) => {
+    ;(global.fetch as Mock).mockImplementation((url: string, options?: any) => {
       if (
         url === '/.pomerium/mcp/routes/disconnect' &&
         options?.method === 'POST'
       ) {
         return disconnectFetch(url, options)
       }
-      // Return the default mock for other requests
+      // Default mock for other requests
       return Promise.resolve({
         ok: true,
         json: async () => ({
@@ -428,6 +388,7 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
@@ -437,7 +398,7 @@ describe('ServerSelector', () => {
     )
 
     await act(async () => {
-      fireEvent.click(disconnectButton)
+      await userEvent.click(disconnectButton)
     })
 
     expect(disconnectFetch).toHaveBeenCalledWith(
@@ -454,14 +415,13 @@ describe('ServerSelector', () => {
     )
   })
 
-  it('should prevent server selection when disconnect button is clicked', async () => {
+  it('prevents server selection when disconnect button is clicked', async () => {
     const serversWithDisconnect: Servers = {
       'test-server': {
         ...baseServer,
         needs_oauth: true,
       },
     }
-
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
@@ -469,35 +429,21 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={[]}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
         />,
       )
     })
-
     const disconnectButton = screen.getByLabelText(
       'Disconnect from Test Server',
     )
-
     await act(async () => {
-      fireEvent.click(disconnectButton)
+      userEvent.click(disconnectButton)
     })
-
-    // onServerToggle should not be called when clicking disconnect button
     expect(mockOnServerToggle).not.toHaveBeenCalled()
   })
 
-  it('updates selected server count in the button label', async () => {
-    // Mock mobile view
-    window.matchMedia = vi.fn().mockImplementation((query) => ({
-      matches: true,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }))
-
+  it('renders correct count for one server and one tool', async () => {
+    mockMobile()
     const servers: Servers = {
       'test-server': {
         id: 'test-server',
@@ -508,7 +454,6 @@ describe('ServerSelector', () => {
         needs_oauth: false,
       },
     }
-
     await act(async () => {
       renderWithQueryClient(
         <ServerSelector
@@ -516,13 +461,86 @@ describe('ServerSelector', () => {
           onServersChange={mockOnServersChange}
           selectedServers={['test-server']}
           onServerToggle={mockOnServerToggle}
+          toolToggles={[
+            {
+              key: 'codeInterpreter',
+              isActive: true,
+              component: <button>Code Interpreter</button>,
+            },
+          ]}
         />,
       )
     })
-
-    // The button should show 1/1 selected
     expect(
-      screen.getByRole('button', { name: /Servers & Tools \(1\/1\)/i }),
+      screen.getByRole('button', { name: /Servers & Tools \(2\/2\)/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('renders correct count for one server and two tools', async () => {
+    mockMobile()
+    const servers: Servers = {
+      'test-server': {
+        id: 'test-server',
+        name: 'Test Server',
+        url: 'https://test.example.com',
+        status: 'connected',
+        connected: true,
+        needs_oauth: false,
+      },
+    }
+    await act(async () => {
+      renderWithQueryClient(
+        <ServerSelector
+          servers={servers}
+          onServersChange={mockOnServersChange}
+          selectedServers={['test-server']}
+          onServerToggle={mockOnServerToggle}
+          toolToggles={[
+            {
+              key: 'codeInterpreter',
+              isActive: true,
+              component: <button>Code Interpreter</button>,
+            },
+            {
+              key: 'webSearch',
+              isActive: true,
+              component: <button>Web Search</button>,
+            },
+          ]}
+        />,
+      )
+    })
+    expect(
+      screen.getByRole('button', { name: /Servers & Tools \(3\/3\)/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('renders correct count for no servers and two tools', async () => {
+    mockMobile()
+    await act(async () => {
+      renderWithQueryClient(
+        <ServerSelector
+          servers={{}}
+          onServersChange={mockOnServersChange}
+          selectedServers={[]}
+          onServerToggle={mockOnServerToggle}
+          toolToggles={[
+            {
+              key: 'codeInterpreter',
+              isActive: true,
+              component: <button>Code Interpreter</button>,
+            },
+            {
+              key: 'webSearch',
+              isActive: true,
+              component: <button>Web Search</button>,
+            },
+          ]}
+        />,
+      )
+    })
+    expect(
+      screen.getByRole('button', { name: /Servers & Tools \(2\/2\)/i }),
     ).toBeInTheDocument()
   })
 })

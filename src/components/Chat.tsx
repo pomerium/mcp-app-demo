@@ -923,6 +923,35 @@ export function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
 
+  const toolToggles = [
+    {
+      key: 'codeInterpreter',
+      isActive: useCodeInterpreter,
+      component: (
+        <CodeInterpreterToggle
+          key="codeInterpreter"
+          useCodeInterpreter={useCodeInterpreter}
+          onToggle={setUseCodeInterpreter}
+          selectedModel={selectedModel}
+          disabled={hasStartedChat}
+        />
+      ),
+    },
+    {
+      key: 'webSearch',
+      isActive: useWebSearch,
+      component: (
+        <WebSearchToggle
+          key="webSearch"
+          useWebSearch={useWebSearch}
+          onToggle={setUseWebSearch}
+          selectedModel={selectedModel}
+          disabled={hasStartedChat}
+        />
+      ),
+    },
+  ]
+
   return (
     <div className="flex flex-col min-h-full relative">
       <div className="sticky top-0 z-10 bg-background border-b px-4 py-2 flex justify-between items-center">
@@ -1154,20 +1183,8 @@ export function Chat() {
               selectedServers={selectedServers}
               onServerToggle={handleServerToggle}
               disabled={hasStartedChat}
-            >
-              <CodeInterpreterToggle
-                useCodeInterpreter={useCodeInterpreter}
-                onToggle={setUseCodeInterpreter}
-                selectedModel={selectedModel}
-                disabled={hasStartedChat}
-              />
-              <WebSearchToggle
-                useWebSearch={useWebSearch}
-                onToggle={setUseWebSearch}
-                selectedModel={selectedModel}
-                disabled={hasStartedChat}
-              />
-            </ServerSelector>
+              toolToggles={toolToggles}
+            />
           </div>
         )}
         <ChatInput
