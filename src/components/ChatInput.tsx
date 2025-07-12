@@ -71,6 +71,10 @@ export function ChatInput({
           required
           disabled={disabled}
           rows={1}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck="false"
           className="w-full resize-none rounded-lg border-0 pr-12 text-base placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 disabled:opacity-50 transition-all"
         />
         <Button
