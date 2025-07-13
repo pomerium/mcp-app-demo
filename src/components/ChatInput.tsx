@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import { useRef, useEffect, type KeyboardEvent } from 'react'
 import { Button } from './ui/button'
 import { Send } from 'lucide-react'
 import { Textarea } from './ui/textarea'
@@ -6,16 +6,12 @@ import { Textarea } from './ui/textarea'
 type ChatInputProps = {
   onSendMessage: (message: string) => void
   disabled?: boolean
-  value: string
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   focusTimestamp?: number
 }
 
 export function ChatInput({
   onSendMessage,
   disabled = false,
-  value,
-  onChange,
   focusTimestamp,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -28,31 +24,28 @@ export function ChatInput({
 
   useEffect(() => {
     if (textareaRef.current) {
-      // Reset height to calculate the right one
       textareaRef.current.style.height = 'auto'
-      // Set new height based on scrollHeight (content)
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 128)}px`
     }
-  }, [value])
+  }, [textareaRef.current?.value])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const form = e.currentTarget as HTMLFormElement
+    const textarea = form.elements.namedItem('prompt') as HTMLTextAreaElement
+    const { value } = textarea
 
     if (value.trim() && !disabled) {
       onSendMessage(value)
-
-      // Reset the textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
-      }
+      form.reset()
+      textarea.style.height = 'auto'
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Submit on Enter without Shift
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e)
+      e.currentTarget.form?.requestSubmit()
     }
   }
 
@@ -64,8 +57,7 @@ export function ChatInput({
       <div className="relative flex-1 flex items-center">
         <Textarea
           ref={textareaRef}
-          value={value}
-          onChange={onChange}
+          name="prompt"
           onKeyDown={handleKeyDown}
           placeholder="Ask something..."
           required
@@ -75,15 +67,17 @@ export function ChatInput({
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck="false"
+          aria-label="Ask something..."
           className="w-full resize-none rounded-lg border-0 pr-12 text-base placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 disabled:opacity-50 transition-all"
         />
         <Button
           type="submit"
           variant="default"
           className="absolute right-2 size-8"
-          aria-label="Send message"
+          disabled={disabled}
         >
-          <Send className="size-4" />
+          <span className="sr-only">Send message</span>
+          <Send className="size-4" aria-hidden="true" />
         </Button>
       </div>
     </form>
