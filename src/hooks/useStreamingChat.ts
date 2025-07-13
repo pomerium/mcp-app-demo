@@ -758,23 +758,15 @@ export function useStreamingChat(): UseStreamingChatReturn {
       return
     }
 
-    setStreamBuffer((prev: StreamEvent[]) => {
-      // Prevent buffer from growing too large
-      if (prev.length > 1000) {
-        console.warn('Stream buffer limit reached, clearing old messages')
-        return prev.slice(-500) // Keep last 500 messages
-      }
-
-      return [
-        ...prev,
-        {
-          type: 'user',
-          id: generateMessageId(),
-          content: trimmedContent,
-          timestamp: getTimestamp(),
-        },
-      ]
-    })
+    setStreamBuffer((prev: StreamEvent[]) => [
+      ...prev,
+      {
+        type: 'user',
+        id: generateMessageId(),
+        content: trimmedContent,
+        timestamp: getTimestamp(),
+      },
+    ])
   }, [])
 
   const cancelStream = useCallback(() => {

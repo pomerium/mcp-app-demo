@@ -1,8 +1,51 @@
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useStreamingChat } from './useStreamingChat'
 
 const ISO_TIMESTAMP_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+const MOCK_MESSAGE_ID = 'mock-message-id'
+const TEST_REQUEST_ID = 'test-request-id'
+const GENERIC_ERROR_MESSAGE = 'An error occurred while sending your message'
+const TEST_ERROR_MESSAGE = 'Test error message'
+const INTERNAL_SERVER_ERROR = 'Internal Server Error'
+
+// Type guards for StreamEvent types
+function isAssistant(
+  event: any,
+): event is Extract<
+  ReturnType<typeof useStreamingChat>['streamBuffer'][0],
+  { type: 'assistant' }
+> {
+  return event.type === 'assistant'
+}
+
+function isUser(
+  event: any,
+): event is Extract<
+  ReturnType<typeof useStreamingChat>['streamBuffer'][0],
+  { type: 'user' }
+> {
+  return event.type === 'user'
+}
+
+function isTool(
+  event: any,
+): event is Extract<
+  ReturnType<typeof useStreamingChat>['streamBuffer'][0],
+  { type: 'tool' }
+> {
+  return event.type === 'tool'
+}
+
+function isError(
+  event: any,
+): event is Extract<
+  ReturnType<typeof useStreamingChat>['streamBuffer'][0],
+  { type: 'error' }
+> {
+  return event.type === 'error'
+}
+
 function expectTimestamp(value: string) {
   expect(value).toEqual(expect.stringMatching(ISO_TIMESTAMP_REGEX))
 }
@@ -30,7 +73,7 @@ function createMockResponse(overrides: Partial<Response> = {}): Response {
 }
 
 vi.mock('../mcp/client', () => ({
-  generateMessageId: vi.fn(() => 'mock-message-id'),
+  generateMessageId: vi.fn(() => MOCK_MESSAGE_ID),
 }))
 
 vi.mock('@/lib/utils/streaming', () => ({
@@ -68,7 +111,7 @@ describe('useStreamingChat', () => {
       expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'user',
-        id: 'mock-message-id',
+        id: MOCK_MESSAGE_ID,
         content: 'Hello, world!',
         timestamp: expect.any(String), // placeholder, will check below
       })
@@ -88,7 +131,7 @@ describe('useStreamingChat', () => {
       expect(result.current.streamBuffer).toHaveLength(2)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'user',
-        id: 'mock-message-id',
+        id: MOCK_MESSAGE_ID,
         content: 'First message',
         timestamp: expect.any(String),
       })
@@ -97,7 +140,7 @@ describe('useStreamingChat', () => {
       }
       expect(result.current.streamBuffer[1]).toEqual({
         type: 'user',
-        id: 'mock-message-id',
+        id: MOCK_MESSAGE_ID,
         content: 'Second message',
         timestamp: expect.any(String),
       })
@@ -136,7 +179,7 @@ describe('useStreamingChat', () => {
       expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'user',
-        id: 'mock-message-id',
+        id: MOCK_MESSAGE_ID,
         content: 'Hello, world!',
         timestamp: expect.any(String),
       })
@@ -149,7 +192,7 @@ describe('useStreamingChat', () => {
   describe('handleError', () => {
     it('should add error message to stream buffer', () => {
       const { result } = renderHook(() => useStreamingChat())
-      const error = new Error('Test error message')
+      const error = new Error(TEST_ERROR_MESSAGE)
 
       act(() => {
         result.current.handleError(error)
@@ -158,7 +201,7 @@ describe('useStreamingChat', () => {
       expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'error',
-        message: 'Test error message',
+        message: TEST_ERROR_MESSAGE,
       })
       expect(result.current.streaming).toBe(false)
       expect(result.current.timedOut).toBe(false)
@@ -174,7 +217,7 @@ describe('useStreamingChat', () => {
 
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'error',
-        message: 'An error occurred while sending your message',
+        message: GENERIC_ERROR_MESSAGE,
       })
     })
   })
@@ -188,7 +231,7 @@ describe('useStreamingChat', () => {
       }
 
       const mockResponse = createMockResponse({
-        headers: new Headers([['x-request-id', 'test-request-id']]),
+        headers: new Headers([['x-request-id', TEST_REQUEST_ID]]),
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
@@ -198,7 +241,7 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      expect(result.current.requestId).toBe('test-request-id')
+      expect(result.current.requestId).toBe(TEST_REQUEST_ID)
       expect(result.current.streaming).toBe(true)
       expect(result.current.timedOut).toBe(false)
     })
@@ -209,7 +252,7 @@ describe('useStreamingChat', () => {
       const mockResponse = createMockResponse({
         ok: false,
         status: 500,
-        statusText: 'Internal Server Error',
+        statusText: INTERNAL_SERVER_ERROR,
         clone: vi.fn(),
       })
 
@@ -220,7 +263,7 @@ describe('useStreamingChat', () => {
       expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'error',
-        message: 'Request failed with status 500: Internal Server Error',
+        message: `Request failed with status 500: ${INTERNAL_SERVER_ERROR}`,
       })
       expect(result.current.streaming).toBe(false)
       expect(result.current.timedOut).toBe(false)
@@ -276,12 +319,13 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'assistant',
-        id: 'mock-message-id',
+        id: MOCK_MESSAGE_ID,
         content: 'Hello world',
       })
     })
@@ -318,9 +362,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'assistant',
         id: 'msg_6873dc9520408191924aeae732658fca0521e25a4061226d',
@@ -361,16 +406,19 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
-      const streamEvent = result.current.streamBuffer[0] as any
-      expect(streamEvent.type).toBe('tool')
-      expect(streamEvent.toolType).toBe('tool_call_in_progress')
-      expect(streamEvent.serverLabel).toBe('Test Server')
-      expect(streamEvent.itemId).toBe('tool-123')
-      expect(streamEvent.toolName).toBe('test_tool')
-      expect(streamEvent.status).toBe('in_progress')
+      const streamEvent = result.current.streamBuffer[0]
+      expect(isTool(streamEvent)).toBe(true)
+      if (isTool(streamEvent)) {
+        expect(streamEvent.toolType).toBe('tool_call_in_progress')
+        expect(streamEvent.serverLabel).toBe('Test Server')
+        expect(streamEvent.itemId).toBe('tool-123')
+        expect(streamEvent.toolName).toBe('test_tool')
+        expect(streamEvent.status).toBe('in_progress')
+      }
     })
 
     it('should handle tool events with delta and arguments', async () => {
@@ -404,9 +452,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'tool',
         toolType: 'tool_call_arguments_delta',
@@ -449,9 +498,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'code_interpreter',
         itemId: 'code-123',
@@ -500,9 +550,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(2)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(2)
       const assistantMessage = result.current.streamBuffer.find(
         (event) => event.type === 'assistant',
       )
@@ -545,9 +596,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'reasoning',
         summary: 'This is a reasoning',
@@ -599,9 +651,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'reasoning',
         summary: 'Initial reasoning continued',
@@ -641,9 +694,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'web_search',
         id: 'search-123',
@@ -683,9 +737,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'error',
         message: 'Stream error occurred',
@@ -716,9 +771,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'error',
         message: 'An unknown error occurred during streaming',
@@ -748,9 +804,9 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      expect(result.current.streamBuffer).toHaveLength(0)
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
     })
 
     it('should handle malformed text chunks', async () => {
@@ -776,9 +832,9 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      expect(result.current.streamBuffer).toHaveLength(0)
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
     })
   })
 
@@ -858,10 +914,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      expect(result.current.timedOut).toBe(true)
-      expect(result.current.streaming).toBe(false)
+      await waitFor(() => {
+        expect(result.current.timedOut).toBe(true)
+        expect(result.current.streaming).toBe(false)
+      })
     })
 
     it('should not timeout when stream completes normally', async () => {
@@ -887,10 +943,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      expect(result.current.timedOut).toBe(false)
-      expect(result.current.streaming).toBe(false)
+      await waitFor(() => {
+        expect(result.current.timedOut).toBe(false)
+        expect(result.current.streaming).toBe(false)
+      })
     })
   })
 
@@ -912,9 +968,10 @@ describe('useStreamingChat', () => {
         result.current.handleResponse(mockResponse)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
 
-      expect(result.current.streamBuffer).toHaveLength(1)
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'error',
         message: 'Read error',
@@ -947,7 +1004,9 @@ describe('useStreamingChat', () => {
       act(() => {
         result.current.handleResponse(mockResponse)
       })
-      await new Promise((resolve) => setTimeout(resolve, 10))
+      await waitFor(() => {
+        expect(result.current.streaming).toBe(true)
+      })
 
       unmount()
 
