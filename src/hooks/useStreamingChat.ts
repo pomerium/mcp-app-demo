@@ -213,7 +213,15 @@ export function useStreamingChat(): UseStreamingChatReturn {
     return () => {
       if (streamUpdateTimeoutRef.current) {
         clearTimeout(streamUpdateTimeoutRef.current)
+        streamUpdateTimeoutRef.current = null
       }
+
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+        abortControllerRef.current = null
+      }
+
+      streamCancelledRef.current = true
     }
   }, [])
 
@@ -317,12 +325,16 @@ export function useStreamingChat(): UseStreamingChatReturn {
         if (line.startsWith('t:')) {
           try {
             const toolStateStr = line.slice(2)
-            if (!toolStateStr.trim()) {
+            if (!toolStateStr || !toolStateStr.trim()) {
               console.warn('Empty tool state string')
               return
             }
 
             const toolState = JSON.parse(toolStateStr)
+            if (!toolState || typeof toolState !== 'object') {
+              console.warn('Invalid tool state object')
+              return
+            }
             if (toolState.type === 'tool_call_completed') {
               return
             }
@@ -654,7 +666,18 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
         if (line.startsWith('0:')) {
           try {
-            const text = JSON.parse(line.slice(2))
+            const textChunk = line.slice(2)
+            if (!textChunk || !textChunk.trim()) {
+              console.warn('Empty text chunk')
+              return
+            }
+
+            const text = JSON.parse(textChunk)
+            if (typeof text !== 'string') {
+              console.warn('Text chunk is not a string:', text)
+              return
+            }
+
             if (!assistantId) {
               assistantId = generateMessageId()
             }
@@ -724,20 +747,40 @@ export function useStreamingChat(): UseStreamingChatReturn {
   )
 
   const addUserMessage = useCallback((content: string) => {
-    setStreamBuffer((prev: StreamEvent[]) => [
-      ...prev,
-      {
-        type: 'user',
-        id: generateMessageId(),
-        content,
-        timestamp: getTimestamp(),
-      },
-    ])
+    if (!content || typeof content !== 'string') {
+      console.warn('addUserMessage: Invalid content provided', content)
+      return
+    }
+
+    const trimmedContent = content.trim()
+    if (!trimmedContent) {
+      console.warn('addUserMessage: Empty content after trimming')
+      return
+    }
+
+    setStreamBuffer((prev: StreamEvent[]) => {
+      // Prevent buffer from growing too large
+      if (prev.length > 1000) {
+        console.warn('Stream buffer limit reached, clearing old messages')
+        return prev.slice(-500) // Keep last 500 messages
+      }
+
+      return [
+        ...prev,
+        {
+          type: 'user',
+          id: generateMessageId(),
+          content: trimmedContent,
+          timestamp: getTimestamp(),
+        },
+      ]
+    })
   }, [])
 
   const cancelStream = useCallback(() => {
     if (streamUpdateTimeoutRef.current) {
       clearTimeout(streamUpdateTimeoutRef.current)
+      streamUpdateTimeoutRef.current = null
     }
 
     streamCancelledRef.current = true

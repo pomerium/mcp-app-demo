@@ -2,6 +2,33 @@ import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useStreamingChat } from './useStreamingChat'
 
+const ISO_TIMESTAMP_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+function expectTimestamp(value: string) {
+  expect(value).toEqual(expect.stringMatching(ISO_TIMESTAMP_REGEX))
+}
+
+function createMockResponse(overrides: Partial<Response> = {}): Response {
+  return {
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    redirected: false,
+    type: 'basic' as ResponseType,
+    url: '',
+    body: null,
+    headers: new Headers(),
+    clone: vi.fn(),
+    bodyUsed: false,
+    arrayBuffer: vi.fn(),
+    blob: vi.fn(),
+    bytes: vi.fn(),
+    formData: vi.fn(),
+    json: vi.fn(),
+    text: vi.fn(),
+    ...overrides,
+  }
+}
+
 vi.mock('../mcp/client', () => ({
   generateMessageId: vi.fn(() => 'mock-message-id'),
 }))
@@ -27,11 +54,6 @@ describe('useStreamingChat', () => {
       expect(result.current.streaming).toBe(false)
       expect(result.current.timedOut).toBe(false)
       expect(result.current.requestId).toBe(null)
-      expect(typeof result.current.handleResponse).toBe('function')
-      expect(typeof result.current.handleError).toBe('function')
-      expect(typeof result.current.addUserMessage).toBe('function')
-      expect(typeof result.current.cancelStream).toBe('function')
-      expect(typeof result.current.clearBuffer).toBe('function')
     })
   })
 
@@ -48,10 +70,11 @@ describe('useStreamingChat', () => {
         type: 'user',
         id: 'mock-message-id',
         content: 'Hello, world!',
-        timestamp: expect.stringMatching(
-          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
-        ),
+        timestamp: expect.any(String), // placeholder, will check below
       })
+      if (result.current.streamBuffer[0].type === 'user') {
+        expectTimestamp(result.current.streamBuffer[0].timestamp)
+      }
     })
 
     it('should add multiple user messages', () => {
@@ -63,12 +86,63 @@ describe('useStreamingChat', () => {
       })
 
       expect(result.current.streamBuffer).toHaveLength(2)
-      expect((result.current.streamBuffer[0] as any).content).toBe(
-        'First message',
-      )
-      expect((result.current.streamBuffer[1] as any).content).toBe(
-        'Second message',
-      )
+      expect(result.current.streamBuffer[0]).toEqual({
+        type: 'user',
+        id: 'mock-message-id',
+        content: 'First message',
+        timestamp: expect.any(String),
+      })
+      if (result.current.streamBuffer[0].type === 'user') {
+        expectTimestamp(result.current.streamBuffer[0].timestamp)
+      }
+      expect(result.current.streamBuffer[1]).toEqual({
+        type: 'user',
+        id: 'mock-message-id',
+        content: 'Second message',
+        timestamp: expect.any(String),
+      })
+      if (result.current.streamBuffer[1].type === 'user') {
+        expectTimestamp(result.current.streamBuffer[1].timestamp)
+      }
+    })
+
+    it('should handle empty string input', () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      act(() => {
+        result.current.addUserMessage('')
+      })
+
+      expect(result.current.streamBuffer).toHaveLength(0)
+    })
+
+    it('should handle whitespace-only input', () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      act(() => {
+        result.current.addUserMessage('   ')
+      })
+
+      expect(result.current.streamBuffer).toHaveLength(0)
+    })
+
+    it('should trim whitespace from input', () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      act(() => {
+        result.current.addUserMessage('  Hello, world!  ')
+      })
+
+      expect(result.current.streamBuffer).toHaveLength(1)
+      expect(result.current.streamBuffer[0]).toEqual({
+        type: 'user',
+        id: 'mock-message-id',
+        content: 'Hello, world!',
+        timestamp: expect.any(String),
+      })
+      if (result.current.streamBuffer[0].type === 'user') {
+        expectTimestamp(result.current.streamBuffer[0].timestamp)
+      }
     })
   })
 
@@ -113,13 +187,12 @@ describe('useStreamingChat', () => {
         read: vi.fn().mockResolvedValue({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map([['x-request-id', 'test-request-id']]),
+      const mockResponse = createMockResponse({
+        headers: new Headers([['x-request-id', 'test-request-id']]),
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -133,13 +206,12 @@ describe('useStreamingChat', () => {
     it('should handle failed response', () => {
       const { result } = renderHook(() => useStreamingChat())
 
-      const mockResponse = {
+      const mockResponse = createMockResponse({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
-        headers: new Map(),
         clone: vi.fn(),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -157,13 +229,11 @@ describe('useStreamingChat', () => {
     it('should handle response without reader', () => {
       const { result } = renderHook(() => useStreamingChat())
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(null) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -196,13 +266,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -240,13 +308,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -285,13 +351,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -330,13 +394,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -377,13 +439,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -430,13 +490,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -477,13 +535,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -533,13 +589,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -577,13 +631,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -621,13 +673,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -656,13 +706,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -675,6 +723,62 @@ describe('useStreamingChat', () => {
         type: 'error',
         message: 'An unknown error occurred during streaming',
       })
+    })
+
+    it('should handle empty tool state strings', async () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('t:\n'),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse)
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(result.current.streamBuffer).toHaveLength(0)
+    })
+
+    it('should handle malformed text chunks', async () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('0:invalid json\n'),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse)
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      expect(result.current.streamBuffer).toHaveLength(0)
     })
   })
 
@@ -689,13 +793,11 @@ describe('useStreamingChat', () => {
         }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -746,13 +848,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -777,13 +877,11 @@ describe('useStreamingChat', () => {
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -804,13 +902,11 @@ describe('useStreamingChat', () => {
         read: vi.fn().mockRejectedValue(new Error('Read error')),
       }
 
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
@@ -842,13 +938,11 @@ describe('useStreamingChat', () => {
           })
           .mockResolvedValueOnce({ done: true, value: undefined }),
       }
-      const mockResponse = {
-        ok: true,
-        headers: new Map(),
+      const mockResponse = createMockResponse({
         clone: vi.fn().mockReturnValue({
           body: { getReader: vi.fn().mockReturnValue(mockReader) },
         }),
-      } as unknown as Response
+      })
 
       act(() => {
         result.current.handleResponse(mockResponse)
