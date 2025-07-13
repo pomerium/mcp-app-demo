@@ -200,6 +200,8 @@ export function Chat() {
   const textBufferRef = useRef<string>('')
   const lastAssistantIdRef = useRef<string | null>(null)
   const pendingStreamEventsRef = useRef<StreamEvent[]>([])
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const streamCancelledRef = useRef<boolean>(false)
 
   const flushTextBuffer = useCallback(() => {
     if (textBufferRef.current && lastAssistantIdRef.current) {
@@ -357,6 +359,9 @@ export function Chat() {
       setStreaming(true)
       setTimedOut(false)
 
+      abortControllerRef.current = new AbortController()
+      streamCancelledRef.current = false
+
       // Clone the response to handle our custom streaming while letting useChat handle its own
       const reader = response.clone().body?.getReader()
 
@@ -382,6 +387,13 @@ export function Chat() {
       let receivedCompletion = false
 
       const processChunk = (line: string) => {
+        if (
+          abortControllerRef.current?.signal.aborted ||
+          streamCancelledRef.current
+        ) {
+          return
+        }
+
         if (line.startsWith('e:')) {
           // Handle error messages
           try {
@@ -781,6 +793,13 @@ export function Chat() {
 
       const readChunk = async () => {
         try {
+          if (
+            abortControllerRef.current?.signal.aborted ||
+            streamCancelledRef.current
+          ) {
+            return
+          }
+
           const { done, value } = await reader.read()
           if (done) {
             // Flush any remaining text buffer
@@ -801,8 +820,19 @@ export function Chat() {
             if (line.trim()) processChunk(line)
           }
 
-          readChunk()
+          // Only continue reading if not cancelled
+          if (!streamCancelledRef.current) {
+            readChunk()
+          }
         } catch (error) {
+          // Don't show error if stream was aborted or cancelled
+          if (
+            abortControllerRef.current?.signal.aborted ||
+            streamCancelledRef.current
+          ) {
+            return
+          }
+
           console.error('Error reading stream chunk:', error)
           setStreamBuffer((prev: StreamEvent[]) => [
             ...prev,
@@ -823,7 +853,7 @@ export function Chat() {
     [updateAssistantText, flushTextBuffer],
   )
 
-  const { messages, isLoading, setMessages, append } = useChat({
+  const { messages, isLoading, setMessages, append, stop } = useChat({
     body: chatBody,
     onError: handleError,
     onResponse: handleResponse,
@@ -895,6 +925,15 @@ export function Chat() {
       clearTimeout(streamUpdateTimeoutRef.current)
     }
 
+    streamCancelledRef.current = true
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+
+    stop()
+
     setHasStartedChat(false)
     setStreamBuffer([])
     setStreaming(false)
@@ -907,7 +946,7 @@ export function Chat() {
     textBufferRef.current = ''
     lastAssistantIdRef.current = null
     pendingStreamEventsRef.current = []
-  }, [setMessages])
+  }, [setMessages, stop])
 
   const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
