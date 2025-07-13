@@ -1,11 +1,11 @@
 import { cn } from '../lib/utils'
-import type { Message } from '../mcp/client'
+import type { UserStreamEvent } from '@/hooks/useStreamingChat'
 import { formatTimestamp } from '../lib/utils'
 import { User, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
 import { MarkdownContent } from './MarkdownContent'
 
 export interface UserMessageProps {
-  message: Message
+  message: UserStreamEvent & { timestamp: string; status: string }
 }
 
 export function UserMessage({ message }: UserMessageProps) {

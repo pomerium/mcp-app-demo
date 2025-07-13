@@ -3,94 +3,115 @@ import { generateMessageId } from '../mcp/client'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
 
+export type AssistantStreamEvent = {
+  type: 'assistant'
+  id: string
+  content: string
+  fileAnnotations?: Array<{
+    type: string
+    container_id: string
+    file_id: string
+    filename: string
+    start_index?: number
+    end_index?: number
+  }>
+}
+
+export type ToolStreamEvent = {
+  type: 'tool'
+  toolType: string
+  serverLabel: string
+  tools?: any[]
+  itemId?: string
+  toolName?: string
+  arguments?: unknown
+  delta?: unknown
+  error?: string
+  status?:
+    | 'in_progress'
+    | 'completed'
+    | 'done'
+    | 'arguments_delta'
+    | 'arguments_done'
+    | 'failed'
+}
+
+export type CodeInterpreterStreamEvent = {
+  type: 'code_interpreter'
+  itemId: string
+  code?: string
+  delta?: string
+  annotation?: {
+    type: string
+    container_id: string
+    file_id: string
+    filename: string
+    start_index: number
+    end_index: number
+  }
+  eventType:
+    | 'code_interpreter_call_in_progress'
+    | 'code_interpreter_call_code_delta'
+    | 'code_interpreter_call_code_done'
+    | 'code_interpreter_call_interpreting'
+    | 'code_interpreter_call_completed'
+}
+
+export type CodeInterpreterFileAnnotationStreamEvent = {
+  type: 'code_interpreter_file_annotation'
+  annotation: {
+    type: string
+    container_id: string
+    file_id: string
+    filename: string
+    start_index: number
+    end_index: number
+  }
+}
+
+export type UserStreamEvent = {
+  type: 'user'
+  id: string
+  content: string
+  timestamp: string
+}
+
+export type ReasoningStreamEvent = {
+  type: 'reasoning'
+  effort: string
+  summary: string | null
+  model?: string
+  serviceTier?: string
+  temperature?: number
+  topP?: number
+  done?: boolean
+}
+
+export type ErrorStreamEvent = {
+  type: 'error'
+  message: string
+  details?: unknown
+}
+
+export type WebSearchStreamEvent = {
+  type: 'web_search'
+  id: string
+  status: 'in_progress' | 'searching' | 'completed' | 'failed' | 'result'
+  query?: string
+  results?: Array<{ title: string; url: string; snippet?: string }>
+  error?: string
+  raw?: unknown
+}
+
 export type StreamEvent =
-  | {
-      type: 'assistant'
-      id: string
-      content: string
-      fileAnnotations?: Array<{
-        type: string
-        container_id: string
-        file_id: string
-        filename: string
-        start_index?: number
-        end_index?: number
-      }>
-    }
-  | {
-      type: 'tool'
-      toolType: string
-      serverLabel: string
-      tools?: any[]
-      itemId?: string
-      toolName?: string
-      arguments?: unknown
-      delta?: unknown
-      error?: string
-      status?:
-        | 'in_progress'
-        | 'completed'
-        | 'done'
-        | 'arguments_delta'
-        | 'arguments_done'
-        | 'failed'
-    }
-  | {
-      type: 'code_interpreter'
-      itemId: string
-      code?: string
-      delta?: string
-      annotation?: {
-        type: string
-        container_id: string
-        file_id: string
-        filename: string
-        start_index: number
-        end_index: number
-      }
-      eventType:
-        | 'code_interpreter_call_in_progress'
-        | 'code_interpreter_call_code_delta'
-        | 'code_interpreter_call_code_done'
-        | 'code_interpreter_call_interpreting'
-        | 'code_interpreter_call_completed'
-    }
-  | {
-      type: 'code_interpreter_file_annotation'
-      annotation: {
-        type: string
-        container_id: string
-        file_id: string
-        filename: string
-        start_index: number
-        end_index: number
-      }
-    }
-  | { type: 'user'; id: string; content: string; timestamp: string }
-  | {
-      type: 'reasoning'
-      effort: string
-      summary: string | null
-      model?: string
-      serviceTier?: string
-      temperature?: number
-      topP?: number
-      done?: boolean
-    }
-  | {
-      type: 'error'
-      message: string
-      details?: unknown
-    }
-  | {
-      type: 'web_search'
-      id: string
-      status: 'in_progress' | 'searching' | 'completed' | 'failed' | 'result'
-      query?: string
-      results?: Array<{ title: string; url: string; snippet?: string }>
-      error?: string
-      raw?: unknown
-    }
+  | AssistantStreamEvent
+  | ToolStreamEvent
+  | CodeInterpreterStreamEvent
+  | CodeInterpreterFileAnnotationStreamEvent
+  | UserStreamEvent
+  | ReasoningStreamEvent
+  | ErrorStreamEvent
+  | WebSearchStreamEvent
 
 const getToolStatus = (
   toolType: string,
@@ -102,12 +123,20 @@ const getToolStatus = (
   | 'arguments_done'
   | 'failed'
   | undefined => {
-  if (toolType.includes('failed')) return 'failed'
-  if (toolType.includes('in_progress')) return 'in_progress'
-  if (toolType.includes('completed')) return 'completed'
-  if (toolType.includes('arguments_done')) return 'arguments_done'
-  if (toolType.includes('done')) return 'done'
-  if (toolType.includes('arguments_delta')) return 'arguments_delta'
+  switch (true) {
+    case toolType.includes('failed'):
+      return 'failed'
+    case toolType.includes('in_progress'):
+      return 'in_progress'
+    case toolType.includes('completed'):
+      return 'completed'
+    case toolType.includes('arguments_done'):
+      return 'arguments_done'
+    case toolType.includes('done'):
+      return 'done'
+    case toolType.includes('arguments_delta'):
+      return 'arguments_delta'
+  }
   return undefined
 }
 
