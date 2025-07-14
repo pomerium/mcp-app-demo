@@ -24,6 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check for formatting errors
+        run: npm run format:check
+
       - name: Run tests
         run: npm run test:ci
       # This can be removed one we deploy to Netlify and Storybook deploying is a check for PRs. See https://github.com/pomerium/mcp-app-demo/issues/123
