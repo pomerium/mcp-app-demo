@@ -1,19 +1,24 @@
 import { cn } from '../lib/utils'
 import type { UserStreamEvent } from '@/hooks/useStreamingChat'
+import type { MessageStatus } from '@/mcp/client'
 import { formatTimestamp } from '../lib/utils'
 import { User, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
 import { MarkdownContent } from './MarkdownContent'
 
 export interface UserMessageProps {
-  message: UserStreamEvent & { timestamp: string; status: string }
+  message: Omit<UserStreamEvent, 'type'> & {
+    timestamp: string
+    status: MessageStatus
+  }
 }
 
 export function UserMessage({ message }: UserMessageProps) {
-  const statusIcons = {
+  const statusIcons: Record<MessageStatus, React.ReactNode> = {
     sending: <Clock className="h-3 w-3 text-gray-400" />,
     sent: <CheckCircle2 className="h-3 w-3 text-green-500" />,
     error: <AlertCircle className="h-3 w-3 text-red-500" />,
   }
+
   return (
     <div
       className={cn(

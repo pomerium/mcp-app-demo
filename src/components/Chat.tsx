@@ -4,7 +4,7 @@ import { BotMessage } from './BotMessage'
 import { ChatInput } from './ChatInput'
 import { ServerSelector } from './ServerSelector'
 import { useChat } from 'ai/react'
-import { generateMessageId } from '../mcp/client'
+import { generateMessageId, type MessageStatus } from '../mcp/client'
 import type { Message } from 'ai'
 import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
@@ -282,7 +282,6 @@ export function Chat() {
                     message={{
                       id: key,
                       content: '', // No text, just the file
-                      sender: 'agent',
                       timestamp: getTimestamp(),
                       status: 'sent',
                     }}
@@ -298,7 +297,6 @@ export function Chat() {
                     message={{
                       id: event.id,
                       content: event.content,
-                      sender: 'agent',
                       timestamp: getTimestamp(),
                       status: 'sent',
                     }}
@@ -312,7 +310,6 @@ export function Chat() {
                     message={{
                       id: event.id,
                       content: event.content,
-                      sender: 'user',
                       timestamp: getTimestamp(),
                       status: 'sent',
                     }}
@@ -337,7 +334,6 @@ export function Chat() {
                         message={{
                           id: message.id,
                           content: message.content,
-                          sender: 'agent',
                           timestamp: getTimestamp(),
                           status: 'sent',
                         }}
@@ -350,7 +346,6 @@ export function Chat() {
                         message={{
                           id: message.id,
                           content: message.content,
-                          sender: 'user',
                           timestamp: getTimestamp(),
                           status: 'sent',
                         }}

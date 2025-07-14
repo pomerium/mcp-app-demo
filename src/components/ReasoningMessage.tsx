@@ -4,7 +4,7 @@ import { MarkdownContent } from './MarkdownContent'
 import { CollapsibleSection } from './ui/collapsible-section'
 import { MessageAvatar } from './MessageAvatar'
 
-type ReasoningMessageProps = ReasoningStreamEvent & {
+interface ReasoningMessageProps extends Omit<ReasoningStreamEvent, 'type'> {
   isLoading?: boolean
 }
 
