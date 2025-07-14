@@ -9,25 +9,6 @@ const GENERIC_ERROR_MESSAGE = 'An error occurred while sending your message'
 const TEST_ERROR_MESSAGE = 'Test error message'
 const INTERNAL_SERVER_ERROR = 'Internal Server Error'
 
-// Type guards for StreamEvent types
-function isAssistant(
-  event: any,
-): event is Extract<
-  ReturnType<typeof useStreamingChat>['streamBuffer'][0],
-  { type: 'assistant' }
-> {
-  return event.type === 'assistant'
-}
-
-function isUser(
-  event: any,
-): event is Extract<
-  ReturnType<typeof useStreamingChat>['streamBuffer'][0],
-  { type: 'user' }
-> {
-  return event.type === 'user'
-}
-
 function isTool(
   event: any,
 ): event is Extract<
@@ -35,15 +16,6 @@ function isTool(
   { type: 'tool' }
 > {
   return event.type === 'tool'
-}
-
-function isError(
-  event: any,
-): event is Extract<
-  ReturnType<typeof useStreamingChat>['streamBuffer'][0],
-  { type: 'error' }
-> {
-  return event.type === 'error'
 }
 
 function expectTimestamp(value: string) {
@@ -113,7 +85,7 @@ describe('useStreamingChat', () => {
         type: 'user',
         id: MOCK_MESSAGE_ID,
         content: 'Hello, world!',
-        timestamp: expect.any(String), // placeholder, will check below
+        timestamp: expect.any(String),
       })
       if (result.current.streamBuffer[0].type === 'user') {
         expectTimestamp(result.current.streamBuffer[0].timestamp)
@@ -150,6 +122,9 @@ describe('useStreamingChat', () => {
     })
 
     it('should handle empty string input', () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
 
       act(() => {
@@ -157,9 +132,16 @@ describe('useStreamingChat', () => {
       })
 
       expect(result.current.streamBuffer).toHaveLength(0)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'addUserMessage: Invalid content provided',
+        '',
+      )
     })
 
     it('should handle whitespace-only input', () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
 
       act(() => {
@@ -167,6 +149,9 @@ describe('useStreamingChat', () => {
       })
 
       expect(result.current.streamBuffer).toHaveLength(0)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'addUserMessage: Empty content after trimming',
+      )
     })
 
     it('should trim whitespace from input', () => {
@@ -191,6 +176,9 @@ describe('useStreamingChat', () => {
 
   describe('handleError', () => {
     it('should add error message to stream buffer', () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
       const error = new Error(TEST_ERROR_MESSAGE)
 
@@ -205,9 +193,13 @@ describe('useStreamingChat', () => {
       })
       expect(result.current.streaming).toBe(false)
       expect(result.current.timedOut).toBe(false)
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Chat error:', error)
     })
 
     it('should handle error without message', () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
       const error = new Error()
 
@@ -219,6 +211,7 @@ describe('useStreamingChat', () => {
         type: 'error',
         message: GENERIC_ERROR_MESSAGE,
       })
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Chat error:', error)
     })
   })
 
@@ -247,6 +240,9 @@ describe('useStreamingChat', () => {
     })
 
     it('should handle failed response', () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
 
       const mockResponse = createMockResponse({
@@ -267,6 +263,11 @@ describe('useStreamingChat', () => {
       })
       expect(result.current.streaming).toBe(false)
       expect(result.current.timedOut).toBe(false)
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Chat response error:',
+        500,
+        'Internal Server Error',
+      )
     })
 
     it('should handle response without reader', () => {
@@ -749,6 +750,9 @@ describe('useStreamingChat', () => {
     })
 
     it('should handle malformed error events', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
 
       const mockReader = {
@@ -779,9 +783,16 @@ describe('useStreamingChat', () => {
         type: 'error',
         message: 'An unknown error occurred during streaming',
       })
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to parse error data:',
+        expect.any(SyntaxError),
+      )
     })
 
     it('should handle empty tool state strings', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
 
       const mockReader = {
@@ -807,9 +818,13 @@ describe('useStreamingChat', () => {
       await waitFor(() => {
         expect(result.current.streamBuffer).toHaveLength(0)
       })
+      expect(consoleWarnSpy).toHaveBeenCalledWith('Empty tool state string')
     })
 
     it('should handle malformed text chunks', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
 
       const mockReader = {
@@ -835,6 +850,144 @@ describe('useStreamingChat', () => {
       await waitFor(() => {
         expect(result.current.streamBuffer).toHaveLength(0)
       })
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to parse text chunk:',
+        expect.any(SyntaxError),
+      )
+    })
+
+    it('should handle empty text chunks', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {})
+      const { result } = renderHook(() => useStreamingChat())
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('0:\n'),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse)
+      })
+
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
+      expect(consoleWarnSpy).toHaveBeenCalledWith('Empty text chunk')
+    })
+
+    it('should handle non-string text chunks', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {})
+      const { result } = renderHook(() => useStreamingChat())
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('0:123\n'),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse)
+      })
+
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Text chunk is not a string:',
+        123,
+      )
+    })
+
+    it('should handle invalid tool state objects', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {})
+      const { result } = renderHook(() => useStreamingChat())
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('t:null\n'),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse)
+      })
+
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
+      expect(consoleWarnSpy).toHaveBeenCalledWith('Invalid tool state object')
+    })
+
+    it('should handle malformed tool state', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const { result } = renderHook(() => useStreamingChat())
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode('t:invalid json\n'),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse)
+      })
+
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to parse tool state:',
+        expect.any(SyntaxError),
+      )
     })
   })
 
@@ -952,6 +1105,9 @@ describe('useStreamingChat', () => {
 
   describe('stream reading errors', () => {
     it('should handle stream reading errors', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
       const { result } = renderHook(() => useStreamingChat())
 
       const mockReader = {
@@ -977,6 +1133,10 @@ describe('useStreamingChat', () => {
         message: 'Read error',
       })
       expect(result.current.streaming).toBe(false)
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Error reading stream chunk:',
+        expect.any(Error),
+      )
     })
   })
 
