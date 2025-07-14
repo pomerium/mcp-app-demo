@@ -2,7 +2,7 @@ import { Bot, Copy, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import type { Message } from '@/mcp/client'
+import type { AssistantStreamEvent } from '@/hooks/useStreamingChat'
 import { formatTimestamp } from '@/lib/utils'
 import { MarkdownContent } from '@/components/MarkdownContent'
 import { copyToClipboard } from '@/lib/utils/clipboard'
@@ -12,14 +12,14 @@ import {
   createAnnotatedFileUrl,
 } from '@/lib/utils/code-interpreter'
 
+interface Message extends Omit<AssistantStreamEvent, 'type'> {
+  timestamp: string
+  status: string
+}
+
 export interface BotMessageProps {
   message: Message
-  fileAnnotations?: Array<{
-    type: string
-    container_id: string
-    file_id: string
-    filename: string
-  }>
+  fileAnnotations?: AssistantStreamEvent['fileAnnotations']
 }
 
 export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
@@ -75,7 +75,6 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
             <MarkdownContent content={message.content} />
           </div>
 
-          {/* Image Gallery */}
           {imageFiles.length > 0 && (
             <div className="mt-4 space-y-3">
               {imageFiles.map((annotation) => {
@@ -130,7 +129,6 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
             </div>
           )}
 
-          {/* Other Files */}
           {otherFiles.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">

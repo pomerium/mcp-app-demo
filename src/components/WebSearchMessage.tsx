@@ -1,17 +1,10 @@
 import { Globe } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import type { WebSearchStreamEvent } from '@/hooks/useStreamingChat'
 import { MessageAvatar } from './MessageAvatar'
 import { CollapsibleSection } from './ui/collapsible-section'
-import { getStatusIcon } from '@/lib/toolStatus'
 
 export interface WebSearchMessageProps {
-  event: {
-    type: 'web_search'
-    id: string
-    status: 'in_progress' | 'searching' | 'completed' | 'failed' | 'result'
-    error?: string
-    raw?: unknown
-  }
+  event: WebSearchStreamEvent
 }
 
 const getVariant = (status?: string, error?: string) => {
@@ -39,19 +32,14 @@ export function WebSearchMessage({ event }: WebSearchMessageProps) {
   const variant = getVariant(status, error)
   const summaryContent = (
     <span className="flex items-center gap-1 text-xs opacity-75">
-      {getStatusIcon(status, error)}
+      {/* getStatusIcon(status, error) */}
       <span className="sr-only md:not-sr-only">
         {getStatusText(status, error)}
       </span>
     </span>
   )
   return (
-    <div
-      className={cn(
-        'flex w-full max-w-full gap-2 py-2 animate-in fade-in',
-        'justify-start items-start',
-      )}
-    >
+    <div className={`flex w-full max-w-full gap-2 py-2 animate-in fade-in`}>
       <MessageAvatar icon={<Globe className="h-5 w-5" />} variant={variant} />
       <div className="flex flex-col space-y-1 items-start w-full sm:w-[85%] md:w-[75%] lg:w-[65%]">
         <CollapsibleSection

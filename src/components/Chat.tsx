@@ -1,4 +1,4 @@
-import { useRef, useMemo, useState, useCallback, useEffect } from 'react'
+import { useRef, useMemo, useState, useCallback } from 'react'
 import { UserMessage } from './UserMessage'
 import { BotMessage } from './BotMessage'
 import { ChatInput } from './ChatInput'
@@ -6,7 +6,7 @@ import { ServerSelector } from './ServerSelector'
 import { useChat } from 'ai/react'
 import { generateMessageId } from '../mcp/client'
 import type { Message } from 'ai'
-import { type Servers, type ToolItem } from '../lib/schemas'
+import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
 import { ReasoningMessage } from './ReasoningMessage'
@@ -19,121 +19,12 @@ import { WebSearchToggle } from './WebSearchToggle'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
-import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { CodeInterpreterMessage } from './CodeInterpreterMessage'
-import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
 import { WebSearchMessage } from './WebSearchMessage'
 import { getTimestamp } from '@/lib/utils/date'
-
-type StreamEvent =
-  | {
-      type: 'assistant'
-      id: string
-      content: string
-      fileAnnotations?: Array<{
-        type: string
-        container_id: string
-        file_id: string
-        filename: string
-        start_index?: number
-        end_index?: number
-      }>
-    }
-  | {
-      type: 'tool'
-      toolType: string
-      serverLabel: string
-      tools?: ToolItem[]
-      itemId?: string
-      toolName?: string
-      arguments?: unknown
-      delta?: unknown
-      error?: string
-      status?:
-        | 'in_progress'
-        | 'completed'
-        | 'done'
-        | 'arguments_delta'
-        | 'arguments_done'
-        | 'failed'
-    }
-  | {
-      type: 'code_interpreter'
-      itemId: string
-      code?: string
-      delta?: string
-      annotation?: {
-        type: string
-        container_id: string
-        file_id: string
-        filename: string
-        start_index: number
-        end_index: number
-      }
-      eventType:
-        | 'code_interpreter_call_in_progress'
-        | 'code_interpreter_call_code_delta'
-        | 'code_interpreter_call_code_done'
-        | 'code_interpreter_call_interpreting'
-        | 'code_interpreter_call_completed'
-    }
-  | {
-      type: 'code_interpreter_file_annotation'
-      annotation: {
-        type: string
-        container_id: string
-        file_id: string
-        filename: string
-        start_index: number
-        end_index: number
-      }
-    }
-  | { type: 'user'; id: string; content: string }
-  | {
-      type: 'reasoning'
-      effort: string
-      summary: string | null
-      model?: string
-      serviceTier?: string
-      temperature?: number
-      topP?: number
-      done?: boolean
-    }
-  | {
-      type: 'error'
-      message: string
-      details?: unknown
-    }
-  | {
-      type: 'web_search'
-      id: string
-      status: 'in_progress' | 'searching' | 'completed' | 'failed' | 'result'
-      query?: string
-      results?: Array<{ title: string; url: string; snippet?: string }>
-      error?: string
-      raw?: unknown
-    }
-
-const getToolStatus = (
-  toolType: string,
-):
-  | 'in_progress'
-  | 'completed'
-  | 'done'
-  | 'arguments_delta'
-  | 'arguments_done'
-  | 'failed'
-  | undefined => {
-  if (toolType.includes('failed')) return 'failed'
-  if (toolType.includes('in_progress')) return 'in_progress'
-  if (toolType.includes('completed')) return 'completed'
-  if (toolType.includes('arguments_done')) return 'arguments_done'
-  if (toolType.includes('done')) return 'done'
-  if (toolType.includes('arguments_delta')) return 'arguments_delta'
-  return undefined
-}
+import { useStreamingChat, type StreamEvent } from '@/hooks/useStreamingChat'
 
 const getEventKey = (event: StreamEvent | Message, idx: number): string => {
   if ('type' in event) {
@@ -179,14 +70,22 @@ export function Chat() {
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
   const [selectedServers, setSelectedServers] = useState<string[]>([])
-  const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
-  const [streaming, setStreaming] = useState(false)
   const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const [useWebSearch, setUseWebSearch] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
-  const [requestId, setRequestId] = useState<string | null>(null)
-  const [timedOut, setTimedOut] = useState(false)
+
+  const {
+    streamBuffer,
+    streaming,
+    timedOut,
+    requestId,
+    handleResponse,
+    handleError,
+    addUserMessage,
+    cancelStream,
+    clearBuffer,
+  } = useStreamingChat()
 
   const handleModelChange = (newModel: string) => {
     setSelectedModel(newModel)
@@ -195,97 +94,6 @@ export function Chat() {
       setUseCodeInterpreter(false)
     }
   }
-
-  const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const textBufferRef = useRef<string>('')
-  const lastAssistantIdRef = useRef<string | null>(null)
-  const pendingStreamEventsRef = useRef<StreamEvent[]>([])
-  const abortControllerRef = useRef<AbortController | null>(null)
-  const streamCancelledRef = useRef<boolean>(false)
-
-  const flushTextBuffer = useCallback(() => {
-    if (textBufferRef.current && lastAssistantIdRef.current) {
-      const assistantId = lastAssistantIdRef.current
-      const textToAdd = textBufferRef.current
-
-      setStreamBuffer((prev: StreamEvent[]) => {
-        const existingIndex = prev.findIndex(
-          (event: StreamEvent) =>
-            event.type === 'assistant' && event.id === assistantId,
-        )
-
-        if (existingIndex !== -1) {
-          // Update existing assistant message
-          const updatedEvent = {
-            ...prev[existingIndex],
-            content:
-              (
-                prev[existingIndex] as Extract<
-                  StreamEvent,
-                  { type: 'assistant' }
-                >
-              ).content + textToAdd,
-          }
-          return [
-            ...prev.slice(0, existingIndex),
-            updatedEvent,
-            ...prev.slice(existingIndex + 1),
-          ]
-        } else {
-          // Create new assistant message
-          return [
-            ...prev,
-            {
-              type: 'assistant' as const,
-              id: assistantId,
-              content: textToAdd,
-            },
-          ]
-        }
-      })
-
-      textBufferRef.current = ''
-    }
-
-    if (pendingStreamEventsRef.current.length > 0) {
-      setStreamBuffer((prev: StreamEvent[]) => [
-        ...prev,
-        ...pendingStreamEventsRef.current,
-      ])
-      pendingStreamEventsRef.current = []
-    }
-  }, [])
-
-  const updateAssistantText = useCallback(
-    (text: string, assistantId: string) => {
-      // If the assistantId changes, flush the buffer first
-      if (
-        lastAssistantIdRef.current &&
-        lastAssistantIdRef.current !== assistantId
-      ) {
-        flushTextBuffer()
-      }
-      textBufferRef.current += text
-      lastAssistantIdRef.current = assistantId
-
-      if (streamUpdateTimeoutRef.current) {
-        clearTimeout(streamUpdateTimeoutRef.current)
-      }
-
-      streamUpdateTimeoutRef.current = setTimeout(() => {
-        flushTextBuffer()
-      }, 16)
-    },
-    [flushTextBuffer],
-  )
-
-  useEffect(() => {
-    return () => {
-      if (streamUpdateTimeoutRef.current) {
-        clearTimeout(streamUpdateTimeoutRef.current)
-      }
-    }
-  }, [])
 
   const initialMessage = useMemo<Message>(
     () => ({
@@ -318,541 +126,6 @@ export function Chat() {
     ],
   )
 
-  const handleError = useCallback((error: Error) => {
-    console.error('Chat error:', error)
-    setStreamBuffer((prev: StreamEvent[]) => [
-      ...prev,
-      {
-        type: 'error',
-        message:
-          error.message || 'An error occurred while sending your message',
-      },
-    ])
-    setStreaming(false)
-    setTimedOut(false)
-  }, [])
-
-  const handleResponse = useCallback(
-    (response: Response) => {
-      // Extract x-request-id header for timeout troubleshooting
-      const xRequestId = response.headers.get('x-request-id')
-      setRequestId(xRequestId)
-
-      if (!response.ok) {
-        console.error(
-          'Chat response error:',
-          response.status,
-          response.statusText,
-        )
-        setStreamBuffer((prev: StreamEvent[]) => [
-          ...prev,
-          {
-            type: 'error',
-            message: `Request failed with status ${response.status}: ${response.statusText}`,
-          },
-        ])
-        setStreaming(false)
-        setTimedOut(false)
-        return
-      }
-
-      setStreaming(true)
-      setTimedOut(false)
-
-      abortControllerRef.current = new AbortController()
-      streamCancelledRef.current = false
-
-      // Clone the response to handle our custom streaming while letting useChat handle its own
-      const reader = response.clone().body?.getReader()
-
-      // Stop processing the original response stream
-      stopStreamProcessing(response)
-
-      if (!reader) {
-        setStreamBuffer((prev: StreamEvent[]) => [
-          ...prev,
-          {
-            type: 'error',
-            message: 'Failed to get response stream reader',
-          },
-        ])
-        setStreaming(false)
-        setTimedOut(false)
-        return
-      }
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let assistantId: string | null = null
-      let receivedCompletion = false
-
-      const processChunk = (line: string) => {
-        if (
-          abortControllerRef.current?.signal.aborted ||
-          streamCancelledRef.current
-        ) {
-          return
-        }
-
-        if (line.startsWith('e:')) {
-          // Handle error messages
-          try {
-            const errorData = JSON.parse(line.slice(2))
-            // Process error events immediately instead of buffering
-            setStreamBuffer((prev: StreamEvent[]) => [
-              ...prev,
-              {
-                type: 'error',
-                message:
-                  errorData.message || 'An error occurred during streaming',
-                details: errorData.details,
-              },
-            ])
-          } catch (e) {
-            console.error('Failed to parse error data:', e)
-            setStreamBuffer((prev: StreamEvent[]) => [
-              ...prev,
-              {
-                type: 'error',
-                message: 'An unknown error occurred during streaming',
-              },
-            ])
-          }
-          return
-        }
-
-        if (line.startsWith('t:')) {
-          try {
-            const toolStateStr = line.slice(2)
-            if (!toolStateStr.trim()) {
-              console.warn('Empty tool state string')
-              return
-            }
-
-            const toolState = JSON.parse(toolStateStr)
-            // Handle tool_call_completed events
-            if (toolState.type === 'tool_call_completed') {
-              return
-            }
-            // Handle stream_done event (signals end of stream)
-            if (toolState.type === 'stream_done') {
-              receivedCompletion = true
-              return
-            }
-
-            // Handle reasoning summary streaming
-            if (toolState.type === 'reasoning_summary_delta') {
-              setStreamBuffer((prev: StreamEvent[]) => {
-                const last = prev[prev.length - 1]
-                if (last && last.type === 'reasoning' && !last.done) {
-                  return [
-                    ...prev.slice(0, -1),
-                    {
-                      ...last,
-                      summary: (last.summary || '') + toolState.delta,
-                      effort: toolState.effort || last.effort,
-                      model: toolState.model || last.model,
-                      serviceTier: toolState.serviceTier || last.serviceTier,
-                      temperature: toolState.temperature ?? last.temperature,
-                      topP: toolState.topP ?? last.topP,
-                    },
-                  ]
-                } else {
-                  return [
-                    ...prev,
-                    {
-                      type: 'reasoning',
-                      summary: toolState.delta,
-                      effort: toolState.effort || '',
-                      model: toolState.model,
-                      serviceTier: toolState.serviceTier,
-                      temperature: toolState.temperature,
-                      topP: toolState.topP,
-                      done: false,
-                    },
-                  ]
-                }
-              })
-              return
-            }
-
-            if (toolState.type === 'reasoning_summary_done') {
-              setStreamBuffer((prev: StreamEvent[]) => {
-                const last = prev[prev.length - 1]
-                if (last && last.type === 'reasoning' && !last.done) {
-                  return [
-                    ...prev.slice(0, -1),
-                    {
-                      ...last,
-                      done: true,
-                      effort: toolState.effort || last.effort,
-                      model: toolState.model || last.model,
-                      serviceTier: toolState.serviceTier || last.serviceTier,
-                      temperature: toolState.temperature ?? last.temperature,
-                      topP: toolState.topP ?? last.topP,
-                    },
-                  ]
-                }
-                return prev
-              })
-              return
-            }
-
-            if (toolState.type === 'reasoning') {
-              pendingStreamEventsRef.current.push({
-                type: 'reasoning',
-                effort: toolState.effort || '',
-                summary: toolState.summary || null,
-                model: toolState.model,
-                serviceTier: toolState.serviceTier,
-                temperature: toolState.temperature,
-                topP: toolState.topP,
-              })
-              return
-            }
-
-            // Handle code interpreter events
-            if (toolState.type.startsWith('code_interpreter')) {
-              const codeInterpreterEvent: Extract<
-                StreamEvent,
-                { type: 'code_interpreter' }
-              > = {
-                type: 'code_interpreter',
-                itemId: toolState.itemId,
-                eventType: toolState.type as any,
-                code: toolState.code,
-                delta: toolState.delta,
-                annotation: toolState.annotation,
-              }
-
-              // Special handling for file annotations - they have different itemIds
-              if (toolState.type === 'code_interpreter_file_annotation') {
-                const annotationItemId = toolState.itemId
-                const annotation = codeInterpreterEvent.annotation
-                if (annotation) {
-                  setStreamBuffer((prev: StreamEvent[]) => {
-                    // Find the last assistant message
-                    const lastAssistantIdx = [...prev]
-                      .reverse()
-                      .findIndex(
-                        (event: StreamEvent) => event.type === 'assistant',
-                      )
-                    if (lastAssistantIdx !== -1) {
-                      const actualIdx = prev.length - 1 - lastAssistantIdx
-                      const existingEvent = prev[actualIdx]
-                      const updatedEvent = {
-                        ...existingEvent,
-                        fileAnnotations: [
-                          ...((existingEvent.type === 'assistant' &&
-                            existingEvent.fileAnnotations) ||
-                            []),
-                          annotation,
-                        ],
-                      }
-                      return [
-                        ...prev.slice(0, actualIdx),
-                        updatedEvent,
-                        ...prev.slice(actualIdx + 1),
-                      ]
-                    }
-                    // fallback: add as its own message
-                    return [
-                      ...prev,
-                      {
-                        type: 'assistant',
-                        id: `file-annotation-${annotationItemId}`,
-                        content: '',
-                        fileAnnotations: [annotation],
-                      },
-                    ]
-                  })
-                  return
-                }
-                // If no annotation, skip
-                return
-              }
-
-              // Handle other code interpreter events by itemId
-              if (codeInterpreterEvent.itemId) {
-                setStreamBuffer((prev: StreamEvent[]) => {
-                  const existingIndex = prev.findIndex(
-                    (event: StreamEvent) =>
-                      event.type === 'code_interpreter' &&
-                      event.itemId === codeInterpreterEvent.itemId,
-                  )
-
-                  if (existingIndex !== -1) {
-                    const existingEvent = prev[existingIndex] as Extract<
-                      StreamEvent,
-                      { type: 'code_interpreter' }
-                    >
-
-                    // Handle code accumulation for delta events
-                    let updatedCode = existingEvent.code || ''
-                    if (
-                      toolState.type === 'code_interpreter_call_code_delta' &&
-                      codeInterpreterEvent.delta
-                    ) {
-                      // Accumulate delta into existing code
-                      updatedCode =
-                        (existingEvent.code || '') + codeInterpreterEvent.delta
-                    } else if (
-                      toolState.type === 'code_interpreter_call_code_done' &&
-                      codeInterpreterEvent.code
-                    ) {
-                      // Replace with full code when done
-                      updatedCode = codeInterpreterEvent.code
-                    }
-
-                    const updatedEvent = {
-                      ...existingEvent,
-                      eventType: codeInterpreterEvent.eventType,
-                      code: updatedCode,
-                      delta: codeInterpreterEvent.delta || existingEvent.delta,
-                      annotation:
-                        codeInterpreterEvent.annotation ||
-                        existingEvent.annotation,
-                    }
-                    return [
-                      ...prev.slice(0, existingIndex),
-                      updatedEvent,
-                      ...prev.slice(existingIndex + 1),
-                    ]
-                  }
-                  return [...prev, codeInterpreterEvent]
-                })
-                return
-              }
-              setStreamBuffer((prev: StreamEvent[]) => [
-                ...prev,
-                codeInterpreterEvent,
-              ])
-              return
-            }
-
-            // --- Web Search streaming events ---
-            if (
-              toolState.type &&
-              toolState.type.startsWith('response.web_search_call.')
-            ) {
-              // Map event type to status
-              let status:
-                | 'in_progress'
-                | 'searching'
-                | 'completed'
-                | 'failed'
-                | 'result' = 'in_progress'
-              if (toolState.type.endsWith('in_progress')) status = 'in_progress'
-              else if (toolState.type.endsWith('searching'))
-                status = 'searching'
-              else if (toolState.type.endsWith('completed'))
-                status = 'completed'
-              else if (toolState.type.endsWith('failed')) status = 'failed'
-              else if (toolState.type.endsWith('result')) status = 'result'
-              setStreamBuffer((prev: StreamEvent[]) => {
-                const existingIdx = prev.findIndex(
-                  (e) => e.type === 'web_search' && e.id === toolState.item_id,
-                )
-                const newEvent: Extract<StreamEvent, { type: 'web_search' }> = {
-                  type: 'web_search',
-                  id: toolState.item_id,
-                  status,
-                  query: toolState.query,
-                  error: toolState.error,
-                  raw: toolState,
-                }
-                if (existingIdx !== -1) {
-                  // Replace the old event
-                  return [
-                    ...prev.slice(0, existingIdx),
-                    newEvent,
-                    ...prev.slice(existingIdx + 1),
-                  ]
-                } else {
-                  // Add new event
-                  return [...prev, newEvent]
-                }
-              })
-              return
-            }
-
-            if ('delta' in toolState) {
-              try {
-                toolState.delta =
-                  'delta' in toolState && toolState.delta !== ''
-                    ? JSON.parse(toolState.delta)
-                    : {}
-              } catch (e) {
-                console.error('Failed to parse delta:', toolState.delta)
-                toolState.delta = {}
-              }
-            }
-
-            try {
-              toolState.arguments =
-                'arguments' in toolState && toolState.arguments !== ''
-                  ? JSON.parse(toolState.arguments)
-                  : {}
-            } catch (e) {
-              console.error('Failed to parse arguments:', toolState.arguments)
-              toolState.arguments = {}
-            }
-
-            const toolEvent: Extract<StreamEvent, { type: 'tool' }> = {
-              type: 'tool',
-              toolType: toolState.type,
-              serverLabel: toolState.serverLabel,
-              tools: toolState.tools,
-              itemId: toolState.itemId,
-              delta: toolState.delta,
-              arguments: toolState.arguments,
-              toolName: toolState.toolName,
-              error: toolState.error,
-              status: getToolStatus(toolState.type),
-            }
-
-            // Use immediate update for tool events to maintain responsiveness
-            setStreamBuffer((prev: StreamEvent[]) => {
-              const itemId = toolState.itemId
-              if (itemId) {
-                const existingIndex = prev.findIndex(
-                  (event: StreamEvent) =>
-                    event.type === 'tool' &&
-                    'itemId' in event &&
-                    event.itemId === itemId,
-                )
-
-                if (existingIndex !== -1) {
-                  const existingEvent = prev[existingIndex] as Extract<
-                    StreamEvent,
-                    { type: 'tool' }
-                  >
-                  const updatedEvent = {
-                    ...existingEvent,
-                    toolType: toolEvent.toolType,
-                    serverLabel:
-                      toolEvent.serverLabel || existingEvent.serverLabel,
-                    tools: toolEvent.tools || existingEvent.tools,
-                    delta: toolEvent.delta || existingEvent.delta,
-                    arguments: toolEvent.arguments || existingEvent.arguments,
-                    toolName: toolEvent.toolName || existingEvent.toolName,
-                    error: toolEvent.error || existingEvent.error,
-                    status: toolEvent.status,
-                  }
-                  return [
-                    ...prev.slice(0, existingIndex),
-                    updatedEvent,
-                    ...prev.slice(existingIndex + 1),
-                  ]
-                }
-              }
-              return [...prev, toolEvent]
-            })
-          } catch (e) {
-            console.error('Failed to parse tool state:', e)
-          }
-        }
-        // --- NEW: Handle OpenAI response.content_part.done JSON chunks ---
-        // These are full JSON objects, not prefixed with 0:, t:, or e:
-        try {
-          const chunkObj = JSON.parse(line)
-          if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
-            // Flush any pending text buffer before appending a new assistant message
-            flushTextBuffer()
-            const { item_id, part } = chunkObj
-            setStreamBuffer((prev: StreamEvent[]) => [
-              ...prev.filter(
-                (event: StreamEvent) =>
-                  !(event.type === 'assistant' && event.id === item_id),
-              ),
-              {
-                type: 'assistant',
-                id: item_id,
-                content: part.text,
-                fileAnnotations: part.annotations || [],
-              },
-            ])
-            return
-          }
-        } catch (e) {
-          // Not a JSON chunk, fall through to legacy 0: handler
-        }
-
-        if (line.startsWith('0:')) {
-          try {
-            const text = JSON.parse(line.slice(2))
-            if (!assistantId) {
-              assistantId = generateMessageId()
-            }
-            updateAssistantText(text, assistantId)
-          } catch (e) {
-            console.error('Failed to parse text chunk:', e)
-          }
-        }
-      }
-
-      const readChunk = async () => {
-        try {
-          if (
-            abortControllerRef.current?.signal.aborted ||
-            streamCancelledRef.current
-          ) {
-            return
-          }
-
-          const { done, value } = await reader.read()
-          if (done) {
-            // Flush any remaining text buffer
-            flushTextBuffer()
-            setStreaming(false)
-            // If stream ended but we did not receive a completion event, treat as timeout
-            if (!receivedCompletion) {
-              setTimedOut(true)
-            }
-            return
-          }
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.trim()) processChunk(line)
-          }
-
-          // Only continue reading if not cancelled
-          if (!streamCancelledRef.current) {
-            readChunk()
-          }
-        } catch (error) {
-          // Don't show error if stream was aborted or cancelled
-          if (
-            abortControllerRef.current?.signal.aborted ||
-            streamCancelledRef.current
-          ) {
-            return
-          }
-
-          console.error('Error reading stream chunk:', error)
-          setStreamBuffer((prev: StreamEvent[]) => [
-            ...prev,
-            {
-              type: 'error',
-              message:
-                error instanceof Error
-                  ? error.message
-                  : 'Failed to read response stream',
-            },
-          ])
-          setStreaming(false)
-        }
-      }
-
-      readChunk()
-    },
-    [updateAssistantText, flushTextBuffer],
-  )
-
   const { messages, isLoading, setMessages, append, stop } = useChat({
     body: chatBody,
     onError: handleError,
@@ -870,46 +143,15 @@ export function Chat() {
     return messages
   }, [streaming, streamBuffer, messages, hasStartedChat, initialMessage])
 
-  // Extract file annotations from code interpreter events
-  const fileAnnotations = useMemo(() => {
-    const annotations: Array<AnnotatedFile> = []
-
-    renderEvents.forEach((event) => {
-      if (
-        'type' in event &&
-        event.type === 'code_interpreter' &&
-        event.annotation
-      ) {
-        annotations.push({
-          type: event.annotation.type,
-          container_id: event.annotation.container_id,
-          file_id: event.annotation.file_id,
-          filename: event.annotation.filename,
-        })
-      }
-    })
-
-    return annotations
-  }, [renderEvents])
-
   const handleSendMessage = useCallback(
     (prompt: string) => {
-      setTimedOut(false)
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
-      setStreamBuffer((prev: StreamEvent[]) => [
-        ...prev,
-        {
-          type: 'user',
-          id: generateMessageId(),
-          content: prompt,
-          timestamp: getTimestamp(),
-        },
-      ])
+      addUserMessage(prompt)
       append({ role: 'user', content: prompt })
     },
-    [hasStartedChat, append],
+    [hasStartedChat, append, addUserMessage],
   )
 
   const handleServerToggle = useCallback((serverId: string) => {
@@ -921,32 +163,16 @@ export function Chat() {
   }, [])
 
   const handleNewChat = useCallback(() => {
-    if (streamUpdateTimeoutRef.current) {
-      clearTimeout(streamUpdateTimeoutRef.current)
-    }
-
-    streamCancelledRef.current = true
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      abortControllerRef.current = null
-    }
-
+    cancelStream()
     stop()
 
     setHasStartedChat(false)
-    setStreamBuffer([])
-    setStreaming(false)
-    setTimedOut(false)
+    clearBuffer()
     setMessages([])
     setFocusTimestamp(Date.now())
     setUseCodeInterpreter(false)
     setUseWebSearch(false)
-
-    textBufferRef.current = ''
-    lastAssistantIdRef.current = null
-    pendingStreamEventsRef.current = []
-  }, [setMessages, stop])
+  }, [setMessages, stop, cancelStream, clearBuffer])
 
   const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -1056,7 +282,6 @@ export function Chat() {
                     message={{
                       id: key,
                       content: '', // No text, just the file
-                      sender: 'agent',
                       timestamp: getTimestamp(),
                       status: 'sent',
                     }}
@@ -1072,7 +297,6 @@ export function Chat() {
                     message={{
                       id: event.id,
                       content: event.content,
-                      sender: 'agent',
                       timestamp: getTimestamp(),
                       status: 'sent',
                     }}
@@ -1086,7 +310,6 @@ export function Chat() {
                     message={{
                       id: event.id,
                       content: event.content,
-                      sender: 'user',
                       timestamp: getTimestamp(),
                       status: 'sent',
                     }}
@@ -1111,7 +334,6 @@ export function Chat() {
                         message={{
                           id: message.id,
                           content: message.content,
-                          sender: 'agent',
                           timestamp: getTimestamp(),
                           status: 'sent',
                         }}
@@ -1124,7 +346,6 @@ export function Chat() {
                         message={{
                           id: message.id,
                           content: message.content,
-                          sender: 'user',
                           timestamp: getTimestamp(),
                           status: 'sent',
                         }}

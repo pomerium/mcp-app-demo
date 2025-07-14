@@ -18,7 +18,6 @@ function iterableFromArray<T>(arr: T[]): AsyncIterable<T> {
 
 describe('stopStreamProcessing', () => {
   it('replaces response body with an empty closed stream', async () => {
-    // Create a mock response with a readable stream
     const originalStream = new ReadableStream({
       start(controller) {
         controller.enqueue('some data')
@@ -33,11 +32,9 @@ describe('stopStreamProcessing', () => {
     expect(response.body).toBe(originalStream)
     stopStreamProcessing(response)
 
-    // Verify the body has been replaced
     expect(response.body).not.toBe(originalStream)
     expect(response.body).toBeInstanceOf(ReadableStream)
 
-    // Test that the response stream is closed
     const reader = response.body?.getReader()
     expect(reader).toBeDefined()
 
@@ -58,10 +55,8 @@ describe('stopStreamProcessing', () => {
 
     stopStreamProcessing(response)
 
-    // All other properties should remain unchanged
     expect(response.status).toBe(200)
     expect(response.statusText).toBe('OK')
-    // Headers content should be preserved even if reference changes
     expect(response.headers.get('Content-Type')).toBe('application/json')
   })
 
@@ -70,14 +65,12 @@ describe('stopStreamProcessing', () => {
 
     expect(() => stopStreamProcessing(response)).not.toThrow()
 
-    // Should still have a body (the empty stream)
     expect(response.body).toBeInstanceOf(ReadableStream)
   })
 })
 
 describe('streamText', () => {
   it('emits stream_done when the stream ends', async () => {
-    // Simulate a normal completion (not timing out)
     const chunks = [
       { type: 'response.output_text.delta', delta: "I'm glad you asked!" },
       {
@@ -140,12 +133,14 @@ describe('streamText', () => {
       if (value) result += new TextDecoder().decode(value)
       done = d
     }
-    // Should include t:{...stream_done...}
     expect(result).toMatch(/t:{\"type\":\"stream_done\"}/)
   })
 
   it('emits stream_done when an error occurs', async () => {
-    // Simulate an error thrown during streaming
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+
     const errorIterable = {
       async *[Symbol.asyncIterator]() {
         throw new Error('Simulated streaming error')
@@ -160,9 +155,17 @@ describe('streamText', () => {
       if (value) result += new TextDecoder().decode(value)
       done = d
     }
-    // Should include t:{...stream_done...} even on error
+
     expect(result).toMatch(/t:{"type":"stream_done"}/)
-    // Should also include the error event
     expect(result).toMatch(/e:{"type":"error".*}/)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error during streamed response:',
+      expect.any(Error),
+    )
+    expect(consoleErrorSpy.mock.calls[0][1].message).toBe(
+      'Simulated streaming error',
+    )
+
+    consoleErrorSpy.mockRestore()
   })
 })
