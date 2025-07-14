@@ -7,7 +7,14 @@ import { tanstackConfig } from '@tanstack/eslint-config'
 
 export default [
   {
-    ignores: ['.nitro/**', '.output/**', '.netlify/**', 'storybook-static/**'],
+    ignores: [
+      '.nitro/**',
+      '.output/**',
+      '.netlify/**',
+      'storybook-static/**',
+      'eslint.config.js',
+      'prettier.config.js',
+    ],
   },
   {
     rules: {
