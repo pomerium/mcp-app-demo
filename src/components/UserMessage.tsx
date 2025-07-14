@@ -1,9 +1,10 @@
 import { cn } from '../lib/utils'
 import type { UserStreamEvent } from '@/hooks/useStreamingChat'
-import type { MessageStatus } from '@/mcp/client'
 import { formatTimestamp } from '../lib/utils'
 import { User, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
 import { MarkdownContent } from './MarkdownContent'
+
+export type MessageStatus = 'sending' | 'sent' | 'error'
 
 export interface UserMessageProps {
   message: Omit<UserStreamEvent, 'type'> & {
