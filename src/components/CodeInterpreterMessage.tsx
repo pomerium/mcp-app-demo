@@ -1,20 +1,20 @@
 import {
+  CheckCircle,
+  Clock,
+  Code2,
   Download,
   FileText,
   Image,
   Play,
-  CheckCircle,
-  Clock,
-  Code2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CodeBlock } from './CodeBlock'
 import { CollapsibleSection } from './ui/collapsible-section'
+import { MessageAvatar } from './MessageAvatar'
 import {
   createAnnotatedFileUrl,
   isImageFile,
 } from '@/lib/utils/code-interpreter'
-import { MessageAvatar } from './MessageAvatar'
 
 type CodeInterpreterStatus = 'writing' | 'executing' | 'completed' | 'failed'
 
@@ -81,11 +81,11 @@ interface AnnotatedFile {
 function getInterpreterState(args: CodeInterpreterArgs): {
   status: CodeInterpreterStatus
   code: string
-  files: AnnotatedFile[]
+  files: Array<AnnotatedFile>
 } {
   let status: CodeInterpreterStatus = 'writing'
   let code = ''
-  let files: AnnotatedFile[] = []
+  let files: Array<AnnotatedFile> = []
 
   switch (args.type) {
     case 'code_interpreter_call_in_progress':
@@ -178,6 +178,12 @@ export function CodeInterpreterMessage({ args }: CodeInterpreterMessageProps) {
                 <div className="space-y-4">
                   {files.map((file) => {
                     const fileUrl = createAnnotatedFileUrl(file)
+
+                    // Skip rendering if URL is null
+                    if (!fileUrl) {
+                      console.warn('Skipping file with invalid URL:', file)
+                      return null
+                    }
 
                     return (
                       <div key={fileUrl} className="space-y-2">

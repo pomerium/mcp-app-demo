@@ -1,15 +1,14 @@
 import { Bot, Copy, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
-import { cn } from '@/lib/utils'
+import { MessageAvatar } from './MessageAvatar'
 import type { Message } from '@/mcp/client'
-import { formatTimestamp } from '@/lib/utils'
+import { cn, formatTimestamp  } from '@/lib/utils'
 import { MarkdownContent } from '@/components/MarkdownContent'
 import { copyToClipboard } from '@/lib/utils/clipboard'
-import { MessageAvatar } from './MessageAvatar'
 import {
-  isImageFile,
   createAnnotatedFileUrl,
+  isImageFile,
 } from '@/lib/utils/code-interpreter'
 
 export interface BotMessageProps {
@@ -41,14 +40,28 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
   const processedContent = message.content
 
   // Separate image and non-image files
-  // Only treat annotations with type 'file' or 'image' as downloadable
+  // Accept annotations with type 'file', 'image', or 'container_file_citation' as downloadable
   const fileLikeAnnotations = fileAnnotations.filter(
-    (annotation) => annotation.type === 'file' || annotation.type === 'image',
+    (annotation) =>
+      annotation.type === 'file' ||
+      annotation.type === 'image' ||
+      annotation.type === 'container_file_citation',
   )
-  const imageFiles = fileLikeAnnotations.filter((annotation) =>
+
+  // Filter out annotations that don't have valid URLs
+  const validFileAnnotations = fileLikeAnnotations.filter((annotation) => {
+    const url = createAnnotatedFileUrl(annotation)
+    if (!url) {
+      console.warn('Skipping file annotation with invalid URL:', annotation)
+      return false
+    }
+    return true
+  })
+
+  const imageFiles = validFileAnnotations.filter((annotation) =>
     isImageFile(annotation.filename),
   )
-  const otherFiles = fileLikeAnnotations.filter(
+  const otherFiles = validFileAnnotations.filter(
     (annotation) => !isImageFile(annotation.filename),
   )
 
@@ -82,6 +95,11 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
                 const hasError = imageErrors.has(annotation.file_id)
                 const imageUrl = createAnnotatedFileUrl(annotation)
 
+                // Skip rendering if URL is null (shouldn't happen due to filtering above, but TypeScript safety)
+                if (!imageUrl) {
+                  return null
+                }
+
                 // Generate accessible alt text based on filename
                 const getAltText = (filename: string) => {
                   const name = filename.replace(/\.[^/.]+$/, '') // Remove extension
@@ -97,7 +115,7 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
                             Failed to load image
                           </p>
                           <a
-                            href={createAnnotatedFileUrl(annotation)}
+                            href={imageUrl}
                             download={annotation.filename}
                             className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                           >
@@ -115,7 +133,7 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
                           onClick={() => window.open(imageUrl, '_blank')}
                         />
                         <a
-                          href={createAnnotatedFileUrl(annotation)}
+                          href={imageUrl}
                           download={annotation.filename}
                           className="absolute top-2 right-2 p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-800"
                           title="Download image"
@@ -137,24 +155,33 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
                 Attachments:
               </p>
               <div className="space-y-1">
-                {otherFiles.map((annotation) => (
-                  <div
-                    key={annotation.file_id}
-                    className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700"
-                  >
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                      {annotation.filename}
-                    </span>
-                    <a
-                      href={createAnnotatedFileUrl(annotation)}
-                      download={annotation.filename}
-                      className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                {otherFiles.map((annotation) => {
+                  const fileUrl = createAnnotatedFileUrl(annotation)
+
+                  // Skip rendering if URL is null (shouldn't happen due to filtering above, but TypeScript safety)
+                  if (!fileUrl) {
+                    return null
+                  }
+
+                  return (
+                    <div
+                      key={annotation.file_id}
+                      className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700"
                     >
-                      <Download className="h-3 w-3" />
-                      Download
-                    </a>
-                  </div>
-                ))}
+                      <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                        {annotation.filename}
+                      </span>
+                      <a
+                        href={fileUrl}
+                        download={annotation.filename}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                      >
+                        <Download className="h-3 w-3" />
+                        Download
+                      </a>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

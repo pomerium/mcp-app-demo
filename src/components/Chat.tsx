@@ -1,30 +1,30 @@
-import { useRef, useMemo, useState, useCallback, useEffect } from 'react'
-import { UserMessage } from './UserMessage'
-import { BotMessage } from './BotMessage'
-import { ChatInput } from './ChatInput'
-import { ServerSelector } from './ServerSelector'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
-import { generateMessageId } from '../mcp/client'
-import type { Message } from 'ai'
-import { type Servers, type ToolItem } from '../lib/schemas'
+import { MessageSquarePlus } from 'lucide-react'
+import { useModel } from '../contexts/ModelContext'
+import { useUser } from '../contexts/UserContext'
 import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
 import { ReasoningMessage } from './ReasoningMessage'
-import { useModel } from '../contexts/ModelContext'
-import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
-import { MessageSquarePlus } from 'lucide-react'
+import { generateMessageId } from '../mcp/client'
+import { ServerSelector } from './ServerSelector'
+import { ChatInput } from './ChatInput'
+import { BotMessage } from './BotMessage'
+import { UserMessage } from './UserMessage'
 import { CodeInterpreterToggle } from './CodeInterpreterToggle'
 import { WebSearchToggle } from './WebSearchToggle'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
-import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { CodeInterpreterMessage } from './CodeInterpreterMessage'
-import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
-import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
-import { useHasMounted } from '@/hooks/useHasMounted'
 import { WebSearchMessage } from './WebSearchMessage'
+import type { Servers, ToolItem } from '../lib/schemas'
+import type { Message } from 'ai'
+import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
+import { useHasMounted } from '@/hooks/useHasMounted'
+import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
+import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
 
 type StreamEvent =
@@ -45,7 +45,7 @@ type StreamEvent =
       type: 'tool'
       toolType: string
       serverLabel: string
-      tools?: ToolItem[]
+      tools?: Array<ToolItem>
       itemId?: string
       toolName?: string
       arguments?: unknown
@@ -178,8 +178,8 @@ export function Chat() {
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
-  const [selectedServers, setSelectedServers] = useState<string[]>([])
-  const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
+  const [selectedServers, setSelectedServers] = useState<Array<string>>([])
+  const [streamBuffer, setStreamBuffer] = useState<Array<StreamEvent>>([])
   const [streaming, setStreaming] = useState(false)
   const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const [useWebSearch, setUseWebSearch] = useState(false)
@@ -199,14 +199,14 @@ export function Chat() {
   const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const textBufferRef = useRef<string>('')
   const lastAssistantIdRef = useRef<string | null>(null)
-  const pendingStreamEventsRef = useRef<StreamEvent[]>([])
+  const pendingStreamEventsRef = useRef<Array<StreamEvent>>([])
 
   const flushTextBuffer = useCallback(() => {
     if (textBufferRef.current && lastAssistantIdRef.current) {
       const assistantId = lastAssistantIdRef.current
       const textToAdd = textBufferRef.current
 
-      setStreamBuffer((prev: StreamEvent[]) => {
+      setStreamBuffer((prev: Array<StreamEvent>) => {
         const existingIndex = prev.findIndex(
           (event: StreamEvent) =>
             event.type === 'assistant' && event.id === assistantId,
@@ -246,7 +246,7 @@ export function Chat() {
     }
 
     if (pendingStreamEventsRef.current.length > 0) {
-      setStreamBuffer((prev: StreamEvent[]) => [
+      setStreamBuffer((prev: Array<StreamEvent>) => [
         ...prev,
         ...pendingStreamEventsRef.current,
       ])
@@ -318,7 +318,7 @@ export function Chat() {
 
   const handleError = useCallback((error: Error) => {
     console.error('Chat error:', error)
-    setStreamBuffer((prev: StreamEvent[]) => [
+    setStreamBuffer((prev: Array<StreamEvent>) => [
       ...prev,
       {
         type: 'error',
@@ -342,7 +342,7 @@ export function Chat() {
           response.status,
           response.statusText,
         )
-        setStreamBuffer((prev: StreamEvent[]) => [
+        setStreamBuffer((prev: Array<StreamEvent>) => [
           ...prev,
           {
             type: 'error',
@@ -364,7 +364,7 @@ export function Chat() {
       stopStreamProcessing(response)
 
       if (!reader) {
-        setStreamBuffer((prev: StreamEvent[]) => [
+        setStreamBuffer((prev: Array<StreamEvent>) => [
           ...prev,
           {
             type: 'error',
@@ -387,7 +387,7 @@ export function Chat() {
           try {
             const errorData = JSON.parse(line.slice(2))
             // Process error events immediately instead of buffering
-            setStreamBuffer((prev: StreamEvent[]) => [
+            setStreamBuffer((prev: Array<StreamEvent>) => [
               ...prev,
               {
                 type: 'error',
@@ -398,7 +398,7 @@ export function Chat() {
             ])
           } catch (e) {
             console.error('Failed to parse error data:', e)
-            setStreamBuffer((prev: StreamEvent[]) => [
+            setStreamBuffer((prev: Array<StreamEvent>) => [
               ...prev,
               {
                 type: 'error',
@@ -430,7 +430,7 @@ export function Chat() {
 
             // Handle reasoning summary streaming
             if (toolState.type === 'reasoning_summary_delta') {
-              setStreamBuffer((prev: StreamEvent[]) => {
+              setStreamBuffer((prev: Array<StreamEvent>) => {
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
@@ -465,7 +465,7 @@ export function Chat() {
             }
 
             if (toolState.type === 'reasoning_summary_done') {
-              setStreamBuffer((prev: StreamEvent[]) => {
+              setStreamBuffer((prev: Array<StreamEvent>) => {
                 const last = prev[prev.length - 1]
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
@@ -507,7 +507,7 @@ export function Chat() {
               > = {
                 type: 'code_interpreter',
                 itemId: toolState.itemId,
-                eventType: toolState.type as any,
+                eventType: toolState.type,
                 code: toolState.code,
                 delta: toolState.delta,
                 annotation: toolState.annotation,
@@ -518,6 +518,15 @@ export function Chat() {
                 const annotationItemId = toolState.itemId
                 const annotation = codeInterpreterEvent.annotation
                 if (annotation) {
+                  // Debug logging for file annotations
+                  if (!annotation.container_id || !annotation.file_id) {
+                    console.warn('File annotation missing required fields:', {
+                      annotation,
+                      itemId: annotationItemId,
+                      type: toolState.type,
+                    })
+                  }
+
                   setStreamBuffer((prev: StreamEvent[]) => {
                     // Find the last assistant message
                     const lastAssistantIdx = [...prev]
@@ -562,7 +571,7 @@ export function Chat() {
 
               // Handle other code interpreter events by itemId
               if (codeInterpreterEvent.itemId) {
-                setStreamBuffer((prev: StreamEvent[]) => {
+                setStreamBuffer((prev: Array<StreamEvent>) => {
                   const existingIndex = prev.findIndex(
                     (event: StreamEvent) =>
                       event.type === 'code_interpreter' &&
@@ -611,7 +620,7 @@ export function Chat() {
                 })
                 return
               }
-              setStreamBuffer((prev: StreamEvent[]) => [
+              setStreamBuffer((prev: Array<StreamEvent>) => [
                 ...prev,
                 codeInterpreterEvent,
               ])
@@ -637,7 +646,7 @@ export function Chat() {
                 status = 'completed'
               else if (toolState.type.endsWith('failed')) status = 'failed'
               else if (toolState.type.endsWith('result')) status = 'result'
-              setStreamBuffer((prev: StreamEvent[]) => {
+              setStreamBuffer((prev: Array<StreamEvent>) => {
                 const existingIdx = prev.findIndex(
                   (e) => e.type === 'web_search' && e.id === toolState.item_id,
                 )
@@ -700,7 +709,7 @@ export function Chat() {
             }
 
             // Use immediate update for tool events to maintain responsiveness
-            setStreamBuffer((prev: StreamEvent[]) => {
+            setStreamBuffer((prev: Array<StreamEvent>) => {
               const itemId = toolState.itemId
               if (itemId) {
                 const existingIndex = prev.findIndex(
@@ -748,6 +757,24 @@ export function Chat() {
             // Flush any pending text buffer before appending a new assistant message
             flushTextBuffer()
             const { item_id, part } = chunkObj
+
+            // Debug logging for annotations in content_part.done
+            if (part.annotations && Array.isArray(part.annotations)) {
+              part.annotations.forEach((annotation: any, index: number) => {
+                if (!annotation.container_id || !annotation.file_id) {
+                  console.warn(
+                    'Content part annotation missing required fields:',
+                    {
+                      annotation,
+                      index,
+                      item_id,
+                      part,
+                    },
+                  )
+                }
+              })
+            }
+
             setStreamBuffer((prev: StreamEvent[]) => [
               ...prev.filter(
                 (event: StreamEvent) =>
@@ -804,7 +831,7 @@ export function Chat() {
           readChunk()
         } catch (error) {
           console.error('Error reading stream chunk:', error)
-          setStreamBuffer((prev: StreamEvent[]) => [
+          setStreamBuffer((prev: Array<StreamEvent>) => [
             ...prev,
             {
               type: 'error',
@@ -829,7 +856,7 @@ export function Chat() {
     onResponse: handleResponse,
   })
 
-  const renderEvents = useMemo<(StreamEvent | Message)[]>(() => {
+  const renderEvents = useMemo<Array<StreamEvent | Message>>(() => {
     if (streaming || streamBuffer.length > 0) {
       return [...streamBuffer]
     }
@@ -868,7 +895,7 @@ export function Chat() {
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
-      setStreamBuffer((prev: StreamEvent[]) => [
+      setStreamBuffer((prev: Array<StreamEvent>) => [
         ...prev,
         {
           type: 'user',
@@ -1057,7 +1084,7 @@ export function Chat() {
                 return <WebSearchMessage key={key} event={event} />
               } else {
                 // Fallback for Message type (from useChat)
-                const message = event as Message
+                const message = event
                 // Only render if the event has an 'id' property (i.e., is a Message)
                 if ('id' in event) {
                   const isAssistant = message.role === 'assistant'

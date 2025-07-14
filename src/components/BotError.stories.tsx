@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/react-vite'
-import { BotError } from './BotError'
 import { AlertTriangle } from 'lucide-react'
+import { BotError } from './BotError'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 
 const meta: Meta<typeof BotError> = {
   title: 'Bot/BotError',

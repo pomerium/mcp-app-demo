@@ -9,15 +9,39 @@ export interface AnnotatedFile {
   end_index?: number
 }
 
-const reImageFileExtension = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i
-
 export function isImageFile(filename: string): boolean {
-  return reImageFileExtension.test(filename)
+  const imageExtensions = [
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.bmp',
+    '.webp',
+    '.svg',
+  ]
+  const extension = filename.toLowerCase().slice(filename.lastIndexOf('.'))
+  return imageExtensions.includes(extension)
 }
 
-export function createAnnotatedFileUrl(file: AnnotatedFile): string {
-  const url = new URL('/api/container-file', location.origin)
-  url.searchParams.set('containerId', file.container_id)
-  url.searchParams.set('fileId', file.file_id)
-  return url.toString()
+export function createAnnotatedFileUrl(file: AnnotatedFile): string | null {
+  // Validate required fields
+  if (!file.container_id || !file.file_id) {
+    console.warn('Missing required fields for file annotation:', {
+      container_id: file.container_id,
+      file_id: file.file_id,
+      filename: file.filename,
+      type: file.type,
+    })
+    return null
+  }
+
+  try {
+    const url = new URL('/api/container-file', location.origin)
+    url.searchParams.set('containerId', file.container_id)
+    url.searchParams.set('fileId', file.file_id)
+    return url.toString()
+  } catch (error) {
+    console.error('Failed to create file URL:', error, file)
+    return null
+  }
 }

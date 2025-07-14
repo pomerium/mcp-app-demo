@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { isImageFile, createAnnotatedFileUrl } from './code-interpreter'
+import { describe, expect, it } from 'vitest'
+import { createAnnotatedFileUrl, isImageFile } from './code-interpreter'
 import type { AnnotatedFile } from './code-interpreter'
 
 describe('isImageFile', () => {
@@ -38,5 +38,23 @@ describe('createAnnotatedFileUrl', () => {
     expect(url).toBe(
       'https://example.com/api/container-file?containerId=c1&fileId=f1',
     )
+  })
+
+  it('returns null when container_id is missing', () => {
+    const invalidFile = { ...file, container_id: '' }
+    const url = createAnnotatedFileUrl(invalidFile)
+    expect(url).toBeNull()
+  })
+
+  it('returns null when file_id is missing', () => {
+    const invalidFile = { ...file, file_id: '' }
+    const url = createAnnotatedFileUrl(invalidFile)
+    expect(url).toBeNull()
+  })
+
+  it('returns null when both container_id and file_id are missing', () => {
+    const invalidFile = { ...file, container_id: '', file_id: '' }
+    const url = createAnnotatedFileUrl(invalidFile)
+    expect(url).toBeNull()
   })
 })
