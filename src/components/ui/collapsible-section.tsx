@@ -1,6 +1,7 @@
 import React from 'react'
+import type { ColorVariant } from '@/lib/variants'
 import { cn } from '@/lib/utils'
-import { getVariantStyles, type ColorVariant } from '@/lib/variants'
+import { getVariantStyles } from '@/lib/variants'
 
 interface CollapsibleSectionProps {
   title: React.ReactNode

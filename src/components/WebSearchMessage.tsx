@@ -1,7 +1,7 @@
 import { Globe } from 'lucide-react'
-import type { WebSearchStreamEvent } from '@/hooks/useStreamingChat'
 import { MessageAvatar } from './MessageAvatar'
 import { CollapsibleSection } from './ui/collapsible-section'
+import type { WebSearchStreamEvent } from '@/hooks/useStreamingChat'
 
 export interface WebSearchMessageProps {
   event: WebSearchStreamEvent

@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { User, Menu } from 'lucide-react'
+import { Menu, User } from 'lucide-react'
+import { useUser } from '../contexts/UserContext'
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from './ui/button'
-import { useUser } from '../contexts/UserContext'
 
 const Header: React.FC = () => {
   const { user, isLoading } = useUser()

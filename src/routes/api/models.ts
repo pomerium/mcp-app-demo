@@ -15,7 +15,7 @@ function isSupportedModel(id: string) {
 }
 
 export const ServerRoute = createServerFileRoute('/api/models').methods({
-  async GET({ request }) {
+  async GET() {
     try {
       const client = new OpenAI()
       const models = await client.models.list()

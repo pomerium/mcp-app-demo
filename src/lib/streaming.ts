@@ -118,7 +118,7 @@ export function streamText(
               }
               break
 
-            case 'response.mcp_call.failed':
+            case 'response.mcp_call.failed': {
               console.error('[TOOL CALL FAILED]', chunk)
 
               // Create a generic error message without HTTP status details
@@ -140,6 +140,7 @@ export function streamText(
                 ),
               )
               break
+            }
 
             case 'response.mcp_call.created':
               controller.enqueue(

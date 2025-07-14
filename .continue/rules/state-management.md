@@ -45,7 +45,7 @@ export const Route = createFileRoute('/dashboard')({
 
 function Dashboard() {
   const initialData = Route.useLoaderData()
-  
+
   // Use React Query only for data that needs frequent updates
   const { data: liveMetrics } = useQuery({
     queryKey: ['live-metrics'],
@@ -53,7 +53,7 @@ function Dashboard() {
     initialData: initialData.metrics,
     refetchInterval: 30000, // Update every 30 seconds
   })
-  
+
   return <DashboardView user={initialData.user} metrics={liveMetrics} />
 }
 

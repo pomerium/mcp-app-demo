@@ -1,7 +1,7 @@
-import { renderHook, act } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { vi } from 'vitest'
-import type { Servers } from '@/lib/schemas'
 import { useDisconnectServer } from './useDisconnectServer'
+import type { Servers } from '@/lib/schemas'
 import { createQueryClientTestWrapper } from '@/test/utils/react-query-test-utils'
 
 describe('useDisconnectServer', () => {
@@ -56,7 +56,7 @@ describe('useDisconnectServer', () => {
       },
     )
 
-    await act(async () => {
+    await act(() => {
       result.current.mutate(serverId)
     })
 
@@ -234,7 +234,7 @@ describe('useDisconnectServer', () => {
         wrapper: createQueryClientTestWrapper(),
       },
     )
-    await act(async () => {
+    await act(() => {
       result.current.mutate(serverId)
     })
     // The original object should not be mutated

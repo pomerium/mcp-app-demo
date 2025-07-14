@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/react'
-import { ToolToggle } from './ToolToggle'
 import { useState } from 'react'
+import { ToolToggle } from './ToolToggle'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 
 const meta: Meta<typeof ToolToggle> = {
   title: 'UI/ToolToggle',

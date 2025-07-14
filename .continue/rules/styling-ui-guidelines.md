@@ -113,13 +113,13 @@ You are an expert in Tailwind CSS and Shadcn/ui component development.
 // ✅ Good: Accessible modal with focus management
 function AccessibleModal({ isOpen, onClose, children }) {
   const modalRef = useRef<HTMLDivElement>(null)
-  
+
   useEffect(() => {
     if (isOpen && modalRef.current) {
       modalRef.current.focus()
     }
   }, [isOpen])
-  
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent

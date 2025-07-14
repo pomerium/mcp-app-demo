@@ -1,6 +1,6 @@
 import { Globe } from 'lucide-react'
-import { isWebSearchSupported } from '@/lib/utils/prompting'
 import { ToolToggle } from './ToolToggle'
+import { isWebSearchSupported } from '@/lib/utils/prompting'
 
 interface WebSearchToggleProps {
   useWebSearch: boolean

@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/react'
-import { WebSearchToggle } from './WebSearchToggle'
 import { useState } from 'react'
+import { WebSearchToggle } from './WebSearchToggle'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 
 const meta: Meta<typeof WebSearchToggle> = {
   title: 'UI/WebSearchToggle',

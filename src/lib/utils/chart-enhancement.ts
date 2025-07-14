@@ -146,9 +146,9 @@ export function getContrastRatio(color1: string, color2: string): number {
  * Validates if a color palette meets WCAG AA standards
  */
 export function validatePaletteAccessibility(
-  paletteColors: string[],
+  paletteColors: Array<string>,
   textColor: string = '#000000',
-): { color: string; ratio: number; passes: boolean }[] {
+): Array<{ color: string; ratio: number; passes: boolean }> {
   return paletteColors.map((color) => {
     const ratio = getContrastRatio(color, textColor)
     return {
@@ -333,14 +333,6 @@ export function enhanceChartRequest(message: string): string {
   // Convert colors to a format that works well with matplotlib/plotly
   const colorString = colors.map((c) => `'${c}'`).join(', ')
 
-  // Include text color recommendations
-  const textColorRecommendations = colors
-    .map((bgColor) => {
-      const textColor = getTextColor(bgColor)
-      return `Background: ${bgColor}, Text: ${textColor}`
-    })
-    .join('; ')
-
   // Enhanced message with accessibility considerations
   let enhancement = `\n\nACCESSIBLE COLORS: [${colorString}]
 ENSURE WCAG AA COMPLIANCE (4.5:1 contrast). USE PROPER LABELING.`
@@ -369,14 +361,14 @@ ENSURE WCAG AA COMPLIANCE (4.5:1 contrast). USE PROPER LABELING.`
  */
 export function getColorPalette(
   paletteName: keyof typeof COLOR_PALETTES,
-): string[] {
+): Array<string> {
   return COLOR_PALETTES[paletteName]
 }
 
 /**
  * Gets all available palette names
  */
-export function getAvailablePalettes(): string[] {
+export function getAvailablePalettes(): Array<string> {
   return Object.keys(COLOR_PALETTES)
 }
 
@@ -385,7 +377,7 @@ export function getAvailablePalettes(): string[] {
  */
 export function getPaletteWithTextColors(
   paletteName: keyof typeof COLOR_PALETTES,
-): { background: string; text: string }[] {
+): Array<{ background: string; text: string }> {
   const colors = COLOR_PALETTES[paletteName]
   return colors.map((bgColor) => ({
     background: bgColor,
@@ -435,12 +427,9 @@ export function generateColorsForItems(
 /**
  * Gets recommendations for handling large datasets in charts
  */
-export function getDataVisualizationRecommendations(
-  itemCount: number,
-  chartType: string = 'bar',
-): {
+export function getDataVisualizationRecommendations(itemCount: number): {
   recommendation: string
-  alternativeApproaches: string[]
+  alternativeApproaches: Array<string>
   colorStrategy: string
 } {
   const paletteSize = 8 // Standard palette size
@@ -552,9 +541,9 @@ export const CHART_LABELING_REQUIREMENTS = {
 /**
  * Generates comprehensive labeling requirements for charts
  */
-export function getChartLabelingRequirements(chartType: string): string[] {
+export function getChartLabelingRequirements(chartType: string): Array<string> {
   const type = chartType.toLowerCase()
-  const requirements: string[] = []
+  const requirements: Array<string> = []
 
   // Universal requirements
   requirements.push('✅ CHART TITLE: Must be descriptive and specific')
@@ -602,8 +591,8 @@ export function getChartLabelingRequirements(chartType: string): string[] {
 /**
  * Detects potential labeling issues in chart descriptions
  */
-export function detectLabelingIssues(chartDescription: string): string[] {
-  const issues: string[] = []
+export function detectLabelingIssues(chartDescription: string): Array<string> {
+  const issues: Array<string> = []
   const lowerDesc = chartDescription.toLowerCase()
 
   // Check for missing labels

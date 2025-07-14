@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/react'
 import { ServerToggle } from './ServerToggle'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import type { Server } from '@/lib/schemas'
 
 const POMERIUM_LOGO = '/pomerium-favicon.svg'
@@ -83,7 +83,6 @@ export const Connecting_Logo: Story = {
   },
 }
 export const Connected: Story = {
-  name: 'Connected',
   args: {
     server: {
       ...mockServer,

@@ -1,6 +1,6 @@
 import { Code2 } from 'lucide-react'
-import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { ToolToggle } from './ToolToggle'
+import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 
 interface CodeInterpreterToggleProps {
   useCodeInterpreter: boolean

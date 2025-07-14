@@ -1,25 +1,25 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   COLOR_PALETTES,
-  getTextColor,
-  getContrastRatio,
-  validatePaletteAccessibility,
-  selectColorPalette,
-  isChartRequest,
-  enhanceChartRequest,
-  getColorPalette,
-  generateColorsForItems,
-  getDataVisualizationRecommendations,
-  generateColorCodeSuggestions,
-  getChartLabelingRequirements,
   detectLabelingIssues,
+  enhanceChartRequest,
+  generateColorCodeSuggestions,
+  generateColorsForItems,
   generateLabeledChartCode,
+  getChartLabelingRequirements,
+  getColorPalette,
+  getContrastRatio,
+  getDataVisualizationRecommendations,
+  getTextColor,
+  isChartRequest,
+  selectColorPalette,
+  validatePaletteAccessibility,
 } from './chart-enhancement'
 
 describe('Chart Enhancement Accessibility', () => {
   describe('Color Palette Accessibility', () => {
     it('should ensure all color palettes meet WCAG AA standards (4.5:1 contrast)', () => {
-      Object.entries(COLOR_PALETTES).forEach(([paletteName, colors]) => {
+      Object.entries(COLOR_PALETTES).forEach(([_, colors]) => {
         colors.forEach((color) => {
           const textColor = getTextColor(color)
           const contrastRatio = getContrastRatio(color, textColor)
@@ -199,7 +199,7 @@ describe('Chart Enhancement Accessibility', () => {
     })
 
     it('should maintain minimum palette sizes', () => {
-      Object.entries(COLOR_PALETTES).forEach(([paletteName, colors]) => {
+      Object.entries(COLOR_PALETTES).forEach(([_paletteName, colors]) => {
         // Each palette should have at least 4 colors for variety
         expect(colors.length).toBeGreaterThanOrEqual(4)
         // But not too many to avoid overwhelming visualizations

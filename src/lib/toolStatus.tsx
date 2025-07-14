@@ -1,4 +1,4 @@
-import { CheckCircle, Loader2, Clock, AlertCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle, Clock, Loader2 } from 'lucide-react'
 
 export const getStatusIcon = (status?: string, error?: string) => {
   if (error || status?.includes('failed')) {

@@ -21,7 +21,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          pre: ({ node, className, children, ...props }) => (
+          pre: ({ children, ...props }) => (
             <CodeBlock
               onCopySuccess={handleCopySuccess}
               onCopyError={handleCopyError}
@@ -30,10 +30,10 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
               {children}
             </CodeBlock>
           ),
-          code: ({ node, ...props }) => (
+          code: ({ ...props }) => (
             <code className="break-words whitespace-pre-wrap" {...props} />
           ),
-          table: ({ node, ...props }) => (
+          table: ({ ...props }) => (
             <div className="overflow-x-auto my-4">
               <table {...props} />
             </div>

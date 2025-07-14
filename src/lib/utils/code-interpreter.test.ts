@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { isImageFile, createAnnotatedFileUrl } from './code-interpreter'
+import { describe, expect, it } from 'vitest'
+import { createAnnotatedFileUrl, isImageFile } from './code-interpreter'
 import type { AnnotatedFile } from './code-interpreter'
 
 describe('isImageFile', () => {

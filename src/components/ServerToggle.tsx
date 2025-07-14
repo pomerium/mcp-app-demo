@@ -1,7 +1,7 @@
-import { Toggle } from './ui/toggle'
-import type { Server } from '@/lib/schemas'
 import { Plug } from 'lucide-react'
+import { Toggle } from './ui/toggle'
 import { Button } from './ui/button'
+import type { Server } from '@/lib/schemas'
 
 interface ServerToggleProps {
   server: Server

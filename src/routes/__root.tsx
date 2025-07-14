@@ -1,9 +1,9 @@
 import {
-  Outlet,
   HeadContent,
+  Link,
+  Outlet,
   Scripts,
   createRootRoute,
-  Link,
 } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ModelProvider } from '../contexts/ModelContext'

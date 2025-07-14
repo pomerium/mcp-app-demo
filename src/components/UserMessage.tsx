@@ -1,8 +1,7 @@
-import { cn } from '../lib/utils'
-import type { UserStreamEvent } from '@/hooks/useStreamingChat'
-import { formatTimestamp } from '../lib/utils'
-import { User, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Clock, User } from 'lucide-react'
+import { cn, formatTimestamp } from '../lib/utils'
 import { MarkdownContent } from './MarkdownContent'
+import type { UserStreamEvent } from '@/hooks/useStreamingChat'
 
 export type MessageStatus = 'sending' | 'sent' | 'error'
 

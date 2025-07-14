@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { ChatInput } from './ChatInput'
 
 const setup = (props = {}) => {
@@ -8,7 +8,7 @@ const setup = (props = {}) => {
 
   const textarea = screen.getByRole('textbox', {
     name: 'Ask something...',
-  }) as HTMLTextAreaElement
+  })
   const { form } = textarea
 
   return { onSendMessage, textarea, form }

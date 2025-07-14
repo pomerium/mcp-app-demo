@@ -1,12 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { stopStreamProcessing } from './utils/streaming'
 import { streamText } from './streaming'
 
-function iterableFromArray<T>(arr: T[]): AsyncIterable<T> {
+function iterableFromArray<T>(arr: Array<T>): AsyncIterable<T> {
   return {
     [Symbol.asyncIterator]() {
       let i = 0
       return {
+        // eslint-disable-next-line @typescript-eslint/require-await
         next: async () =>
           i < arr.length
             ? { value: arr[i++], done: false }
@@ -133,7 +134,7 @@ describe('streamText', () => {
       if (value) result += new TextDecoder().decode(value)
       done = d
     }
-    expect(result).toMatch(/t:{\"type\":\"stream_done\"}/)
+    expect(result).toMatch(/t:{"type":"stream_done"}/)
   })
 
   it('emits stream_done when an error occurs', async () => {
@@ -142,8 +143,12 @@ describe('streamText', () => {
       .mockImplementation(() => {})
 
     const errorIterable = {
-      async *[Symbol.asyncIterator]() {
-        throw new Error('Simulated streaming error')
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => {
+            throw new Error('Simulated streaming error')
+          },
+        }
       },
     }
     const response = streamText(errorIterable)
