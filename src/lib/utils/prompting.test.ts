@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  getSystemPrompt,
   isCodeInterpreterSupported,
   isWebSearchSupported,
-  getSystemPrompt,
 } from './prompting'
 
 // These tests reflect the current allow-list logic: only exact matches to the supported model names are considered supported.
@@ -115,9 +115,7 @@ describe('getSystemPrompt', () => {
 
   it('appends chart instructions if latestUserMessage triggers chart enhancement', async () => {
     vi.doMock('./chart-enhancement', async () => {
-      const actual = await vi.importActual<
-        typeof import('./chart-enhancement')
-      >('./chart-enhancement')
+      const actual = await vi.importActual('./chart-enhancement')
       return {
         ...actual,
         enhanceChartRequest: (msg: string) => msg + ' [ENHANCED]',
@@ -135,17 +133,17 @@ describe('getSystemPrompt', () => {
 
   it('includes both code interpreter and chart instructions if both apply', async () => {
     vi.doMock('./chart-enhancement', async () => {
-      const actual = await vi.importActual<
-        typeof import('./chart-enhancement')
-      >('./chart-enhancement')
+      const actual = await vi.importActual('./chart-enhancement')
       return {
         ...actual,
         enhanceChartRequest: (msg: string) => msg + ' [ENHANCED]',
       }
     })
-    const { getSystemPrompt } = await import('./prompting')
+    const { getSystemPrompt: getSystemPromptWithChart } = await import(
+      './prompting'
+    )
     const msg = 'Create a pie chart.'
-    const result = getSystemPrompt(true, msg)
+    const result = getSystemPromptWithChart(true, msg)
     expect(result).toMatchSnapshot()
   })
 })

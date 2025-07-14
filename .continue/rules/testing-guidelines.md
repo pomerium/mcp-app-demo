@@ -32,16 +32,16 @@ describe('Button Component', () => {
   it('should call onClick when clicked', () => {
     const handleClick = vi.fn()
     render(<Button onClick={handleClick}>Click me</Button>)
-    
+
     const button = screen.getByRole('button', { name: /click me/i })
     fireEvent.click(button)
-    
+
     expect(handleClick).toHaveBeenCalledOnce()
   })
-  
+
   it('should be disabled when disabled prop is true', () => {
     render(<Button disabled onClick={vi.fn()}>Click me</Button>)
-    
+
     const button = screen.getByRole('button', { name: /click me/i })
     expect(button).toBeDisabled()
   })
@@ -62,13 +62,13 @@ import { renderWithRouter } from '@/test-utils'
 describe('UserDetail Route', () => {
   it('should display user information', () => {
     const mockUser = { id: '1', name: 'John Doe', email: 'john@example.com' }
-    
+
     renderWithRouter({
       component: UserDetail,
       loaderData: mockUser,
-      path: '/users/1'
+      path: '/users/1',
     })
-    
+
     expect(screen.getByText('John Doe')).toBeInTheDocument()
     expect(screen.getByText('john@example.com')).toBeInTheDocument()
   })
@@ -89,13 +89,13 @@ import { useToggle } from '@/hooks/useToggle'
 describe('useToggle Hook', () => {
   it('should toggle value when called', () => {
     const { result } = renderHook(() => useToggle(false))
-    
+
     expect(result.current[0]).toBe(false)
-    
+
     act(() => {
       result.current[1]()
     })
-    
+
     expect(result.current[0]).toBe(true)
   })
 })
@@ -108,7 +108,7 @@ describe('validateUser', () => {
   it('should validate correct user data', () => {
     const validUser = { id: '1', name: 'John', email: 'john@example.com' }
     const result = validateUser(validUser)
-    
+
     expect(result.success).toBe(true)
     expect(userSchema.safeParse(result.data).success).toBe(true)
   })
@@ -132,7 +132,7 @@ export function renderWithProviders(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } }
   })
-  
+
   return render(
     <QueryClientProvider client={queryClient}>
       {ui}

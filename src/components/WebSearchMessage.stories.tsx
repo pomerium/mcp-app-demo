@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/react'
 import { WebSearchMessage } from './WebSearchMessage'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import type { WebSearchMessageProps } from './WebSearchMessage'
 
 const meta: Meta<typeof WebSearchMessage> = {

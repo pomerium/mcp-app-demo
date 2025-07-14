@@ -1,5 +1,5 @@
-import { renderHook, act, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useStreamingChat } from './useStreamingChat'
 
 const ISO_TIMESTAMP_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
@@ -216,7 +216,7 @@ describe('useStreamingChat', () => {
   })
 
   describe('handleResponse', () => {
-    it('should handle successful response and start streaming', async () => {
+    it('should handle successful response and start streaming', () => {
       const { result } = renderHook(() => useStreamingChat())
 
       const mockReader = {
@@ -992,7 +992,7 @@ describe('useStreamingChat', () => {
   })
 
   describe('cancelStream', () => {
-    it('should cancel ongoing stream', async () => {
+    it('should cancel ongoing stream', () => {
       const { result } = renderHook(() => useStreamingChat())
 
       const mockReader = {

@@ -1,15 +1,14 @@
 import { Bot, Copy, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
-import { cn } from '@/lib/utils'
+import { MessageAvatar } from './MessageAvatar'
 import type { AssistantStreamEvent } from '@/hooks/useStreamingChat'
-import { formatTimestamp } from '@/lib/utils'
+import { cn, formatTimestamp } from '@/lib/utils'
 import { MarkdownContent } from '@/components/MarkdownContent'
 import { copyToClipboard } from '@/lib/utils/clipboard'
-import { MessageAvatar } from './MessageAvatar'
 import {
-  isImageFile,
   createAnnotatedFileUrl,
+  isImageFile,
 } from '@/lib/utils/code-interpreter'
 
 interface Message extends Omit<AssistantStreamEvent, 'type'> {

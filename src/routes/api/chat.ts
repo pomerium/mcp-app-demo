@@ -1,13 +1,13 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
-import { chatRequestSchema } from '../../lib/schemas'
 import OpenAI from 'openai'
-import type { Tool } from 'openai/resources/responses/responses.mjs'
+import { chatRequestSchema } from '../../lib/schemas'
 import { streamText } from '../../lib/streaming'
 import {
   getSystemPrompt,
   isCodeInterpreterSupported,
   isWebSearchSupported, // NEW
 } from '../../lib/utils/prompting'
+import type { Tool } from 'openai/resources/responses/responses.mjs'
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
@@ -82,7 +82,7 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           .replace(/_{2,}/g, '_') // Replace multiple underscores with single one
       }
 
-      const tools: Tool[] = [
+      const tools: Array<Tool> = [
         ...Object.entries(servers)
           .filter(([_, server]) => server.status === 'connected')
           .map(
@@ -118,7 +118,7 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
       const latestUserMessage = messages[messages.length - 1]
       const systemPrompt = getSystemPrompt(
         codeInterpreter,
-        latestUserMessage?.role === 'user'
+        latestUserMessage.role === 'user'
           ? latestUserMessage.content
           : undefined,
       )

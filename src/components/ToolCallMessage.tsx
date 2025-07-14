@@ -1,7 +1,7 @@
-import { getStatusIcon } from '@/lib/toolStatus'
-import { Wrench, ArrowRight } from 'lucide-react'
+import { ArrowRight, Wrench } from 'lucide-react'
 import { CollapsibleSection } from './ui/collapsible-section'
 import { MessageAvatar } from './MessageAvatar'
+import { getStatusIcon } from '@/lib/toolStatus'
 
 type ToolCallMessageProps<T = Record<string, unknown>> = {
   name: string

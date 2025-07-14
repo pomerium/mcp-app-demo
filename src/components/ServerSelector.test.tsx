@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
-import { screen, act, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
-import type { Mock } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { ServerSelector } from './ServerSelector'
+import type { Mock } from 'vitest'
 import type { Servers } from '@/lib/schemas'
 import { renderWithQueryClient } from '@/test/utils/react-query-test-utils'
-import userEvent from '@testing-library/user-event'
-import { mockMobile, mockDesktop } from '@/test/utils/mocks'
+import { mockDesktop, mockMobile } from '@/test/utils/mocks'
 
-global.fetch = vi.fn() as Mock
+global.fetch = vi.fn()
 
 describe('ServerSelector', () => {
   // Default mock for window.matchMedia (desktop)
@@ -46,7 +46,7 @@ describe('ServerSelector', () => {
     mockDesktop()
     ;(global.fetch as Mock).mockResolvedValue({
       ok: true,
-      json: async () => ({
+      json: () => ({
         servers: [
           {
             name: 'Test Server',
@@ -61,7 +61,7 @@ describe('ServerSelector', () => {
   })
 
   it('renders and fetches servers, updating the UI on mount', async () => {
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={{}}
@@ -80,7 +80,7 @@ describe('ServerSelector', () => {
     const servers: Servers = {
       'test-server': { ...baseServer, needs_oauth: false },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={servers}
@@ -99,7 +99,7 @@ describe('ServerSelector', () => {
     const servers: Servers = {
       'test-server': { ...baseServer, needs_oauth: true },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={servers}
@@ -117,7 +117,7 @@ describe('ServerSelector', () => {
 
   it('renders mobile drawer UI when matchMedia returns true', async () => {
     mockMobile()
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={{ 'test-server': { ...baseServer, needs_oauth: true } }}
@@ -138,7 +138,7 @@ describe('ServerSelector', () => {
   })
 
   it('renders empty state when no servers are present', async () => {
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={{}}
@@ -170,7 +170,7 @@ describe('ServerSelector', () => {
   })
 
   it('renders toolToggles children when passed', async () => {
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={{}}
@@ -197,9 +197,9 @@ describe('ServerSelector', () => {
     ;(global.fetch as Mock).mockResolvedValue({
       ok: false,
       status: 500,
-      json: async () => ({ error: 'Server error' }),
+      json: () => ({ error: 'Server error' }),
     })
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={{}}
@@ -227,7 +227,7 @@ describe('ServerSelector', () => {
     ;(global.fetch as Mock).mockImplementation(() => {
       throw new Error('Network down')
     })
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={{}}
@@ -252,7 +252,7 @@ describe('ServerSelector', () => {
       b: { ...baseServer, id: 'b', name: 'Bravo', needs_oauth: false },
       c: { ...baseServer, id: 'c', name: 'Charlie', needs_oauth: false },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={servers}
@@ -274,7 +274,7 @@ describe('ServerSelector', () => {
     const servers: Servers = {
       'test-server': { ...baseServer, needs_oauth: true },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={servers}
@@ -296,7 +296,7 @@ describe('ServerSelector', () => {
     const servers: Servers = {
       'test-server': { ...baseServer, needs_oauth },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={servers}
@@ -319,7 +319,7 @@ describe('ServerSelector', () => {
         needs_oauth: true,
       },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={disconnectedServer}
@@ -344,7 +344,7 @@ describe('ServerSelector', () => {
     // Set up the custom fetch mock after beforeEach
     const disconnectFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({
+      json: () => ({
         servers: [
           {
             name: 'Test Server',
@@ -367,7 +367,7 @@ describe('ServerSelector', () => {
       // Default mock for other requests
       return Promise.resolve({
         ok: true,
-        json: async () => ({
+        json: () => ({
           servers: [
             {
               name: 'Test Server',
@@ -381,7 +381,7 @@ describe('ServerSelector', () => {
       })
     })
 
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={serversWithDisconnect}
@@ -401,18 +401,20 @@ describe('ServerSelector', () => {
       await userEvent.click(disconnectButton)
     })
 
-    expect(disconnectFetch).toHaveBeenCalledWith(
-      '/.pomerium/mcp/routes/disconnect',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+    await waitFor(() => {
+      expect(disconnectFetch).toHaveBeenCalledWith(
+        '/.pomerium/mcp/routes/disconnect',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            routes: ['https://test.example.com'],
+          }),
         },
-        body: JSON.stringify({
-          routes: ['https://test.example.com'],
-        }),
-      },
-    )
+      )
+    })
   })
 
   it('prevents server selection when disconnect button is clicked', async () => {
@@ -422,7 +424,7 @@ describe('ServerSelector', () => {
         needs_oauth: true,
       },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={serversWithDisconnect}
@@ -436,7 +438,7 @@ describe('ServerSelector', () => {
     const disconnectButton = screen.getByLabelText(
       'Disconnect from Test Server',
     )
-    await act(async () => {
+    await act(() => {
       userEvent.click(disconnectButton)
     })
     expect(mockOnServerToggle).not.toHaveBeenCalled()
@@ -454,7 +456,7 @@ describe('ServerSelector', () => {
         needs_oauth: false,
       },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={servers}
@@ -488,7 +490,7 @@ describe('ServerSelector', () => {
         needs_oauth: false,
       },
     }
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={servers}
@@ -517,7 +519,7 @@ describe('ServerSelector', () => {
 
   it('renders correct count for no servers and two tools', async () => {
     mockMobile()
-    await act(async () => {
+    await act(() => {
       renderWithQueryClient(
         <ServerSelector
           servers={{}}

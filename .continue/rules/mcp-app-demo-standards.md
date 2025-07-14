@@ -45,7 +45,7 @@ const users = await fetchUsers() // Let TypeScript infer User[]
 // ✅ Good: Generic constraints for reusable utilities
 function createApiResponse<T extends Record<string, unknown>>(
   data: T,
-  status: 'success' | 'error' = 'success'
+  status: 'success' | 'error' = 'success',
 ): ApiResponse<T> {
   return { data, status, timestamp: Date.now() }
 }
@@ -86,14 +86,14 @@ interface ButtonProps {
   disabled?: boolean
 }
 
-export default function Button({ 
-  children, 
-  onClick, 
+export default function Button({
+  children,
+  onClick,
   variant = 'primary',
-  disabled = false 
+  disabled = false
 }: ButtonProps) {
   return (
-    <button 
+    <button
       onClick={onClick}
       disabled={disabled}
       className={cn(buttonVariants({ variant }), disabled && 'opacity-50')}

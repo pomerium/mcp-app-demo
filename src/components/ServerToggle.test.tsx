@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { ServerToggle } from './ServerToggle'
 import type { Server } from '@/lib/schemas'
 

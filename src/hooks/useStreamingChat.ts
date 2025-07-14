@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { generateMessageId } from '../mcp/client'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
@@ -21,7 +21,7 @@ export type ToolStreamEvent = {
   type: 'tool'
   toolType: string
   serverLabel: string
-  tools?: any[]
+  tools?: Array<any>
   itemId?: string
   toolName?: string
   arguments?: unknown
@@ -141,7 +141,7 @@ const getToolStatus = (
 }
 
 interface UseStreamingChatReturn {
-  streamBuffer: StreamEvent[]
+  streamBuffer: Array<StreamEvent>
   streaming: boolean
   timedOut: boolean
   requestId: string | null
@@ -153,7 +153,7 @@ interface UseStreamingChatReturn {
 }
 
 export function useStreamingChat(): UseStreamingChatReturn {
-  const [streamBuffer, setStreamBuffer] = useState<StreamEvent[]>([])
+  const [streamBuffer, setStreamBuffer] = useState<Array<StreamEvent>>([])
   const [streaming, setStreaming] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const [requestId, setRequestId] = useState<string | null>(null)
@@ -161,7 +161,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
   const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const textBufferRef = useRef<string>('')
   const lastAssistantIdRef = useRef<string | null>(null)
-  const pendingStreamEventsRef = useRef<StreamEvent[]>([])
+  const pendingStreamEventsRef = useRef<Array<StreamEvent>>([])
   const abortControllerRef = useRef<AbortController | null>(null)
   const streamCancelledRef = useRef<boolean>(false)
 
@@ -170,7 +170,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
       const assistantId = lastAssistantIdRef.current
       const textToAdd = textBufferRef.current
 
-      setStreamBuffer((prev: StreamEvent[]) => {
+      setStreamBuffer((prev: Array<StreamEvent>) => {
         const existingIndex = prev.findIndex(
           (event: StreamEvent) =>
             event.type === 'assistant' && event.id === assistantId,
@@ -208,7 +208,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
     }
 
     if (pendingStreamEventsRef.current.length > 0) {
-      setStreamBuffer((prev: StreamEvent[]) => [
+      setStreamBuffer((prev: Array<StreamEvent>) => [
         ...prev,
         ...pendingStreamEventsRef.current,
       ])
@@ -256,7 +256,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
   const handleError = useCallback((error: Error) => {
     console.error('Chat error:', error)
-    setStreamBuffer((prev: StreamEvent[]) => [
+    setStreamBuffer((prev: Array<StreamEvent>) => [
       ...prev,
       {
         type: 'error',
@@ -279,7 +279,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
           response.status,
           response.statusText,
         )
-        setStreamBuffer((prev: StreamEvent[]) => [
+        setStreamBuffer((prev: Array<StreamEvent>) => [
           ...prev,
           {
             type: 'error',
@@ -301,7 +301,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
       stopStreamProcessing(response)
 
       if (!reader) {
-        setStreamBuffer((prev: StreamEvent[]) => [
+        setStreamBuffer((prev: Array<StreamEvent>) => [
           ...prev,
           {
             type: 'error',
@@ -329,7 +329,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
         if (line.startsWith('e:')) {
           try {
             const errorData = JSON.parse(line.slice(2))
-            setStreamBuffer((prev: StreamEvent[]) => [
+            setStreamBuffer((prev: Array<StreamEvent>) => [
               ...prev,
               {
                 type: 'error',
@@ -340,7 +340,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
             ])
           } catch (e) {
             console.error('Failed to parse error data:', e)
-            setStreamBuffer((prev: StreamEvent[]) => [
+            setStreamBuffer((prev: Array<StreamEvent>) => [
               ...prev,
               {
                 type: 'error',
@@ -373,8 +373,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
             }
 
             if (toolState.type === 'reasoning_summary_delta') {
-              setStreamBuffer((prev: StreamEvent[]) => {
+              setStreamBuffer((prev: Array<StreamEvent>) => {
                 const last = prev[prev.length - 1]
+                // Tests fail if we don't check for undefined
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 if (last && last.type === 'reasoning' && !last.done) {
                   return [
                     ...prev.slice(0, -1),
@@ -408,9 +410,9 @@ export function useStreamingChat(): UseStreamingChatReturn {
             }
 
             if (toolState.type === 'reasoning_summary_done') {
-              setStreamBuffer((prev: StreamEvent[]) => {
+              setStreamBuffer((prev: Array<StreamEvent>) => {
                 const last = prev[prev.length - 1]
-                if (last && last.type === 'reasoning' && !last.done) {
+                if (last.type === 'reasoning' && !last.done) {
                   return [
                     ...prev.slice(0, -1),
                     {
@@ -449,7 +451,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
               > = {
                 type: 'code_interpreter',
                 itemId: toolState.itemId,
-                eventType: toolState.type as any,
+                eventType: toolState.type,
                 code: toolState.code,
                 delta: toolState.delta,
                 annotation: toolState.annotation,
@@ -459,7 +461,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
                 const annotationItemId = toolState.itemId
                 const annotation = codeInterpreterEvent.annotation
                 if (annotation) {
-                  setStreamBuffer((prev: StreamEvent[]) => {
+                  setStreamBuffer((prev: Array<StreamEvent>) => {
                     const lastAssistantIdx = [...prev]
                       .reverse()
                       .findIndex(
@@ -499,7 +501,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
               }
 
               if (codeInterpreterEvent.itemId) {
-                setStreamBuffer((prev: StreamEvent[]) => {
+                setStreamBuffer((prev: Array<StreamEvent>) => {
                   const existingIndex = prev.findIndex(
                     (event: StreamEvent) =>
                       event.type === 'code_interpreter' &&
@@ -545,7 +547,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
                 })
                 return
               }
-              setStreamBuffer((prev: StreamEvent[]) => [
+              setStreamBuffer((prev: Array<StreamEvent>) => [
                 ...prev,
                 codeInterpreterEvent,
               ])
@@ -569,7 +571,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
                 status = 'completed'
               else if (toolState.type.endsWith('failed')) status = 'failed'
               else if (toolState.type.endsWith('result')) status = 'result'
-              setStreamBuffer((prev: StreamEvent[]) => {
+              setStreamBuffer((prev: Array<StreamEvent>) => {
                 const existingIdx = prev.findIndex(
                   (e) => e.type === 'web_search' && e.id === toolState.item_id,
                 )
@@ -601,7 +603,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
                     ? JSON.parse(toolState.delta)
                     : {}
               } catch (e) {
-                console.error('Failed to parse delta:', toolState.delta)
+                console.error('Failed to parse delta:', {
+                  delta: toolState.delta,
+                  e,
+                })
                 toolState.delta = {}
               }
             }
@@ -612,7 +617,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
                   ? JSON.parse(toolState.arguments)
                   : {}
             } catch (e) {
-              console.error('Failed to parse arguments:', toolState.arguments)
+              console.error('Failed to parse arguments:', {
+                arguments: toolState.arguments,
+                e,
+              })
               toolState.arguments = {}
             }
 
@@ -629,7 +637,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
               status: getToolStatus(toolState.type),
             }
 
-            setStreamBuffer((prev: StreamEvent[]) => {
+            setStreamBuffer((prev: Array<StreamEvent>) => {
               const itemId = toolState.itemId
               if (itemId) {
                 const existingIndex = prev.findIndex(
@@ -675,7 +683,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
           if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
             flushTextBuffer()
             const { item_id, part } = chunkObj
-            setStreamBuffer((prev: StreamEvent[]) => [
+            setStreamBuffer((prev: Array<StreamEvent>) => [
               ...prev.filter(
                 (event: StreamEvent) =>
                   !(event.type === 'assistant' && event.id === item_id),
@@ -689,7 +697,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
             ])
             return
           }
-        } catch (e) {
+        } catch {
           // Not a JSON chunk, fall through to legacy 0: handler
         }
 
@@ -744,6 +752,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
             if (line.trim()) processChunk(line)
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (!streamCancelledRef.current) {
             readChunk()
           }
@@ -756,7 +765,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
           }
 
           console.error('Error reading stream chunk:', error)
-          setStreamBuffer((prev: StreamEvent[]) => [
+          setStreamBuffer((prev: Array<StreamEvent>) => [
             ...prev,
             {
               type: 'error',
@@ -787,7 +796,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
       return
     }
 
-    setStreamBuffer((prev: StreamEvent[]) => [
+    setStreamBuffer((prev: Array<StreamEvent>) => [
       ...prev,
       {
         type: 'user',

@@ -75,7 +75,9 @@ Here is a summary table of total sales from every year. If you need additional d
             <div
               class="overflow-x-auto my-4"
             >
-              <table>
+              <table
+                node="[object Object]"
+              >
                 <thead>
                   <tr>
                     <th>

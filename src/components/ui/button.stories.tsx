@@ -1,7 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/react'
-import { Button } from './button'
-import type { VariantProps } from 'class-variance-authority'
 import { ArrowRight } from 'lucide-react'
+import { Button } from './button'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 
 const VARIANT_OPTIONS = [
   'default',
@@ -12,9 +11,6 @@ const VARIANT_OPTIONS = [
   'link',
 ] as const
 const SIZE_OPTIONS = ['default', 'sm', 'lg', 'icon'] as const
-
-type ButtonVariant = (typeof VARIANT_OPTIONS)[number]
-type ButtonSize = (typeof SIZE_OPTIONS)[number]
 
 const meta: Meta<typeof Button> = {
   title: 'UI/Button',
@@ -46,7 +42,7 @@ const meta: Meta<typeof Button> = {
 export default meta
 
 // Story type
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 type Story = StoryObj<typeof Button>
 
 export const Default: Story = {
@@ -59,7 +55,7 @@ export const Default: Story = {
 }
 
 export const Variants: Story = {
-  render: (args) => (
+  render: () => (
     <div className="flex flex-wrap gap-4">
       {VARIANT_OPTIONS.map((variant) => (
         <Button key={variant} variant={variant}>
@@ -71,7 +67,7 @@ export const Variants: Story = {
 }
 
 export const Sizes: Story = {
-  render: (args) => (
+  render: () => (
     <div className="flex flex-wrap gap-4 items-end">
       {SIZE_OPTIONS.map((size) => (
         <Button key={size} size={size}>

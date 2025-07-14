@@ -1,6 +1,8 @@
-import { useState, useEffect, useId } from 'react'
+import { useEffect, useId, useState } from 'react'
+import { Info, RefreshCw, Server as ServerIcon, Wrench } from 'lucide-react'
+import { useMediaQuery } from '../hooks/useMediaQuery'
+import { pomeriumRoutesResponseSchema } from '../lib/schemas'
 import { Button } from './ui/button'
-import { RefreshCw, Info, Wrench, Server as ServerIcon } from 'lucide-react'
 import {
   Drawer,
   DrawerClose,
@@ -10,14 +12,9 @@ import {
   DrawerTrigger,
 } from './ui/drawer'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
-import { useMediaQuery } from '../hooks/useMediaQuery'
-import {
-  pomeriumRoutesResponseSchema,
-  type Server,
-  type Servers,
-} from '../lib/schemas'
-import { useDisconnectServer } from '@/hooks/useDisconnectServer'
 import { ServerToggle } from './ServerToggle'
+import type { Server, Servers } from '../lib/schemas'
+import { useDisconnectServer } from '@/hooks/useDisconnectServer'
 
 const POMERIUM_ROUTES_ENDPOINT = '/.pomerium/mcp/routes'
 const POMERIUM_CONNECT_PATH = '/.pomerium/mcp/connect'
@@ -31,13 +28,12 @@ export interface ToolConfig {
 type ServerSelectorProps = {
   servers: Servers
   onServersChange: (servers: Servers) => void
-  selectedServers: string[]
+  selectedServers: Array<string>
   onServerToggle: (serverId: string) => void
   disabled?: boolean
-  toolToggles?: ToolConfig[]
+  toolToggles?: Array<ToolConfig>
 }
 
-// Extracted header component to reduce complexity
 type ServerSelectorHeaderProps = {
   isLoading: boolean
   disabled: boolean
@@ -129,31 +125,36 @@ const ServerSelectionContent = ({
   error: string | null
   onRefresh: () => void
   showHeader?: boolean
-  toolToggles?: ToolConfig[]
+  toolToggles?: Array<ToolConfig>
 }) => {
   const serverList = Object.values(servers).sort((a, b) =>
     a.url.localeCompare(b.url),
   )
-  const connectToServer = async (serverId: string) => {
+  const connectToServer = (serverId: string) => {
     const server = servers[serverId]
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!server) return
     const currentUrl = window.location.href
     const connectUrl = `${server.url}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
     window.location.href = connectUrl
   }
+
   const disconnectMutation = useDisconnectServer(servers, onServersChange)
   const disconnectFromServer = async (serverId: string) => {
     const server = servers[serverId]
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!server || !server.needs_oauth) return
     try {
       await disconnectMutation.mutateAsync(serverId)
-    } catch (error) {
-      console.error('Failed to disconnect from server:', error)
+    } catch (err) {
+      console.error('Failed to disconnect from server:', err)
     }
   }
   const handleServerClick = (serverId: string) => {
     const server = servers[serverId]
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!server) return
+
     if (server.status === 'connected') {
       onServerToggle(serverId)
     } else {
@@ -288,39 +289,13 @@ export function ServerSelector({
 
       onServersChange(newServers)
       setIsLoading(false)
-    } catch (error) {
-      console.error('Failed to fetch servers:', error)
-      setError(
-        error instanceof Error ? error.message : 'Failed to fetch servers',
-      )
+    } catch (err) {
+      console.error('Failed to fetch servers:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch servers')
       setIsLoading(false)
     }
   }
 
-  // Connect to server via Pomerium OAuth flow
-  const connectToServer = (serverId: string) => {
-    const server = servers[serverId]
-    if (!server) return
-
-    const currentUrl = window.location.href
-    const connectUrl = `${server.url}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
-
-    window.location.href = connectUrl
-  }
-
-  // Handle server click - toggle if connected, connect if disconnected
-  const handleServerClick = (serverId: string) => {
-    const server = servers[serverId]
-    if (!server) return
-
-    if (server.status === 'connected') {
-      onServerToggle(serverId)
-    } else {
-      connectToServer(serverId)
-    }
-  }
-
-  // Load servers on component mount
   useEffect(() => {
     fetchPomeriumServers()
   }, [])

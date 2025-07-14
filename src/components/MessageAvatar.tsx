@@ -1,6 +1,7 @@
 import React from 'react'
+import type { ColorVariant } from '@/lib/variants'
 import { cn } from '@/lib/utils'
-import { getIconVariantStyles, type ColorVariant } from '@/lib/variants'
+import { getIconVariantStyles } from '@/lib/variants'
 
 interface MessageAvatarProps {
   icon: React.ReactNode

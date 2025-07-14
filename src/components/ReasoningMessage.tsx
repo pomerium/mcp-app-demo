@@ -1,8 +1,8 @@
-import type { ReasoningStreamEvent } from '@/hooks/useStreamingChat'
 import { Brain } from 'lucide-react'
 import { MarkdownContent } from './MarkdownContent'
 import { CollapsibleSection } from './ui/collapsible-section'
 import { MessageAvatar } from './MessageAvatar'
+import type { ReasoningStreamEvent } from '@/hooks/useStreamingChat'
 
 interface ReasoningMessageProps extends Omit<ReasoningStreamEvent, 'type'> {
   isLoading?: boolean

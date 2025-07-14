@@ -1,6 +1,6 @@
-import type { Meta, StoryObj } from '@storybook/react'
-import { CodeInterpreterToggle } from './CodeInterpreterToggle'
 import { useState } from 'react'
+import { CodeInterpreterToggle } from './CodeInterpreterToggle'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 
 const meta: Meta<typeof CodeInterpreterToggle> = {
   title: 'UI/CodeInterpreterToggle',

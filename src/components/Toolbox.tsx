@@ -1,8 +1,8 @@
 import { Settings } from 'lucide-react'
 import { useMemo } from 'react'
-import { type ToolItem } from '../lib/schemas'
-import { getStatusIcon } from '@/lib/toolStatus'
 import { CollapsibleSection } from './ui/collapsible-section'
+import type { ToolItem } from '../lib/schemas'
+import { getStatusIcon } from '@/lib/toolStatus'
 
 type ToolboxProps = {
   name: string
@@ -15,7 +15,7 @@ type ToolboxProps = {
       | 'arguments_delta'
       | 'arguments_done'
       | 'failed'
-    tools?: ToolItem[]
+    tools?: Array<ToolItem>
     error?: string
     [key: string]: unknown
   }

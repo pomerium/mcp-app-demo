@@ -1,5 +1,6 @@
-import { useRef, type ComponentProps } from 'react'
+import { useRef } from 'react'
 import { Copy } from 'lucide-react'
+import type { ComponentProps } from 'react'
 import { Button } from '@/components/ui/button'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 

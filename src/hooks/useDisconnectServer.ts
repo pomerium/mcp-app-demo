@@ -1,9 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
+import type { Server, Servers } from '@/lib/schemas'
 import {
   disconnectRequestSchema,
   disconnectResponseSchema,
-  type Server,
-  type Servers,
 } from '@/lib/schemas'
 
 const POMERIUM_DISCONNECT_ENDPOINT = '/.pomerium/mcp/routes/disconnect'
@@ -20,6 +19,7 @@ export function useDisconnectServer(
   return useMutation({
     mutationFn: async (serverId: string) => {
       const server = servers[serverId]
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (!server || !server.needs_oauth) throw new Error('Invalid server')
       const requestPayload = disconnectRequestSchema.parse({
         routes: [server.url],
@@ -58,7 +58,6 @@ export function useDisconnectServer(
       onServersChange(updatedServers)
     },
     onError: (error) => {
-      // eslint-disable-next-line no-console
       console.error('Failed to disconnect from server:', error)
     },
   })

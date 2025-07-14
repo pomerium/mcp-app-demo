@@ -1,10 +1,5 @@
 // @vitest-environment jsdom
-import {
-  getByRole,
-  getByTestId,
-  getByText,
-  render,
-} from '@testing-library/react'
+import { getByTestId, getByText, render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { BotError } from './BotError'
 

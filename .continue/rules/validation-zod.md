@@ -82,35 +82,38 @@ export const Route = createServerFileRoute('/api/users').methods({
   async POST({ request }) {
     const body = await request.json()
     const result = createUserSchema.safeParse(body)
-    
+
     if (!result.success) {
-      return new Response(JSON.stringify({ 
-        error: 'Validation failed',
-        details: result.error.flatten()
-      }), { 
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      return new Response(
+        JSON.stringify({
+          error: 'Validation failed',
+          details: result.error.flatten(),
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
     }
-    
+
     const user = await createUser(result.data)
     return new Response(JSON.stringify(user), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     })
-  }
+  },
 })
 
 // ✅ Good: External API validation
 async function fetchUserFromAPI(id: string): Promise<User> {
   const response = await fetch(`/api/users/${id}`)
   const data = await response.json()
-  
+
   // Always validate external API responses
   const result = userSchema.safeParse(data)
   if (!result.success) {
     throw new Error(`Invalid user data from API: ${result.error.message}`)
   }
-  
+
   return result.data
 }
 ```

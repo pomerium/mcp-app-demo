@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import { useModels } from '../hooks/useModels'
 import {
   DropdownMenu,
@@ -6,7 +7,6 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { Button } from './ui/button'
-import { ChevronDown } from 'lucide-react'
 
 // Visually hidden class for screen readers
 const srOnly = 'sr-only'

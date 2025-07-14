@@ -2,6 +2,9 @@
 // Returns a boolean indicating success
 export async function copyToClipboard(text: string): Promise<boolean> {
   let copied = false
+
+  // The conditional check for navigator.clipboard and window.isSecureContext is necessary to ensure your code works safely across all browsers and environments.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (navigator.clipboard && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(text)

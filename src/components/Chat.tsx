@@ -1,59 +1,54 @@
-import { useRef, useMemo, useState, useCallback } from 'react'
-import { UserMessage } from './UserMessage'
-import { BotMessage } from './BotMessage'
-import { ChatInput } from './ChatInput'
-import { ServerSelector } from './ServerSelector'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
+import { MessageSquarePlus } from 'lucide-react'
+import { useModel } from '../contexts/ModelContext'
+import { useUser } from '../contexts/UserContext'
 import { generateMessageId } from '../mcp/client'
-import type { Message } from 'ai'
-import { type Servers } from '../lib/schemas'
 import { ToolCallMessage } from './ToolCallMessage'
 import { Toolbox } from './Toolbox'
 import { ReasoningMessage } from './ReasoningMessage'
-import { useModel } from '../contexts/ModelContext'
-import { useUser } from '../contexts/UserContext'
 import { Button } from './ui/button'
-import { MessageSquarePlus } from 'lucide-react'
+import { ServerSelector } from './ServerSelector'
+import { ChatInput } from './ChatInput'
+import { BotMessage } from './BotMessage'
+import { UserMessage } from './UserMessage'
 import { CodeInterpreterToggle } from './CodeInterpreterToggle'
 import { WebSearchToggle } from './WebSearchToggle'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
 import { CodeInterpreterMessage } from './CodeInterpreterMessage'
+import { WebSearchMessage } from './WebSearchMessage'
+import type { Servers } from '../lib/schemas'
+import type { Message } from 'ai'
+import type { StreamEvent } from '@/hooks/useStreamingChat'
+import { useStreamingChat } from '@/hooks/useStreamingChat'
+import { getTimestamp } from '@/lib/utils/date'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
-import { WebSearchMessage } from './WebSearchMessage'
-import { getTimestamp } from '@/lib/utils/date'
-import { useStreamingChat, type StreamEvent } from '@/hooks/useStreamingChat'
 
 const getEventKey = (event: StreamEvent | Message, idx: number): string => {
   if ('type' in event) {
-    if (event.type === 'tool') {
-      return (
-        event.itemId || `tool-${idx}-${event.toolType}-${event.serverLabel}`
-      )
-    }
-    if (event.type === 'code_interpreter') {
-      return `code-interpreter-${event.itemId}`
-    }
-    if (event.type === 'assistant') {
-      return `assistant-${event.id}`
-    }
-    if (event.type === 'user') {
-      return `user-${event.id}`
-    }
-    if (event.type === 'reasoning') {
-      return `reasoning-${idx}-${event.effort}`
-    }
-    if (event.type === 'error') {
-      return `error-${idx}`
-    }
-    if (event.type === 'code_interpreter_file_annotation') {
-      // Use file_id or a combination for uniqueness
-      return `file-annotation-${event.annotation.file_id || idx}`
-    }
-    if (event.type === 'web_search') {
-      return `web-search-${event.id}`
+    switch (event.type) {
+      case 'tool':
+        return (
+          event.itemId || `tool-${idx}-${event.toolType}-${event.serverLabel}`
+        )
+      case 'code_interpreter':
+        return `code-interpreter-${event.itemId}`
+      case 'assistant':
+        return `assistant-${event.id}`
+      case 'user':
+        return `user-${event.id}`
+      case 'reasoning':
+        return `reasoning-${idx}-${event.effort}`
+      case 'error':
+        return `error-${idx}`
+      case 'code_interpreter_file_annotation':
+        // Use file_id or a combination for uniqueness
+        return `file-annotation-${event.annotation.file_id || idx}`
+      case 'web_search':
+        return `web-search-${event.id}`
     }
   }
   // Fallback: use idx if id is not present
@@ -69,7 +64,7 @@ export function Chat() {
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
-  const [selectedServers, setSelectedServers] = useState<string[]>([])
+  const [selectedServers, setSelectedServers] = useState<Array<string>>([])
   const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const [useWebSearch, setUseWebSearch] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
@@ -132,7 +127,7 @@ export function Chat() {
     onResponse: handleResponse,
   })
 
-  const renderEvents = useMemo<(StreamEvent | Message)[]>(() => {
+  const renderEvents = useMemo<Array<StreamEvent | Message>>(() => {
     if (streaming || streamBuffer.length > 0) {
       return [...streamBuffer]
     }
@@ -315,11 +310,12 @@ export function Chat() {
                     }}
                   />
                 )
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
               } else if ('type' in event && event.type === 'web_search') {
                 return <WebSearchMessage key={key} event={event} />
               } else {
                 // Fallback for Message type (from useChat)
-                const message = event as Message
+                const message = event
                 // Only render if the event has an 'id' property (i.e., is a Message)
                 if ('id' in event) {
                   const isAssistant = message.role === 'assistant'
