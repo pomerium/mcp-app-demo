@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { generateMessageId } from '../mcp/client'
+import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
 
@@ -7,14 +8,7 @@ export type AssistantStreamEvent = {
   type: 'assistant'
   id: string
   content: string
-  fileAnnotations?: Array<{
-    type: string
-    container_id: string
-    file_id: string
-    filename: string
-    start_index?: number
-    end_index?: number
-  }>
+  fileAnnotations?: Array<AnnotatedFile>
 }
 
 export type ToolStreamEvent = {
