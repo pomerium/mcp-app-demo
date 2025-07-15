@@ -25,9 +25,10 @@ export interface BotMessageProps {
 
 export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+  const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
 
   const handleCopy = async () => {
-    const copied = await copyToClipboard(message.content)
+    const copied = await copyToClipboard(processedContent)
 
     if (copied) {
       toast.success('Copied message to clipboard')
@@ -47,8 +48,6 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
   const otherFiles = fileLikeAnnotations.filter(
     (annotation) => !isImageFile(annotation.filename),
   )
-
-  const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
 
   return (
     <div

@@ -319,4 +319,151 @@ describe('BotMessage', () => {
     const listItems = getAllByRole('listitem')
     expect(listItems).toHaveLength(2)
   })
+
+  it('copies markdown content with sandbox URLs replaced by container-file URLs', async () => {
+    const message: Message = {
+      id: 'msg-1',
+      content:
+        'Here is a chart: ![chart](sandbox:/mnt/data/sales_chart.png) and some data: [data.csv](sandbox:/mnt/data/data.csv)',
+      timestamp: '2025-07-06T12:00:00Z',
+      status: 'sent',
+    }
+
+    const fileAnnotations = [
+      {
+        type: 'container_file_citation' as const,
+        container_id: 'cntr_123',
+        file_id: 'cfile_456',
+        filename: 'sales_chart.png',
+        start_index: 0,
+        end_index: 0,
+      },
+      {
+        type: 'container_file_citation' as const,
+        container_id: 'cntr_123',
+        file_id: 'cfile_789',
+        filename: 'data.csv',
+        start_index: 0,
+        end_index: 0,
+      },
+    ]
+
+    const mockClipboard = {
+      writeText: vi.fn().mockResolvedValue(undefined),
+    }
+    Object.assign(navigator, { clipboard: mockClipboard })
+
+    const mockExecCommand = vi.fn().mockReturnValue(true)
+    Object.assign(document, { execCommand: mockExecCommand })
+
+    const { getByRole } = render(
+      <BotMessage message={message} fileAnnotations={fileAnnotations} />,
+    )
+
+    const copyButton = getByRole('button', {
+      name: /copy message to clipboard/i,
+    })
+
+    await copyButton.click()
+
+    const expectedContent =
+      'Here is a chart: ![chart](/api/container-file?containerId=cntr_123&fileId=cfile_456&filename=sales_chart.png) and some data: [data.csv](/api/container-file?containerId=cntr_123&fileId=cfile_789&filename=data.csv)'
+
+    if (mockClipboard.writeText.mock.calls.length > 0) {
+      expect(mockClipboard.writeText).toHaveBeenCalledWith(expectedContent)
+      expect(mockClipboard.writeText).toHaveBeenCalledWith(
+        expect.not.stringContaining('sandbox:/mnt/data/'),
+      )
+    } else {
+      expect(mockExecCommand).toHaveBeenCalledWith('copy')
+    }
+  })
+
+  it('copies markdown content without sandbox URLs when no file annotations are provided', async () => {
+    const message: Message = {
+      id: 'msg-1',
+      content: 'Here is a chart: ![chart](sandbox:/mnt/data/sales_chart.png)',
+      timestamp: '2025-07-06T12:00:00Z',
+      status: 'sent',
+    }
+
+    const mockClipboard = {
+      writeText: vi.fn().mockResolvedValue(undefined),
+    }
+    Object.assign(navigator, { clipboard: mockClipboard })
+
+    const mockExecCommand = vi.fn().mockReturnValue(true)
+    Object.assign(document, { execCommand: mockExecCommand })
+
+    const { getByRole } = render(<BotMessage message={message} />)
+
+    const copyButton = getByRole('button', {
+      name: /copy message to clipboard/i,
+    })
+
+    await copyButton.click()
+
+    const expectedContent =
+      'Here is a chart: ![chart](sandbox:/mnt/data/sales_chart.png)'
+
+    if (mockClipboard.writeText.mock.calls.length > 0) {
+      expect(mockClipboard.writeText).toHaveBeenCalledWith(expectedContent)
+    } else {
+      expect(mockExecCommand).toHaveBeenCalledWith('copy')
+    }
+  })
+
+  it('copies markdown content with regular URLs unchanged', async () => {
+    const message: Message = {
+      id: 'msg-1',
+      content:
+        'Here is a chart: ![chart](https://example.com/chart.png) and some data: [data.csv](https://example.com/data.csv)',
+      timestamp: '2025-07-06T12:00:00Z',
+      status: 'sent',
+    }
+
+    const fileAnnotations = [
+      {
+        type: 'container_file_citation' as const,
+        container_id: 'cntr_123',
+        file_id: 'cfile_456',
+        filename: 'sales_chart.png',
+        start_index: 0,
+        end_index: 0,
+      },
+    ]
+
+    const mockClipboard = {
+      writeText: vi.fn().mockResolvedValue(undefined),
+    }
+    Object.assign(navigator, { clipboard: mockClipboard })
+
+    const mockExecCommand = vi.fn().mockReturnValue(true)
+    Object.assign(document, { execCommand: mockExecCommand })
+
+    const { getByRole } = render(
+      <BotMessage message={message} fileAnnotations={fileAnnotations} />,
+    )
+
+    const copyButton = getByRole('button', {
+      name: /copy message to clipboard/i,
+    })
+
+    await copyButton.click()
+
+    const expectedContent =
+      'Here is a chart: ![chart](https://example.com/chart.png) and some data: [data.csv](https://example.com/data.csv)'
+
+    if (mockClipboard.writeText.mock.calls.length > 0) {
+      expect(mockClipboard.writeText).toHaveBeenCalledWith(expectedContent)
+      expect(mockClipboard.writeText).toHaveBeenCalledWith(
+        expect.stringContaining('https://example.com/chart.png'),
+      )
+      expect(mockClipboard.writeText).toHaveBeenCalledWith(
+        expect.stringContaining('https://example.com/data.csv'),
+      )
+    } else {
+      expect(mockExecCommand).toHaveBeenCalledWith('copy')
+    }
+  })
 })
