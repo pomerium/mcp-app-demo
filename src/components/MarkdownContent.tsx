@@ -1,10 +1,12 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { toast } from 'sonner'
+import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { CodeBlock } from '@/components/CodeBlock'
 
 type MarkdownContentProps = {
   content: string
+  fileAnnotations?: Array<AnnotatedFile>
 }
 
 export function MarkdownContent({ content }: MarkdownContentProps) {
