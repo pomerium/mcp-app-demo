@@ -3,26 +3,29 @@ import { toast } from 'sonner'
 import { useState } from 'react'
 import { MessageAvatar } from './MessageAvatar'
 import type { AssistantStreamEvent } from '@/hooks/useStreamingChat'
+import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { cn, formatTimestamp } from '@/lib/utils'
 import { MarkdownContent } from '@/components/MarkdownContent'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import {
   createAnnotatedFileUrl,
   isImageFile,
+  replaceSandboxUrls,
 } from '@/lib/utils/code-interpreter'
 
-interface Message extends Omit<AssistantStreamEvent, 'type'> {
+export interface Message extends Omit<AssistantStreamEvent, 'type'> {
   timestamp: string
   status: string
 }
 
 export interface BotMessageProps {
   message: Message
-  fileAnnotations?: AssistantStreamEvent['fileAnnotations']
+  fileAnnotations?: Array<AnnotatedFile>
 }
 
 export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+  const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
 
   const handleCopy = async () => {
     const copied = await copyToClipboard(processedContent)
@@ -36,13 +39,8 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
     setImageErrors((prev) => new Set(prev).add(fileId))
   }
 
-  // Use message content directly; sandbox URL replacement is not needed
-  const processedContent = message.content
-
-  // Separate image and non-image files
-  // Only treat annotations with type 'file' or 'image' as downloadable
   const fileLikeAnnotations = fileAnnotations.filter(
-    (annotation) => annotation.type === 'file' || annotation.type === 'image',
+    (annotation) => annotation.type === 'container_file_citation',
   )
   const imageFiles = fileLikeAnnotations.filter((annotation) =>
     isImageFile(annotation.filename),
@@ -70,8 +68,11 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
             'rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
           )}
         >
-          <div data-raw-markdown={message.content}>
-            <MarkdownContent content={message.content} />
+          <div data-raw-markdown={processedContent}>
+            <MarkdownContent
+              content={processedContent}
+              fileAnnotations={fileAnnotations}
+            />
           </div>
 
           {imageFiles.length > 0 && (
@@ -80,16 +81,18 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
                 const hasError = imageErrors.has(annotation.file_id)
                 const imageUrl = createAnnotatedFileUrl(annotation)
 
-                // Generate accessible alt text based on filename
                 const getAltText = (filename: string) => {
-                  const name = filename.replace(/\.[^/.]+$/, '') // Remove extension
+                  const name = filename.replace(/\.[^/.]+$/, '')
                   return `Generated visualization: ${name.replace(/_/g, ' ')}`
                 }
 
                 return (
                   <div key={annotation.file_id} className="relative group">
                     {hasError ? (
-                      <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 rounded border border-dashed border-gray-300 dark:border-gray-600">
+                      <div
+                        className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900 rounded border border-dashed border-gray-300 dark:border-gray-600"
+                        role="alert"
+                      >
                         <div className="text-center">
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             Failed to load image
@@ -133,9 +136,9 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                 Attachments:
               </p>
-              <div className="space-y-1">
+              <ul className="space-y-1" aria-label="File attachments">
                 {otherFiles.map((annotation) => (
-                  <div
+                  <li
                     key={annotation.file_id}
                     className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700"
                   >
@@ -149,10 +152,11 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
                     >
                       <Download className="h-3 w-3" />
                       Download
+                      <span className="sr-only"> {annotation.filename}</span>
                     </a>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
         </div>

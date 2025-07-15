@@ -27,6 +27,7 @@ export const ServerRoute = createServerFileRoute('/api/container-file').methods(
         const queryParams = {
           containerId: url.searchParams.get('containerId'),
           fileId: url.searchParams.get('fileId'),
+          filename: url.searchParams.get('filename'),
         }
 
         const validationResult = containerFileQuerySchema.safeParse(queryParams)
@@ -81,7 +82,8 @@ export const ServerRoute = createServerFileRoute('/api/container-file').methods(
         // Try to get file metadata using the regular Files API
         // This API returns metadata only (filename, size, etc.) - NOT the file content
         // Note: Container files may not be accessible via this API, so we fallback gracefully
-        const filename = await getFilenameFromMetadata(fileId)
+        const filename =
+          queryParams.filename ?? (await getFilenameFromMetadata(fileId))
         const contentType = mime.getType(filename) || 'application/octet-stream'
 
         return new Response(arrayBuffer, {

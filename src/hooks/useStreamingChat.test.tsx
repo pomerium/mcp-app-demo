@@ -522,7 +522,7 @@ describe('useStreamingChat', () => {
         type: 'code_interpreter_file_annotation',
         itemId: 'file-123',
         annotation: {
-          type: 'file',
+          type: 'container_file_citation',
           container_id: 'container-123',
           file_id: 'file-456',
           filename: 'test.py',
