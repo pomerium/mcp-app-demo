@@ -135,11 +135,9 @@ const ServerSelectionContent = ({
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!server) return
     const currentUrl = window.location.href
-    // Extract base URL from server URL (protocol + host)
-    const serverUrl = new URL(server.url)
-    const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`
-    const connectUrl = `${baseUrl}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
-    window.location.href = connectUrl
+    const connectUrl = new URL(POMERIUM_CONNECT_PATH, server.url)
+    connectUrl.searchParams.set('redirect_url', currentUrl)
+    window.location.href = connectUrl.toString()
   }
 
   const disconnectMutation = useDisconnectServer(servers, onServersChange)
