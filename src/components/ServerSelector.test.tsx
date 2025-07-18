@@ -545,4 +545,45 @@ describe('ServerSelector', () => {
       screen.getByRole('button', { name: /Servers & Tools \(2\/2\)/i }),
     ).toBeInTheDocument()
   })
+
+  it('redirects to base URL with connect path when clicking disconnected server', async () => {
+    // Mock window.location.href assignment
+    const originalLocation = window.location
+    delete (window as any).location
+    window.location = {
+      href: 'https://current-app.example.com/some/path',
+    } as any
+
+    const servers: Servers = {
+      'test-server': {
+        ...baseServer,
+        status: 'disconnected',
+        connected: false,
+        url: 'https://db-server.example.com/some/path',
+        needs_oauth: true,
+      },
+    }
+
+    await act(() => {
+      renderWithQueryClient(
+        <ServerSelector
+          servers={servers}
+          onServersChange={mockOnServersChange}
+          selectedServers={[]}
+          onServerToggle={mockOnServerToggle}
+          toolToggles={[]}
+        />,
+      )
+    })
+
+    await userEvent.click(screen.getByText('Test Server'))
+
+    // Should redirect to base URL + connect path, not full URL + connect path
+    expect(window.location.href).toBe(
+      'https://db-server.example.com/.pomerium/mcp/connect?redirect_url=https%3A%2F%2Fcurrent-app.example.com%2Fsome%2Fpath',
+    )
+
+    // Restore original location
+    ;(window as any).location = originalLocation
+  })
 })

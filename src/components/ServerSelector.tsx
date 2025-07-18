@@ -135,7 +135,10 @@ const ServerSelectionContent = ({
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!server) return
     const currentUrl = window.location.href
-    const connectUrl = `${server.url}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
+    // Extract base URL from server URL (protocol + host)
+    const serverUrl = new URL(server.url)
+    const baseUrl = `${serverUrl.protocol}//${serverUrl.host}`
+    const connectUrl = `${baseUrl}${POMERIUM_CONNECT_PATH}?redirect_url=${encodeURIComponent(currentUrl)}`
     window.location.href = connectUrl
   }
 
