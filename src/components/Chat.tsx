@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
 import { MessageSquarePlus, Clock } from 'lucide-react'
 import { useModel } from '../contexts/ModelContext'
@@ -22,7 +22,12 @@ import { BotError } from './BotError'
 import { CodeInterpreterMessage } from './CodeInterpreterMessage'
 import { WebSearchMessage } from './WebSearchMessage'
 import type { Servers } from '../lib/schemas'
-import type { Message } from 'ai'
+import type { Message as AIMessage } from 'ai'
+
+// Extended message type for background job tracking
+interface Message extends AIMessage {
+  backgroundJobId?: string
+}
 import type { StreamEvent } from '@/hooks/useStreamingChat'
 import { useStreamingChat } from '@/hooks/useStreamingChat'
 import { getTimestamp } from '@/lib/utils/date'
@@ -53,7 +58,7 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
       case 'web_search':
         return `web-search-${event.id}`
       case 'background_job_created':
-        return `background-job-${event.jobId}`
+        return `background-job-${event.requestId}`
     }
   }
   // Fallback: use idx if id is not present
@@ -66,6 +71,7 @@ const TIMEOUT_ERROR_MESSAGE =
 export function Chat() {
   const hasMounted = useHasMounted()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastPromptRef = useRef<string>('')
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
@@ -73,10 +79,11 @@ export function Chat() {
   const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const [useWebSearch, setUseWebSearch] = useState(false)
   const [useBackground, setUseBackground] = useState(false)
-  const [backgroundJobsSidebarOpen, setBackgroundJobsSidebarOpen] = useState(false)
+  const [backgroundJobsSidebarOpen, setBackgroundJobsSidebarOpen] =
+    useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
-  const { jobs: backgroundJobs, addJob: addBackgroundJob } = useBackgroundJobs()
+  const { jobs: backgroundJobs } = useBackgroundJobs()
 
   const {
     streamBuffer,
@@ -132,10 +139,24 @@ export function Chat() {
     ],
   )
 
+  const handleResponseWithBackground = useCallback(
+    (response: Response) => {
+      if (useBackground) {
+        // The background job title is the last user prompt
+        const title = lastPromptRef.current
+
+        handleResponse(response, { background: true, title })
+      } else {
+        handleResponse(response, { background: false })
+      }
+    },
+    [handleResponse, useBackground],
+  )
+
   const { messages, isLoading, setMessages, append, stop } = useChat({
     body: chatBody,
     onError: handleError,
-    onResponse: handleResponse,
+    onResponse: handleResponseWithBackground,
   })
 
   const renderEvents = useMemo<Array<StreamEvent | Message>>(() => {
@@ -154,6 +175,7 @@ export function Chat() {
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
+      lastPromptRef.current = prompt // Store the prompt for background job title
       addUserMessage(prompt)
       append({ role: 'user', content: prompt })
     },
@@ -184,22 +206,119 @@ export function Chat() {
   // Check if max concurrent background jobs limit is reached
   const maxJobsReached = useMemo(() => {
     if (!hasMounted) return false
-    const runningJobs = backgroundJobs.filter(job => job.status === 'running')
+    const runningJobs = backgroundJobs.filter((job) => job.status === 'running')
     return runningJobs.length >= 5 // Default limit from PRD
   }, [hasMounted, backgroundJobs])
 
-  const handleLoadJobResponse = useCallback((jobId: string, response: string) => {
-    // Load the response into the chat
-    // For now, we'll append it as an assistant message
-    const messageId = generateMessageId()
-    const assistantMessage: Message = {
-      id: messageId,
-      content: response,
-      role: 'assistant',
-    }
-    setMessages(prev => [...prev, assistantMessage])
-    setBackgroundJobsSidebarOpen(false)
-  }, [setMessages])
+  // Update chat messages when background jobs update (for streaming loaded responses)
+  useEffect(() => {
+    setMessages((prevMessages) =>
+      prevMessages.map((message) => {
+        if (message.backgroundJobId) {
+          const job = backgroundJobs.find(
+            (j) => j.id === message.backgroundJobId,
+          )
+          if (job && job.response && job.response !== message.content) {
+            // Update message content with latest job response
+            return { ...message, content: job.response }
+          }
+        }
+        return message
+      }),
+    )
+  }, [backgroundJobs, setMessages])
+
+  const handleLoadJobResponse = useCallback(
+    async (jobId: string, response: string) => {
+      const job = backgroundJobs.find((j) => j.id === jobId)
+
+      if (job?.status === 'failed') {
+        console.warn(
+          `Job ${jobId} is not failed, cannot load response: ${job?.status}`,
+        )
+        return
+      }
+
+      try {
+        const url = new URL('/api/background-jobs', window.location.origin)
+        url.searchParams.set('requestId', job.requestId)
+        const streamResponse = await fetch(url.toString(), {
+          method: 'GET',
+        })
+
+        if (streamResponse.ok && streamResponse.body) {
+          // Create message and start streaming
+          const messageId = generateMessageId()
+          const assistantMessage: Message = {
+            id: messageId,
+            content: '',
+            role: 'assistant',
+            backgroundJobId: jobId,
+          }
+
+          setMessages((prev) => [...prev, assistantMessage])
+          setBackgroundJobsSidebarOpen(false)
+
+          // Handle streaming response similar to regular chat
+          const reader = streamResponse.body.getReader()
+          const decoder = new TextDecoder()
+
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+
+              const chunk = decoder.decode(value, { stream: true })
+              const lines = chunk.split('\n')
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim()
+                  if (data && data !== '[DONE]') {
+                    try {
+                      const parsed = JSON.parse(data)
+                      if (parsed.content) {
+                        setMessages((prev) =>
+                          prev.map((msg) =>
+                            msg.id === messageId
+                              ? {
+                                  ...msg,
+                                  content: msg.content + parsed.content,
+                                }
+                              : msg,
+                          ),
+                        )
+                      }
+                    } catch (e) {
+                      // Skip invalid JSON
+                    }
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock()
+          }
+          return
+        }
+      } catch (error) {
+        console.error('Failed to stream background job response:', error)
+        // Fall back to loading static response
+      }
+
+      // Fallback: Load static response (for running jobs or if streaming fails)
+      const messageId = generateMessageId()
+      const assistantMessage: Message = {
+        id: messageId,
+        content: response,
+        role: 'assistant',
+        backgroundJobId: jobId,
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+      setBackgroundJobsSidebarOpen(false)
+    },
+    [backgroundJobs, setMessages],
+  )
 
   const handleCancelJob = useCallback((jobId: string) => {
     // TODO: Implement actual job cancellation via OpenAI API
@@ -377,7 +496,10 @@ export function Chat() {
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
               } else if ('type' in event && event.type === 'web_search') {
                 return <WebSearchMessage key={key} event={event} />
-              } else if ('type' in event && event.type === 'background_job_created') {
+              } else if (
+                'type' in event &&
+                event.type === 'background_job_created'
+              ) {
                 // Background job handled by streaming hook - no UI rendering needed
                 return null
               } else {

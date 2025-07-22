@@ -100,7 +100,6 @@ export type WebSearchStreamEvent = {
 
 export type BackgroundJobStreamEvent = {
   type: 'background_job_created'
-  jobId: string
   requestId: string
   backgroundJob: {
     id: string
@@ -157,7 +156,10 @@ interface UseStreamingChatReturn {
   streaming: boolean
   timedOut: boolean
   requestId: string | null
-  handleResponse: (response: Response) => void
+  handleResponse: (
+    response: Response,
+    options?: { background: true; title: string } | { background: false },
+  ) => void
   handleError: (error: Error) => void
   addUserMessage: (content: string) => void
   cancelStream: () => void
@@ -282,7 +284,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
   }, [])
 
   const handleResponse = useCallback(
-    (response: Response) => {
+    (
+      response: Response,
+      options?: { background: true; title: string } | { background: false },
+    ) => {
       const xRequestId = response.headers.get('x-request-id')
       setRequestId(xRequestId)
 
@@ -377,11 +382,41 @@ export function useStreamingChat(): UseStreamingChatReturn {
               console.warn('Invalid tool state object')
               return
             }
+            
             if (toolState.type === 'tool_call_completed') {
               return
             }
             if (toolState.type === 'stream_done') {
               receivedCompletion = true
+              return
+            }
+
+            if (toolState.type === 'response.created') {
+              if (options?.background) {
+                // Handle response.created event - create background job if background mode is enabled
+                const requestId = toolState.response.id
+
+                const backgroundJob = {
+                  id: requestId,
+                  requestId,
+                  status: 'running' as const,
+                  createdAt: new Date().toISOString(),
+                  title: options.title,
+                }
+
+                // Add to background jobs store
+                addBackgroundJob(backgroundJob)
+
+                // Add to stream buffer
+                setStreamBuffer((prev: Array<StreamEvent>) => [
+                  ...prev,
+                  {
+                    type: 'assistant',
+                    id: backgroundJob.id,
+                    content: `Background job started: "${options.title}". Check the Jobs panel to see progress.`,
+                  },
+                ])
+              }
               return
             }
 
@@ -693,22 +728,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
         try {
           const chunkObj = JSON.parse(line)
-          
-          if (chunkObj.type === 'background_job_created') {
-            // Handle background job creation event - store the job and add to stream
-            addBackgroundJob(chunkObj.backgroundJob)
-            setStreamBuffer((prev: Array<StreamEvent>) => [
-              ...prev,
-              {
-                type: 'background_job_created',
-                jobId: chunkObj.jobId,
-                requestId: chunkObj.requestId,
-                backgroundJob: chunkObj.backgroundJob,
-              },
-            ])
-            return
-          }
-          
+
           if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
             flushTextBuffer()
             const { item_id, part } = chunkObj

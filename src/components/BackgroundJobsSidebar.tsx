@@ -3,7 +3,9 @@ import { Sidebar } from './ui/sidebar'
 import { Clock, Play, X, Trash2 } from 'lucide-react'
 import { useHasMounted } from '@/hooks/useHasMounted'
 import { useBackgroundJobs } from '@/hooks/useBackgroundJobs'
+import { useBackgroundJobStatus } from '@/hooks/useBackgroundJobStatus'
 import type { BackgroundJob } from '@/lib/schemas'
+import { useEffect } from 'react'
 
 interface BackgroundJobsSidebarProps {
   isOpen: boolean
@@ -12,22 +14,60 @@ interface BackgroundJobsSidebarProps {
   onCancelJob?: (jobId: string) => void
 }
 
-export function BackgroundJobsSidebar({
-  isOpen,
-  onClose,
-  onLoadResponse,
-  onCancelJob,
-}: BackgroundJobsSidebarProps) {
-  const { jobs, updateJob, removeJob } = useBackgroundJobs()
-  const hasMounted = useHasMounted()
+// Component for individual job polling
+function BackgroundJobItem({ job, onLoadResponse, onCancelJob, updateJob, removeJob }: {
+  job: BackgroundJob
+  onLoadResponse?: (jobId: string, response: string) => void
+  onCancelJob?: (jobId: string) => void
+  updateJob: (jobId: string, updates: Partial<BackgroundJob>) => void
+  removeJob: (jobId: string) => void
+}) {
+  // Use polling hook to check job status - continue polling until definitely complete or failed
+  const shouldPoll = (job.status === 'running' || (job.status === 'failed' && !job.completedAt))
+  
+  const { data: statusData, error } = useBackgroundJobStatus(
+    shouldPoll ? job : undefined,
+    2000 // Poll every 2 seconds
+  )
 
-  const handleLoadResponse = (job: BackgroundJob) => {
-    if (job.response && onLoadResponse) {
-      onLoadResponse(job.id, job.response)
+  // Update job when status changes
+  useEffect(() => {
+    if (statusData) {
+      console.log('Polling data received:', statusData)
+      console.log('Current job:', job)
+      
+      const needsUpdate = statusData.status !== job.status || 
+                         statusData.response !== job.response ||
+                         statusData.error !== job.error ||
+                         statusData.completedAt !== job.completedAt
+      
+      if (needsUpdate) {
+        console.log('Updating job with:', {
+          status: statusData.status,
+          response: statusData.response,
+          error: statusData.error,
+          completedAt: statusData.completedAt,
+        })
+        
+        updateJob(job.id, {
+          status: statusData.status,
+          response: statusData.response || job.response,
+          error: statusData.error,
+          completedAt: statusData.completedAt || job.completedAt,
+        })
+      }
+    }
+  }, [statusData, job, updateJob])
+
+  const handleLoadResponse = () => {
+    if (onLoadResponse) {
+      // If no response yet, load a placeholder or empty content
+      const responseContent = job.response || '[Job is still running - partial response will appear here]'
+      onLoadResponse(job.id, responseContent)
     }
   }
 
-  const handleCancelJob = (job: BackgroundJob) => {
+  const handleCancelJob = () => {
     if (onCancelJob) {
       onCancelJob(job.id)
     }
@@ -35,8 +75,8 @@ export function BackgroundJobsSidebar({
     updateJob(job.id, { status: 'failed', error: 'Cancelled by user' })
   }
 
-  const handleDeleteJob = (jobId: string) => {
-    removeJob(jobId)
+  const handleDeleteJob = () => {
+    removeJob(job.id)
   }
 
   const getStatusIcon = (status: BackgroundJob['status']) => {
@@ -73,6 +113,100 @@ export function BackgroundJobsSidebar({
     }
   }
 
+  return (
+    <div className="border rounded-lg p-4 space-y-3 bg-card">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {getStatusIcon(job.status)}
+          <span className="font-medium">{getStatusText(job.status)}</span>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {formatTimestamp(job.createdAt)}
+        </span>
+      </div>
+
+      {job.title && (
+        <div>
+          <p className="text-sm font-medium truncate" title={job.title}>
+            {job.title}
+          </p>
+        </div>
+      )}
+
+      {job.error && (
+        <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+          {job.error}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLoadResponse}
+          disabled={job.status === 'failed' && !job.response}
+          className="flex-1"
+          aria-label={`Load response for job ${job.id}`}
+          title={job.status === 'running' && !job.response
+            ? 'Load partial response (updates as job continues)' 
+            : job.status === 'completed'
+              ? 'Load completed response into chat'
+              : job.response 
+                ? 'Load response into chat'
+                : job.status === 'failed'
+                  ? 'No response available for failed job'
+                  : 'Load current progress'
+          }
+        >
+          <Play className="h-3 w-3 mr-1" />
+          {job.status === 'running' && !job.response ? 'Load Progress' : 
+           job.status === 'running' && job.response ? 'Load Partial' : 
+           'Load Response'}
+        </Button>
+
+        {job.status === 'running' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCancelJob}
+            className="flex-1"
+            aria-label={`Cancel job ${job.id}`}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Cancel
+          </Button>
+        )}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDeleteJob}
+          className="px-2"
+          aria-label={`Delete job ${job.id}`}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+
+      {job.completedAt && (
+        <div className="text-xs text-muted-foreground">
+          Completed: {formatTimestamp(job.completedAt)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function BackgroundJobsSidebar({
+  isOpen,
+  onClose,
+  onLoadResponse,
+  onCancelJob,
+}: BackgroundJobsSidebarProps) {
+  const { jobs, updateJob, removeJob } = useBackgroundJobs()
+  const hasMounted = useHasMounted()
+
+
   if (!hasMounted) {
     return null
   }
@@ -95,77 +229,14 @@ export function BackgroundJobsSidebar({
           </div>
         ) : (
           jobs.map((job) => (
-            <div
+            <BackgroundJobItem
               key={job.id}
-              className="border rounded-lg p-4 space-y-3 bg-card"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {getStatusIcon(job.status)}
-                  <span className="font-medium">{getStatusText(job.status)}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {formatTimestamp(job.createdAt)}
-                </span>
-              </div>
-
-              {job.title && (
-                <div>
-                  <p className="text-sm font-medium truncate" title={job.title}>
-                    {job.title}
-                  </p>
-                </div>
-              )}
-
-              {job.error && (
-                <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                  {job.error}
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleLoadResponse(job)}
-                  disabled={job.status !== 'completed' || !job.response}
-                  className="flex-1"
-                  aria-label={`Load response for job ${job.id}`}
-                >
-                  <Play className="h-3 w-3 mr-1" />
-                  Load Response
-                </Button>
-
-                {job.status === 'running' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCancelJob(job)}
-                    className="flex-1"
-                    aria-label={`Cancel job ${job.id}`}
-                  >
-                    <X className="h-3 w-3 mr-1" />
-                    Cancel
-                  </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDeleteJob(job.id)}
-                  className="px-2"
-                  aria-label={`Delete job ${job.id}`}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-
-              {job.completedAt && (
-                <div className="text-xs text-muted-foreground">
-                  Completed: {formatTimestamp(job.completedAt)}
-                </div>
-              )}
-            </div>
+              job={job}
+              onLoadResponse={onLoadResponse}
+              onCancelJob={onCancelJob}
+              updateJob={updateJob}
+              removeJob={removeJob}
+            />
           ))
         )}
       </div>
