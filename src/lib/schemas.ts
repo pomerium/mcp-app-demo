@@ -70,6 +70,22 @@ export const chatRequestSchema = z.object({
   userId: z.string(),
   codeInterpreter: z.boolean().default(false),
   webSearch: z.boolean().default(false), // NEW: enable web search
+  background: z.boolean().optional().default(false),
+  store: z.boolean().optional().default(false), // For OpenAI background
+})
+
+// Background job schema
+export const backgroundJobSchema = z.object({
+  id: z.string(),
+  requestId: z
+    .string()
+    .regex(/^resp_[a-zA-Z0-9]{20,30}$/, 'Invalid OpenAI request ID'),
+  status: z.enum(['running', 'completed', 'failed']),
+  createdAt: z.string(), // ISO timestamp
+  completedAt: z.string().optional(), // ISO timestamp
+  title: z.string().optional(),
+  response: z.string().optional(),
+  error: z.string().optional(),
 })
 
 // Disconnect request schema
@@ -132,3 +148,4 @@ export const containerFileQuerySchema = z.object({
 export type ContainerFileQuery = z.infer<typeof containerFileQuerySchema>
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>
+export type BackgroundJob = z.infer<typeof backgroundJobSchema>
