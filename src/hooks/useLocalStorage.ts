@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   // Get from local storage then
@@ -22,6 +22,24 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
   // Pass initial state function to useState so logic is only executed once
   const [storedValue, setStoredValue] = useState<T>(readValue)
 
+  // Listen for changes to localStorage from other components/tabs
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setStoredValue(readValue())
+    }
+
+    // Listen for storage events (changes from other tabs)
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Custom event for same-tab updates (since storage event doesn't fire for same tab)
+    window.addEventListener(`localStorage-${key}`, handleStorageChange)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener(`localStorage-${key}`, handleStorageChange)
+    }
+  }, [key])
+
   // Return a wrapped version of useState's setter function that ...
   // ... persists the new value to localStorage.
   const setValue = (value: T | ((val: T) => T)) => {
@@ -36,6 +54,8 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       // Save to local storage
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(key, JSON.stringify(valueToStore))
+        // Dispatch custom event to notify other components in same tab
+        window.dispatchEvent(new CustomEvent(`localStorage-${key}`))
       }
     } catch (error) {
       console.warn(`Error setting localStorage key "${key}":`, error)

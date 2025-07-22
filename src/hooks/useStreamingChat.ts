@@ -3,6 +3,7 @@ import { generateMessageId } from '../mcp/client'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
+import { useBackgroundJobs } from './useBackgroundJobs'
 
 export type AssistantStreamEvent = {
   type: 'assistant'
@@ -97,6 +98,22 @@ export type WebSearchStreamEvent = {
   raw?: unknown
 }
 
+export type BackgroundJobStreamEvent = {
+  type: 'background_job_created'
+  jobId: string
+  requestId: string
+  backgroundJob: {
+    id: string
+    requestId: string
+    status: 'running' | 'completed' | 'failed'
+    createdAt: string
+    completedAt?: string
+    title?: string
+    response?: string
+    error?: string
+  }
+}
+
 export type StreamEvent =
   | AssistantStreamEvent
   | ToolStreamEvent
@@ -106,6 +123,7 @@ export type StreamEvent =
   | ReasoningStreamEvent
   | ErrorStreamEvent
   | WebSearchStreamEvent
+  | BackgroundJobStreamEvent
 
 const getToolStatus = (
   toolType: string,
@@ -151,6 +169,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
   const [streaming, setStreaming] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const [requestId, setRequestId] = useState<string | null>(null)
+  const { addJob: addBackgroundJob } = useBackgroundJobs()
 
   const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const textBufferRef = useRef<string>('')
@@ -674,6 +693,22 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
         try {
           const chunkObj = JSON.parse(line)
+          
+          if (chunkObj.type === 'background_job_created') {
+            // Handle background job creation event - store the job and add to stream
+            addBackgroundJob(chunkObj.backgroundJob)
+            setStreamBuffer((prev: Array<StreamEvent>) => [
+              ...prev,
+              {
+                type: 'background_job_created',
+                jobId: chunkObj.jobId,
+                requestId: chunkObj.requestId,
+                backgroundJob: chunkObj.backgroundJob,
+              },
+            ])
+            return
+          }
+          
           if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
             flushTextBuffer()
             const { item_id, part } = chunkObj

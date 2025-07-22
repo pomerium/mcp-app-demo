@@ -28,7 +28,7 @@ import { useStreamingChat } from '@/hooks/useStreamingChat'
 import { getTimestamp } from '@/lib/utils/date'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
-import { getBackgroundJobs } from '@/lib/background-jobs-storage'
+import { useBackgroundJobs } from '@/hooks/useBackgroundJobs'
 
 const getEventKey = (event: StreamEvent | Message, idx: number): string => {
   if ('type' in event) {
@@ -52,6 +52,8 @@ const getEventKey = (event: StreamEvent | Message, idx: number): string => {
         return `file-annotation-${event.annotation.file_id || idx}`
       case 'web_search':
         return `web-search-${event.id}`
+      case 'background_job_created':
+        return `background-job-${event.jobId}`
     }
   }
   // Fallback: use idx if id is not present
@@ -74,6 +76,7 @@ export function Chat() {
   const [backgroundJobsSidebarOpen, setBackgroundJobsSidebarOpen] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
+  const { jobs: backgroundJobs, addJob: addBackgroundJob } = useBackgroundJobs()
 
   const {
     streamBuffer,
@@ -181,9 +184,9 @@ export function Chat() {
   // Check if max concurrent background jobs limit is reached
   const maxJobsReached = useMemo(() => {
     if (!hasMounted) return false
-    const runningJobs = getBackgroundJobs().filter(job => job.status === 'running')
+    const runningJobs = backgroundJobs.filter(job => job.status === 'running')
     return runningJobs.length >= 5 // Default limit from PRD
-  }, [hasMounted])
+  }, [hasMounted, backgroundJobs])
 
   const handleLoadJobResponse = useCallback((jobId: string, response: string) => {
     // Load the response into the chat
@@ -374,6 +377,9 @@ export function Chat() {
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
               } else if ('type' in event && event.type === 'web_search') {
                 return <WebSearchMessage key={key} event={event} />
+              } else if ('type' in event && event.type === 'background_job_created') {
+                // Background job handled by streaming hook - no UI rendering needed
+                return null
               } else {
                 // Fallback for Message type (from useChat)
                 const message = event

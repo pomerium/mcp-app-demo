@@ -1,13 +1,8 @@
-import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Sidebar } from './ui/sidebar'
 import { Clock, Play, X, Trash2 } from 'lucide-react'
 import { useHasMounted } from '@/hooks/useHasMounted'
-import {
-  getBackgroundJobs,
-  removeBackgroundJob,
-  updateBackgroundJob,
-} from '@/lib/background-jobs-storage'
+import { useBackgroundJobs } from '@/hooks/useBackgroundJobs'
 import type { BackgroundJob } from '@/lib/schemas'
 
 interface BackgroundJobsSidebarProps {
@@ -23,23 +18,8 @@ export function BackgroundJobsSidebar({
   onLoadResponse,
   onCancelJob,
 }: BackgroundJobsSidebarProps) {
-  const [jobs, setJobs] = useState<BackgroundJob[]>([])
+  const { jobs, updateJob, removeJob } = useBackgroundJobs()
   const hasMounted = useHasMounted()
-
-  useEffect(() => {
-    if (!hasMounted) return
-
-    const loadJobs = () => {
-      const backgroundJobs = getBackgroundJobs()
-      setJobs(backgroundJobs)
-    }
-
-    loadJobs()
-
-    // Set up periodic refresh for job status updates
-    const interval = setInterval(loadJobs, 2000)
-    return () => clearInterval(interval)
-  }, [hasMounted])
 
   const handleLoadResponse = (job: BackgroundJob) => {
     if (job.response && onLoadResponse) {
@@ -52,13 +32,11 @@ export function BackgroundJobsSidebar({
       onCancelJob(job.id)
     }
     // Update job status to indicate cancellation attempt
-    updateBackgroundJob(job.id, { status: 'failed', error: 'Cancelled by user' })
-    setJobs(getBackgroundJobs())
+    updateJob(job.id, { status: 'failed', error: 'Cancelled by user' })
   }
 
   const handleDeleteJob = (jobId: string) => {
-    removeBackgroundJob(jobId)
-    setJobs(getBackgroundJobs())
+    removeJob(jobId)
   }
 
   const getStatusIcon = (status: BackgroundJob['status']) => {

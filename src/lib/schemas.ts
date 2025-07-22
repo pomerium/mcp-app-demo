@@ -77,9 +77,7 @@ export const chatRequestSchema = z.object({
 // Background job schema
 export const backgroundJobSchema = z.object({
   id: z.string(),
-  requestId: z
-    .string()
-    .regex(/^resp_[a-zA-Z0-9]{20,30}$/, 'Invalid OpenAI request ID'),
+  requestId: z.string().min(1, 'Request ID is required'),
   status: z.enum(['running', 'completed', 'failed']),
   createdAt: z.string(), // ISO timestamp
   completedAt: z.string().optional(), // ISO timestamp
