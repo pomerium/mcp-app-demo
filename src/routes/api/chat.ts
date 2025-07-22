@@ -1,6 +1,6 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
 import OpenAI from 'openai'
-import { chatRequestSchema, backgroundJobSchema } from '../../lib/schemas'
+import { chatRequestSchema } from '../../lib/schemas'
 import { streamText } from '../../lib/streaming'
 import {
   getSystemPrompt,
@@ -40,8 +40,15 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         })
       }
 
-      const { messages, servers, model, userId, codeInterpreter, webSearch, background, store } =
-        result.data
+      const {
+        messages,
+        servers,
+        model,
+        userId,
+        codeInterpreter,
+        webSearch,
+        background,
+      } = result.data
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
@@ -150,8 +157,9 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           tools,
           input: conversationHistory,
           stream: true,
-          background: background, // Use OpenAI's background mode
-          store: background || store, // Store if background or explicitly requested
+          background,
+          // Store if background or explicitly requested
+          store: background,
           user: userId,
           ...(model.startsWith('o3') || model.startsWith('o4')
             ? {
@@ -209,97 +217,6 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
             status: 500,
             headers: { 'Content-Type': 'application/json' },
           },
-        )
-      }
-
-      // For background jobs, we need to inject job creation events into the stream
-      if (background && answer) {
-        console.log('OpenAI answer object:', answer) // Debug: see what's in the answer object
-        console.log('Answer keys:', Object.keys(answer)) // Debug: see available properties
-        
-        const responseId = answer.id || answer.response_id || crypto.randomUUID() // Fallback to generated ID if OpenAI ID not available
-        const jobId = crypto.randomUUID() // Generate a local job ID
-        
-        // Extract the user's latest message as the job title
-        const latestUserMessage = messages[messages.length - 1]
-        const title = latestUserMessage?.content?.slice(0, 100) || 'Background Job'
-        
-        // Create background job object
-        const backgroundJob = {
-          id: jobId,
-          requestId: responseId,
-          status: 'running' as const,
-          createdAt: new Date().toISOString(),
-          title: title,
-        }
-        
-        // Validate the background job
-        const jobResult = backgroundJobSchema.safeParse(backgroundJob)
-        if (!jobResult.success) {
-          console.error('Background job validation failed:', jobResult.error)
-          return new Response(
-            JSON.stringify({ error: 'Failed to create background job' }),
-            {
-              status: 500,
-              headers: { 'Content-Type': 'application/json' },
-            }
-          )
-        }
-        
-        // Create a custom stream that injects the background job events
-        const originalStream = streamText(answer)
-        
-        return new Response(
-          new ReadableStream({
-            async start(controller) {
-              const encoder = new TextEncoder()
-              const reader = originalStream.body?.getReader()
-              
-              if (reader) {
-                try {
-                  // First, read and send the initial message ID frame from OpenAI
-                  const firstChunk = await reader.read()
-                  if (!firstChunk.done && firstChunk.value) {
-                    controller.enqueue(firstChunk.value)
-                  }
-                  
-                  // Now send our background job creation event (raw JSON for main parser)
-                  const backgroundJobEvent = {
-                    type: 'background_job_created',
-                    jobId: jobId,
-                    requestId: responseId,
-                    backgroundJob: jobResult.data
-                  }
-                  controller.enqueue(encoder.encode(`${JSON.stringify(backgroundJobEvent)}\n`))
-                  
-                  // Then send an assistant message about the job being started (raw JSON for main parser)
-                  const assistantMessage = {
-                    type: 'assistant',
-                    id: crypto.randomUUID(),
-                    content: `Background job started: "${title}". Check the Jobs panel to see progress.`
-                  }
-                  controller.enqueue(encoder.encode(`${JSON.stringify(assistantMessage)}\n`))
-                  
-                  // Continue piping through the rest of the OpenAI stream
-                  while (true) {
-                    const { done, value } = await reader.read()
-                    if (done) break
-                    controller.enqueue(value)
-                  }
-                } catch (error) {
-                  console.error('Error reading from OpenAI stream:', error)
-                } finally {
-                  reader.releaseLock()
-                }
-              }
-              
-              controller.close()
-            }
-          }),
-          {
-            status: originalStream.status,
-            headers: originalStream.headers,
-          }
         )
       }
 

@@ -336,6 +336,15 @@ export function streamText(
                 ),
               )
               break
+            case 'response.created':
+              // Pass through response.created events so background jobs can extract response ID
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify(chunk)}\n`,
+                ),
+              )
+              break
+
             // Web search tool events
             default:
               if (
