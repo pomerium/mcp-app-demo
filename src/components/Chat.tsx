@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
-import { MessageSquarePlus } from 'lucide-react'
+import { MessageSquarePlus, Clock } from 'lucide-react'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 import { generateMessageId } from '../mcp/client'
@@ -14,6 +14,8 @@ import { BotMessage } from './BotMessage'
 import { UserMessage } from './UserMessage'
 import { CodeInterpreterToggle } from './CodeInterpreterToggle'
 import { WebSearchToggle } from './WebSearchToggle'
+import { BackgroundToggle } from './BackgroundToggle'
+import { BackgroundJobsSidebar } from './BackgroundJobsSidebar'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
@@ -26,6 +28,7 @@ import { useStreamingChat } from '@/hooks/useStreamingChat'
 import { getTimestamp } from '@/lib/utils/date'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
+import { getBackgroundJobs } from '@/lib/background-jobs-storage'
 
 const getEventKey = (event: StreamEvent | Message, idx: number): string => {
   if ('type' in event) {
@@ -67,6 +70,8 @@ export function Chat() {
   const [selectedServers, setSelectedServers] = useState<Array<string>>([])
   const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const [useWebSearch, setUseWebSearch] = useState(false)
+  const [useBackground, setUseBackground] = useState(false)
+  const [backgroundJobsSidebarOpen, setBackgroundJobsSidebarOpen] = useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
 
@@ -110,6 +115,8 @@ export function Chat() {
       userId: user?.id,
       codeInterpreter: useCodeInterpreter,
       webSearch: useWebSearch,
+      background: useBackground,
+      store: useBackground, // Store is enabled when background is enabled
     }),
     [
       selectedServers,
@@ -118,6 +125,7 @@ export function Chat() {
       user?.id,
       useCodeInterpreter,
       useWebSearch,
+      useBackground,
     ],
   )
 
@@ -167,7 +175,33 @@ export function Chat() {
     setFocusTimestamp(Date.now())
     setUseCodeInterpreter(false)
     setUseWebSearch(false)
+    setUseBackground(false)
   }, [setMessages, stop, cancelStream, clearBuffer])
+
+  // Check if max concurrent background jobs limit is reached
+  const maxJobsReached = useMemo(() => {
+    if (!hasMounted) return false
+    const runningJobs = getBackgroundJobs().filter(job => job.status === 'running')
+    return runningJobs.length >= 5 // Default limit from PRD
+  }, [hasMounted])
+
+  const handleLoadJobResponse = useCallback((jobId: string, response: string) => {
+    // Load the response into the chat
+    // For now, we'll append it as an assistant message
+    const messageId = generateMessageId()
+    const assistantMessage: Message = {
+      id: messageId,
+      content: response,
+      role: 'assistant',
+    }
+    setMessages(prev => [...prev, assistantMessage])
+    setBackgroundJobsSidebarOpen(false)
+  }, [setMessages])
+
+  const handleCancelJob = useCallback((jobId: string) => {
+    // TODO: Implement actual job cancellation via OpenAI API
+    console.log('Cancelling job:', jobId)
+  }, [])
 
   const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -200,19 +234,46 @@ export function Chat() {
         />
       ),
     },
+    {
+      key: 'background',
+      isActive: useBackground,
+      component: (
+        <BackgroundToggle
+          key="background"
+          useBackground={useBackground}
+          onToggle={setUseBackground}
+          selectedModel={selectedModel}
+          disabled={hasStartedChat}
+          maxJobsReached={maxJobsReached}
+        />
+      ),
+    },
   ]
 
   return (
     <div className="flex flex-col min-h-full relative">
       <div className="sticky top-0 z-10 bg-background border-b px-4 py-2 flex justify-between items-center">
-        <Button
-          variant="outline"
-          onClick={handleNewChat}
-          className="flex items-center gap-2"
-        >
-          <MessageSquarePlus className="size-4" />
-          <span className="sr-only sm:not-sr-only">New Chat</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleNewChat}
+            className="flex items-center gap-2"
+          >
+            <MessageSquarePlus className="size-4" />
+            <span className="sr-only sm:not-sr-only">New Chat</span>
+          </Button>
+          {hasMounted && (
+            <Button
+              variant="outline"
+              onClick={() => setBackgroundJobsSidebarOpen(true)}
+              className="flex items-center gap-2"
+              title="Background Jobs"
+            >
+              <Clock className="size-4" />
+              <span className="sr-only sm:not-sr-only">Jobs</span>
+            </Button>
+          )}
+        </div>
         <ModelSelect value={selectedModel} onValueChange={handleModelChange} />
       </div>
       <div className="flex-1">
@@ -439,6 +500,12 @@ export function Chat() {
           focusTimestamp={focusTimestamp}
         />
       </div>
+      <BackgroundJobsSidebar
+        isOpen={backgroundJobsSidebarOpen}
+        onClose={() => setBackgroundJobsSidebarOpen(false)}
+        onLoadResponse={handleLoadJobResponse}
+        onCancelJob={handleCancelJob}
+      />
     </div>
   )
 }
