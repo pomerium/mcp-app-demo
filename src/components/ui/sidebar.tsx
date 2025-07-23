@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { cn } from '@/lib/utils'
-import { Button } from './button'
 import { X } from 'lucide-react'
+import { Button } from './button'
+import { cn } from '@/lib/utils'
 
 interface SidebarProps {
   children: React.ReactNode
@@ -11,29 +11,26 @@ interface SidebarProps {
   className?: string
 }
 
-export function Sidebar({ 
-  children, 
-  isOpen, 
-  onClose, 
-  title, 
-  className 
+export function Sidebar({
+  children,
+  isOpen,
+  onClose,
+  title,
+  className,
 }: SidebarProps) {
   return (
     <>
       {/* Overlay */}
       {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       )}
-      
+
       {/* Sidebar */}
       <div
         className={cn(
           'fixed right-0 top-0 h-full w-80 bg-background border-l shadow-lg transform transition-transform duration-200 ease-in-out z-50',
           isOpen ? 'translate-x-0' : 'translate-x-full',
-          className
+          className,
         )}
       >
         <div className="flex items-center justify-between p-4 border-b">

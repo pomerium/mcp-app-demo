@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { generateMessageId } from '../mcp/client'
+import { useBackgroundJobs } from './useBackgroundJobs'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
-import { useBackgroundJobs } from './useBackgroundJobs'
 
 export type AssistantStreamEvent = {
   type: 'assistant'
@@ -377,10 +377,8 @@ export function useStreamingChat(): UseStreamingChatReturn {
             // Currently only used for background jobs
             if (toolState.type === 'response.created') {
               if (options?.background) {
-                const requestId = toolState.response.id
-
                 const backgroundJob = {
-                  id: requestId,
+                  id: toolState.response.id,
                   status: 'running' as const,
                   createdAt: getTimestamp(),
                   title: options.title,

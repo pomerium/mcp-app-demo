@@ -1,10 +1,10 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
+import OpenAI from 'openai'
 import {
-  handleJobStatusRequest,
   BackgroundJobError,
+  handleJobStatusRequest,
 } from '@/lib/background-jobs'
 import { streamText } from '@/lib/streaming'
-import OpenAI from 'openai'
 
 export const ServerRoute = createServerFileRoute(
   '/api/background-jobs',

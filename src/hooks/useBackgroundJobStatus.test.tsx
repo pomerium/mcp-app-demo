@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useBackgroundJobStatus } from './useBackgroundJobStatus'
 import { getTimestamp } from '@/lib/utils/date'
@@ -132,7 +132,11 @@ describe('useBackgroundJobStatus', () => {
 
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ status: 'failed', error: 'Job failed', completedAt: getTimestamp() }),
+        json: async () => ({
+          status: 'failed',
+          error: 'Job failed',
+          completedAt: getTimestamp(),
+        }),
       })
 
       const { result } = renderHook(() => useBackgroundJobStatus(job), {

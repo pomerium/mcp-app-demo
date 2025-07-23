@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import OpenAI from 'openai'
-import { handleJobStatusRequest, BackgroundJobError } from './background-jobs'
+import { BackgroundJobError, handleJobStatusRequest } from './background-jobs'
 
 // Mock OpenAI
 vi.mock('openai')
@@ -18,7 +18,7 @@ describe('handleJobStatusRequest', () => {
         retrieve: vi.fn(),
       },
     }
-    
+
     vi.mocked(OpenAI).mockImplementation(() => mockOpenAI as any)
   })
 
@@ -28,8 +28,10 @@ describe('handleJobStatusRequest', () => {
 
   describe('input validation', () => {
     it('throws BackgroundJobError for missing request body', async () => {
-      await expect(handleJobStatusRequest({})).rejects.toThrow(BackgroundJobError)
-      
+      await expect(handleJobStatusRequest({})).rejects.toThrow(
+        BackgroundJobError,
+      )
+
       try {
         await handleJobStatusRequest({})
       } catch (error) {
@@ -39,8 +41,10 @@ describe('handleJobStatusRequest', () => {
     })
 
     it('throws BackgroundJobError for invalid id field', async () => {
-      await expect(handleJobStatusRequest({ id: '' })).rejects.toThrow(BackgroundJobError)
-      
+      await expect(handleJobStatusRequest({ id: '' })).rejects.toThrow(
+        BackgroundJobError,
+      )
+
       try {
         await handleJobStatusRequest({ id: '' })
       } catch (error) {
@@ -112,7 +116,7 @@ describe('handleJobStatusRequest', () => {
         404,
         { message: 'Not found' },
         'Not found',
-        {}
+        {},
       )
       apiError.status = 404
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
@@ -128,7 +132,7 @@ describe('handleJobStatusRequest', () => {
         401,
         { message: 'Unauthorized' },
         'Unauthorized',
-        {}
+        {},
       )
       apiError.status = 401
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
@@ -144,7 +148,7 @@ describe('handleJobStatusRequest', () => {
         403,
         { message: 'Forbidden' },
         'Forbidden',
-        {}
+        {},
       )
       apiError.status = 403
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
@@ -160,7 +164,7 @@ describe('handleJobStatusRequest', () => {
         429,
         { message: 'Rate limit exceeded' },
         'Rate limit exceeded',
-        {}
+        {},
       )
       apiError.status = 429
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
@@ -176,7 +180,7 @@ describe('handleJobStatusRequest', () => {
         502,
         { message: 'Bad gateway' },
         'Bad gateway',
-        {}
+        {},
       )
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
 
@@ -191,7 +195,7 @@ describe('handleJobStatusRequest', () => {
         undefined,
         { message: 'Unknown error' },
         'Unknown error',
-        {}
+        {},
       )
       apiError.status = undefined
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
@@ -208,8 +212,10 @@ describe('handleJobStatusRequest', () => {
       const networkError = new Error('Network connection failed')
       mockOpenAI.responses.retrieve.mockRejectedValue(networkError)
 
-      await expect(handleJobStatusRequest({ id: 'network-error-job' })).rejects.toThrow(BackgroundJobError)
-      
+      await expect(
+        handleJobStatusRequest({ id: 'network-error-job' }),
+      ).rejects.toThrow(BackgroundJobError)
+
       try {
         await handleJobStatusRequest({ id: 'network-error-job' })
       } catch (error) {
@@ -221,8 +227,10 @@ describe('handleJobStatusRequest', () => {
 
     it('throws BackgroundJobError for malformed request body', async () => {
       // Simulate malformed JSON by passing invalid data that would cause parsing error
-      await expect(handleJobStatusRequest('{ invalid json')).rejects.toThrow(BackgroundJobError)
-      
+      await expect(handleJobStatusRequest('{ invalid json')).rejects.toThrow(
+        BackgroundJobError,
+      )
+
       try {
         await handleJobStatusRequest('{ invalid json')
       } catch (error) {
@@ -243,7 +251,7 @@ describe('handleJobStatusRequest', () => {
 
       expect(result).toHaveProperty('completedAt')
       expect(new Date(result.completedAt!).getTime()).toBeGreaterThanOrEqual(
-        new Date(beforeTime).getTime()
+        new Date(beforeTime).getTime(),
       )
     })
   })

@@ -1,5 +1,5 @@
-import type { Preview } from '@storybook/react-vite'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { Preview } from '@storybook/react-vite'
 import '../src/styles.css'
 
 const queryClient = new QueryClient({

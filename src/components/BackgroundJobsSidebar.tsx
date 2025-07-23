@@ -1,8 +1,8 @@
+import { Clock } from 'lucide-react'
 import { Sidebar } from './ui/sidebar'
+import { BackgroundJobItem } from './BackgroundJobItem'
 import { useHasMounted } from '@/hooks/useHasMounted'
 import { useBackgroundJobs } from '@/hooks/useBackgroundJobs'
-import { Clock } from 'lucide-react'
-import { BackgroundJobItem } from './BackgroundJobItem'
 
 interface BackgroundJobsSidebarProps {
   isOpen: boolean

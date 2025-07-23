@@ -27,7 +27,9 @@ export default meta
 type Story = StoryObj<typeof BackgroundToggle>
 
 const Template = (args: any) => {
-  const [useBackground, setUseBackground] = useState(args.useBackground ?? false)
+  const [useBackground, setUseBackground] = useState(
+    args.useBackground ?? false,
+  )
   return (
     <BackgroundToggle
       {...args}

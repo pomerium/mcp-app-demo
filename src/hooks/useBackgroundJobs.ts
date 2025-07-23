@@ -5,7 +5,7 @@ import type { BackgroundJob } from '../lib/schemas'
 const STORAGE_KEY = 'background-jobs'
 
 interface UseBackgroundJobsReturn {
-  jobs: BackgroundJob[]
+  jobs: Array<BackgroundJob>
   jobsMap: Record<string, BackgroundJob>
   addJob: (job: BackgroundJob) => void
   removeJob: (id: string) => void
@@ -35,7 +35,7 @@ export const useBackgroundJobs = (): UseBackgroundJobsReturn => {
   const removeJob = useCallback(
     (id: string) => {
       setJobsMap((prev) => {
-        const { [id]: removed, ...rest } = prev
+        const { [id]: _removed, ...rest } = prev
         return rest
       })
     },
@@ -45,9 +45,6 @@ export const useBackgroundJobs = (): UseBackgroundJobsReturn => {
   const updateJob = useCallback(
     (id: string, updates: Partial<BackgroundJob>) => {
       setJobsMap((prev) => {
-        if (!prev[id]) {
-          return prev
-        }
         return {
           ...prev,
           [id]: { ...prev[id], ...updates },

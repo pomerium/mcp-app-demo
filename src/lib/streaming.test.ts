@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest'
-import { stopStreamProcessing, getMessageId } from './utils/streaming'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { getMessageId, stopStreamProcessing } from './utils/streaming'
 import { streamText } from './streaming'
 
 vi.mock('./utils/streaming', async () => {
@@ -93,12 +93,16 @@ describe('stopStreamProcessing', () => {
 
 describe('getMessageId', () => {
   it('returns a unique message ID with msg prefix', async () => {
-    const actual = await vi.importActual('./utils/streaming') as { getMessageId: () => string }
+    const actual = await vi.importActual('./utils/streaming')
     const id1 = actual.getMessageId()
     const id2 = actual.getMessageId()
-    
-    expect(id1).toMatch(/^msg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
-    expect(id2).toMatch(/^msg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+
+    expect(id1).toMatch(
+      /^msg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    )
+    expect(id2).toMatch(
+      /^msg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    )
     expect(id1).not.toBe(id2)
   })
 })

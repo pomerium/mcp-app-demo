@@ -1,5 +1,5 @@
-import { renderHook, act } from '@testing-library/react'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { useBackgroundJobs } from './useBackgroundJobs'
 import type { BackgroundJob } from '../lib/schemas'
 
@@ -302,7 +302,7 @@ describe('useBackgroundJobs', () => {
         title: 'Session 2 Job',
       })
 
-      let firstSessionResult = renderHook(() => useBackgroundJobs())
+      const firstSessionResult = renderHook(() => useBackgroundJobs())
 
       expect(firstSessionResult.result.current.jobs).toHaveLength(0)
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
@@ -319,7 +319,7 @@ describe('useBackgroundJobs', () => {
       expect(firstSessionResult.result.current.jobs).toHaveLength(2)
       firstSessionResult.unmount()
 
-      let secondSessionResult = renderHook(() => useBackgroundJobs())
+      const secondSessionResult = renderHook(() => useBackgroundJobs())
       expect(secondSessionResult.result.current.jobs).toHaveLength(2)
       expect(
         secondSessionResult.result.current.getJobById('browser-session-alpha'),
@@ -350,7 +350,7 @@ describe('useBackgroundJobs', () => {
 
       secondSessionResult.unmount()
 
-      let thirdSessionResult = renderHook(() => useBackgroundJobs())
+      const thirdSessionResult = renderHook(() => useBackgroundJobs())
       expect(thirdSessionResult.result.current.jobs).toHaveLength(1)
 
       const persistedJob = thirdSessionResult.result.current.getJobById(

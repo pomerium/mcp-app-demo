@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/react'
 import { BackgroundJobItem } from './BackgroundJobItem'
+import type { Meta, StoryObj } from '@storybook/react-vite'
 import type { BackgroundJob } from '@/lib/schemas'
 
 const meta: Meta<typeof BackgroundJobItem> = {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
-import { MessageSquarePlus, Clock } from 'lucide-react'
+import { Clock, MessageSquarePlus } from 'lucide-react'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 import { generateMessageId } from '../mcp/client'
@@ -206,15 +206,12 @@ export function Chat() {
   useEffect(() => {
     setMessages((prevMessages) =>
       prevMessages.map((message) => {
-        if (message) {
-          const job = backgroundJobs.find(
-            (j) => j.id === message.backgroundJobId,
-          )
-          if (job && job.response && job.response !== message.content) {
-            // Update message content with latest job response
-            return { ...message, content: job.response }
-          }
+        const job = backgroundJobs.find((j) => j.id === message.id)
+        if (job && job.response && job.response !== message.content) {
+          // Update message content with latest job response
+          return { ...message, content: job.response }
         }
+
         return message
       }),
     )

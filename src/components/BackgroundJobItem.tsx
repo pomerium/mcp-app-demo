@@ -1,8 +1,8 @@
-import { Button } from './ui/button'
-import { Clock, Play, X, Trash2 } from 'lucide-react'
-import { useBackgroundJobStatus } from '@/hooks/useBackgroundJobStatus'
-import type { BackgroundJob } from '@/lib/schemas'
+import { Clock, Play, Trash2, X } from 'lucide-react'
 import { useEffect } from 'react'
+import { Button } from './ui/button'
+import type { BackgroundJob } from '@/lib/schemas'
+import { useBackgroundJobStatus } from '@/hooks/useBackgroundJobStatus'
 
 export function BackgroundJobItem({
   job,
