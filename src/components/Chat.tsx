@@ -248,7 +248,15 @@ export function Chat() {
         handleError(new Error('Failed to load background job'))
       }
     },
-    [backgroundJobs, cancelStream, stop, clearBuffer, setMessages, handleResponse, handleError],
+    [
+      backgroundJobs,
+      cancelStream,
+      stop,
+      clearBuffer,
+      setMessages,
+      handleResponse,
+      handleError,
+    ],
   )
 
   const handleCancelJob = useCallback((jobId: string) => {
