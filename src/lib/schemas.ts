@@ -69,7 +69,26 @@ export const chatRequestSchema = z.object({
   model: z.string(),
   userId: z.string(),
   codeInterpreter: z.boolean().default(false),
-  webSearch: z.boolean().default(false), // NEW: enable web search
+  webSearch: z.boolean().default(false),
+  background: z.boolean().optional().default(false),
+  store: z.boolean().optional().default(false),
+})
+
+const id = z.string().min(1, 'Background job ID is required')
+
+export const jobStatusRequestSchema = z.object({
+  id,
+})
+
+// Background job schema
+export const backgroundJobSchema = z.object({
+  id,
+  status: z.enum(['running', 'completed', 'failed']),
+  createdAt: z.string(),
+  completedAt: z.string().optional(),
+  title: z.string().optional(),
+  response: z.string().optional(),
+  error: z.string().optional(),
 })
 
 // Disconnect request schema
@@ -132,3 +151,4 @@ export const containerFileQuerySchema = z.object({
 export type ContainerFileQuery = z.infer<typeof containerFileQuerySchema>
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>
+export type BackgroundJob = z.infer<typeof backgroundJobSchema>
