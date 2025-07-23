@@ -227,6 +227,13 @@ export function Chat() {
       }
 
       try {
+        // Cancel any active stream and clear existing messages
+        cancelStream()
+        stop()
+        clearBuffer()
+        setMessages([])
+        setHasStartedChat(true)
+
         const url = new URL('/api/background-jobs', window.location.origin)
         url.searchParams.set('id', job.id)
         const streamResponse = await fetch(url.toString(), {
@@ -241,7 +248,7 @@ export function Chat() {
         handleError(new Error('Failed to load background job'))
       }
     },
-    [backgroundJobs],
+    [backgroundJobs, cancelStream, stop, clearBuffer, setMessages, handleResponse, handleError],
   )
 
   const handleCancelJob = useCallback((jobId: string) => {
