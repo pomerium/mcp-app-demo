@@ -29,9 +29,6 @@ export function BackgroundJobItem({
   // Update job when status changes
   useEffect(() => {
     if (statusData) {
-      console.log('Polling data received:', statusData)
-      console.log('Current job:', job)
-
       const needsUpdate =
         statusData.status !== job.status ||
         statusData.response !== job.response ||
@@ -39,13 +36,6 @@ export function BackgroundJobItem({
         statusData.completedAt !== job.completedAt
 
       if (needsUpdate) {
-        console.log('Updating job with:', {
-          status: statusData.status,
-          response: statusData.response,
-          error: statusData.error,
-          completedAt: statusData.completedAt,
-        })
-
         updateJob(job.id, {
           status: statusData.status,
           response: statusData.response || job.response,
