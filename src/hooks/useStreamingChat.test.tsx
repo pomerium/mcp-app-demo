@@ -1140,6 +1140,123 @@ describe('useStreamingChat', () => {
     })
   })
 
+  describe('response.created events', () => {
+    it('should handle response.created with background: true option', async () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      const responseCreatedEvent = JSON.stringify({
+        type: 'response.created',
+        response: {
+          id: 'bg-job-123',
+        },
+      })
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode(`t:${responseCreatedEvent}\n`),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse, {
+          background: true,
+          title: 'Test Background Job',
+        })
+      })
+
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(1)
+      })
+
+      expect(result.current.streamBuffer[0]).toEqual({
+        type: 'assistant',
+        id: 'bg-job-123',
+        content:
+          "Background job started. Streaming the response in, but you can view it in the 'Background Jobs' if you leave.",
+      })
+    })
+
+    it('should ignore response.created with background: false option', async () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      const responseCreatedEvent = JSON.stringify({
+        type: 'response.created',
+        response: {
+          id: 'regular-job-123',
+        },
+      })
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode(`t:${responseCreatedEvent}\n`),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse, { background: false })
+      })
+
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
+    })
+
+    it('should ignore response.created with no options', async () => {
+      const { result } = renderHook(() => useStreamingChat())
+
+      const responseCreatedEvent = JSON.stringify({
+        type: 'response.created',
+        response: {
+          id: 'no-options-job-123',
+        },
+      })
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode(`t:${responseCreatedEvent}\n`),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }
+
+      const mockResponse = createMockResponse({
+        clone: vi.fn().mockReturnValue({
+          body: { getReader: vi.fn().mockReturnValue(mockReader) },
+        }),
+      })
+
+      act(() => {
+        result.current.handleResponse(mockResponse)
+      })
+
+      await waitFor(() => {
+        expect(result.current.streamBuffer).toHaveLength(0)
+      })
+    })
+  })
+
   describe('cleanup', () => {
     it('should cleanup timeouts on unmount', async () => {
       const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')

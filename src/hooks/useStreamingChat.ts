@@ -3,6 +3,7 @@ import { generateMessageId } from '../mcp/client'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
+import { useBackgroundJobs } from './useBackgroundJobs'
 
 export type AssistantStreamEvent = {
   type: 'assistant'
@@ -139,7 +140,10 @@ interface UseStreamingChatReturn {
   streaming: boolean
   timedOut: boolean
   requestId: string | null
-  handleResponse: (response: Response) => void
+  handleResponse: (
+    response: Response,
+    options?: { background: true; title: string } | { background: false },
+  ) => void
   handleError: (error: Error) => void
   addUserMessage: (content: string) => void
   cancelStream: () => void
@@ -151,6 +155,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
   const [streaming, setStreaming] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const [requestId, setRequestId] = useState<string | null>(null)
+  const { addJob: addBackgroundJob } = useBackgroundJobs()
 
   const streamUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const textBufferRef = useRef<string>('')
@@ -263,7 +268,10 @@ export function useStreamingChat(): UseStreamingChatReturn {
   }, [])
 
   const handleResponse = useCallback(
-    (response: Response) => {
+    (
+      response: Response,
+      options?: { background: true; title: string } | { background: false },
+    ) => {
       const xRequestId = response.headers.get('x-request-id')
       setRequestId(xRequestId)
 
@@ -363,6 +371,33 @@ export function useStreamingChat(): UseStreamingChatReturn {
             }
             if (toolState.type === 'stream_done') {
               receivedCompletion = true
+              return
+            }
+
+            // Currently only used for background jobs
+            if (toolState.type === 'response.created') {
+              if (options?.background) {
+                const requestId = toolState.response.id
+
+                const backgroundJob = {
+                  id: requestId,
+                  status: 'running' as const,
+                  createdAt: getTimestamp(),
+                  title: options.title,
+                }
+
+                addBackgroundJob(backgroundJob)
+
+                setStreamBuffer((prev: Array<StreamEvent>) => [
+                  ...prev,
+                  {
+                    type: 'assistant',
+                    id: backgroundJob.id,
+                    content:
+                      "Background job started. Streaming the response in, but you can view it in the 'Background Jobs' if you leave.",
+                  },
+                ])
+              }
               return
             }
 
