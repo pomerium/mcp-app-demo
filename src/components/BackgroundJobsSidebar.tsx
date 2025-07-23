@@ -46,7 +46,7 @@ export function BackgroundJobsSidebar({
         ) : (
           <ul aria-label="Background jobs" className="grid gap-2">
             {jobs.map((job) => (
-              <li>
+              <li key={job.id}>
                 <BackgroundJobItem
                   key={job.id}
                   job={job}
