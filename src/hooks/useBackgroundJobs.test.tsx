@@ -1,13 +1,18 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useBackgroundJobs } from './useBackgroundJobs'
+import {
+  BACKGROUND_JOBS_STORAGE_KEY,
+  useBackgroundJobsStore,
+} from './useBackgroundJobsStore'
 import type { BackgroundJob } from '../lib/schemas'
 
 describe('useBackgroundJobs', () => {
-  const STORAGE_KEY = 'background-jobs'
-
   beforeEach(() => {
-    localStorage.clear()
+    const { result } = renderHook(() => useBackgroundJobs())
+    act(() => {
+      result.current.clearAllJobs()
+    })
   })
 
   const createMockJob = (
@@ -21,6 +26,19 @@ describe('useBackgroundJobs', () => {
   })
 
   describe('initialization and persistence', () => {
+    it('should reset jobs using resetJobs()', () => {
+      const { result } = renderHook(() => useBackgroundJobs())
+      const job = createMockJob({ id: 'reset-job' })
+      act(() => {
+        result.current.addJob(job)
+      })
+      expect(result.current.jobs).toHaveLength(1)
+      act(() => {
+        result.current.clearAllJobs()
+      })
+      expect(result.current.jobs).toHaveLength(0)
+      expect(result.current.jobsMap).toEqual({})
+    })
     it('should start with empty jobs when no data in localStorage', () => {
       const { result } = renderHook(() => useBackgroundJobs())
 
@@ -33,7 +51,8 @@ describe('useBackgroundJobs', () => {
       const job2 = createMockJob({ id: 'job2', status: 'completed' })
       const storedData = { job1, job2 }
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(storedData))
+      // Initialize store with existing data using proper API
+      useBackgroundJobsStore.getState().initializeJobs(storedData)
 
       const { result } = renderHook(() => useBackgroundJobs())
 
@@ -229,8 +248,10 @@ describe('useBackgroundJobs', () => {
       expect(finalJob?.response).toBe('Job completed successfully')
       expect(finalJob?.completedAt).toBe('2025-01-01T01:00:00Z')
 
-      const storedData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
-      expect(storedData[job.id]).toEqual(finalJob)
+      const storedData = JSON.parse(
+        localStorage.getItem(BACKGROUND_JOBS_STORAGE_KEY) || '{}',
+      )
+      expect(storedData.state.jobs[job.id]).toEqual(finalJob)
     })
 
     it('should handle concurrent job operations', () => {
@@ -252,7 +273,11 @@ describe('useBackgroundJobs', () => {
       })
 
       expect(result.current.jobs).toHaveLength(0)
-      expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+      // Zustand persist middleware always creates localStorage entry, so check it has empty jobs
+      const storedData = JSON.parse(
+        localStorage.getItem(BACKGROUND_JOBS_STORAGE_KEY) || '{}',
+      )
+      expect(storedData.state?.jobs).toEqual({})
 
       act(() => {
         result.current.addJob(runningJob)
@@ -305,7 +330,11 @@ describe('useBackgroundJobs', () => {
       const firstSessionResult = renderHook(() => useBackgroundJobs())
 
       expect(firstSessionResult.result.current.jobs).toHaveLength(0)
-      expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+      // Zustand persist middleware always creates localStorage entry, so check it has empty jobs
+      const initialStoredData = JSON.parse(
+        localStorage.getItem(BACKGROUND_JOBS_STORAGE_KEY) || '{}',
+      )
+      expect(initialStoredData.state?.jobs).toEqual({})
 
       act(() => {
         firstSessionResult.result.current.addJob(job1)

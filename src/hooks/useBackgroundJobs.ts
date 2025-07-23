@@ -1,8 +1,6 @@
-import { useCallback, useMemo } from 'react'
-import { useLocalStorage } from './useLocalStorage'
+import { useMemo } from 'react'
+import { useBackgroundJobsStore } from './useBackgroundJobsStore'
 import type { BackgroundJob } from '../lib/schemas'
-
-const STORAGE_KEY = 'background-jobs'
 
 interface UseBackgroundJobsReturn {
   jobs: Array<BackgroundJob>
@@ -15,58 +13,17 @@ interface UseBackgroundJobsReturn {
 }
 
 export const useBackgroundJobs = (): UseBackgroundJobsReturn => {
-  const [jobsMap, setJobsMap] = useLocalStorage<Record<string, BackgroundJob>>(
-    STORAGE_KEY,
-    {},
-  )
+  const jobsMap = useBackgroundJobsStore((state) => state.jobs)
+  const addJob = useBackgroundJobsStore((state) => state.addJob)
+  const removeJob = useBackgroundJobsStore((state) => state.removeJob)
+  const updateJob = useBackgroundJobsStore((state) => state.updateJob)
+  const clearAllJobs = useBackgroundJobsStore((state) => state.clearAllJobs)
 
   const jobs = useMemo(() => Object.values(jobsMap).filter(Boolean), [jobsMap])
 
-  const addJob = useCallback(
-    (job: BackgroundJob) => {
-      setJobsMap((prev) => ({
-        ...prev,
-        [job.id]: job,
-      }))
-    },
-    [setJobsMap],
-  )
-
-  const removeJob = useCallback(
-    (id: string) => {
-      setJobsMap((prev) => {
-        const { [id]: _removed, ...rest } = prev
-        return rest
-      })
-    },
-    [setJobsMap],
-  )
-
-  const updateJob = useCallback(
-    (id: string, updates: Partial<BackgroundJob>) => {
-      setJobsMap((prev) => {
-        if (!(id in prev)) {
-          return prev
-        }
-        return {
-          ...prev,
-          [id]: { ...prev[id], ...updates },
-        }
-      })
-    },
-    [setJobsMap],
-  )
-
-  const getJobById = useCallback(
-    (id: string) => {
-      return jobsMap[id]
-    },
-    [jobsMap],
-  )
-
-  const clearAllJobs = useCallback(() => {
-    setJobsMap({})
-  }, [setJobsMap])
+  const getJobById = (id: string) => {
+    return jobsMap[id]
+  }
 
   return {
     jobs,
