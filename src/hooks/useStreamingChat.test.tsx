@@ -1147,7 +1147,7 @@ describe('useStreamingChat', () => {
       const responseCreatedEvent = JSON.stringify({
         type: 'response.created',
         response: {
-          id: 'bg-job-123',
+          id: 'resp_1234567890abcdef1234567890abcdef12345678',
         },
       })
 
@@ -1180,7 +1180,7 @@ describe('useStreamingChat', () => {
 
       expect(result.current.streamBuffer[0]).toEqual({
         type: 'assistant',
-        id: 'bg-job-123',
+        id: 'resp_1234567890abcdef1234567890abcdef12345678',
         content:
           "Background job started. Streaming the response in, but you can view it in the 'Background Jobs' if you leave.",
       })

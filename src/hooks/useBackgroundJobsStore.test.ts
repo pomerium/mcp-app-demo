@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { BackgroundJob } from '@/lib/schemas'
 import { useBackgroundJobsStore } from './useBackgroundJobsStore'
+import type { BackgroundJob } from '@/lib/schemas'
 
 describe('useBackgroundJobsStore', () => {
   beforeEach(() => {
@@ -9,7 +9,7 @@ describe('useBackgroundJobsStore', () => {
   })
 
   const mockJob: BackgroundJob = {
-    id: 'resp_6880e725623081a1af3dc14ba0d562620d62da86',
+    id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8',
     status: 'running',
     createdAt: '2023-01-01T00:00:00.000Z',
     title: 'Test Job',
@@ -23,7 +23,7 @@ describe('useBackgroundJobsStore', () => {
 
       const updatedState = useBackgroundJobsStore.getState()
       expect(updatedState.jobs).toEqual({
-        resp_6880e725623081a1af3dc14ba0d562620d62da86: mockJob,
+        resp_6880e725623081a1af3dc14ba0d562620d62da8: mockJob,
       })
     })
 
@@ -41,7 +41,7 @@ describe('useBackgroundJobsStore', () => {
     it('should add multiple jobs', () => {
       const { addJob } = useBackgroundJobsStore.getState()
       const job2: BackgroundJob = {
-        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2',
+        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7',
         status: 'completed',
         createdAt: '2023-01-01T01:00:00.000Z',
         completedAt: '2023-01-01T01:05:00.000Z',
@@ -52,8 +52,8 @@ describe('useBackgroundJobsStore', () => {
 
       const { jobs } = useBackgroundJobsStore.getState()
       expect(jobs).toEqual({
-        resp_6880e725623081a1af3dc14ba0d562620d62da86: mockJob,
-        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2: job2,
+        resp_6880e725623081a1af3dc14ba0d562620d62da8: mockJob,
+        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7: job2,
       })
     })
 
@@ -69,7 +69,7 @@ describe('useBackgroundJobsStore', () => {
       addJob(updatedJob)
 
       const { jobs } = useBackgroundJobsStore.getState()
-      expect(jobs['resp_6880e725623081a1af3dc14ba0d562620d62da86']).toEqual(
+      expect(jobs['resp_6880e725623081a1af3dc14ba0d562620d62da8']).toEqual(
         updatedJob,
       )
       expect(Object.keys(jobs)).toHaveLength(1)
@@ -84,7 +84,7 @@ describe('useBackgroundJobsStore', () => {
     it('should remove a job from the store', () => {
       const { removeJob } = useBackgroundJobsStore.getState()
 
-      removeJob('resp_6880e725623081a1af3dc14ba0d562620d62da86')
+      removeJob('resp_6880e725623081a1af3dc14ba0d562620d62da8')
 
       const { jobs } = useBackgroundJobsStore.getState()
       expect(jobs).toEqual({})
@@ -92,18 +92,18 @@ describe('useBackgroundJobsStore', () => {
 
     it('should not affect other jobs when removing one', () => {
       const job2: BackgroundJob = {
-        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2',
+        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7',
         status: 'running',
         createdAt: '2023-01-01T01:00:00.000Z',
       }
       const { addJob, removeJob } = useBackgroundJobsStore.getState()
 
       addJob(job2)
-      removeJob('resp_6880e725623081a1af3dc14ba0d562620d62da86')
+      removeJob('resp_6880e725623081a1af3dc14ba0d562620d62da8')
 
       const { jobs } = useBackgroundJobsStore.getState()
       expect(jobs).toEqual({
-        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2: job2,
+        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7: job2,
       })
     })
 
@@ -138,7 +138,7 @@ describe('useBackgroundJobsStore', () => {
         response: 'Job completed successfully',
       }
 
-      updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da86', updates)
+      updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da8', updates)
 
       const { jobs } = useBackgroundJobsStore.getState()
       expect(jobs['resp_6880e725623081a1af3dc14ba0d562620d62da8']).toEqual({
@@ -150,13 +150,13 @@ describe('useBackgroundJobsStore', () => {
     it('should partially update job properties', () => {
       const { updateJob } = useBackgroundJobsStore.getState()
 
-      updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da86', {
+      updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da8', {
         status: 'failed',
         error: 'Something went wrong',
       })
 
       const { jobs } = useBackgroundJobsStore.getState()
-      expect(jobs['resp_6880e725623081a1af3dc14ba0d562620d62da86']).toEqual({
+      expect(jobs['resp_6880e725623081a1af3dc14ba0d562620d62da8']).toEqual({
         ...mockJob,
         status: 'failed',
         error: 'Something went wrong',
@@ -175,21 +175,19 @@ describe('useBackgroundJobsStore', () => {
 
     it('should not modify other jobs when updating one', () => {
       const job2: BackgroundJob = {
-        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2',
+        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7',
         status: 'running',
         createdAt: '2023-01-01T01:00:00.000Z',
       }
       const { addJob, updateJob } = useBackgroundJobsStore.getState()
 
       addJob(job2)
-      updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da86', {
+      updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da8', {
         status: 'completed',
       })
 
       const { jobs } = useBackgroundJobsStore.getState()
-      expect(jobs['resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2']).toEqual(
-        job2,
-      )
+      expect(jobs['resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7']).toEqual(job2)
     })
 
     it('should throw error for empty job ID', () => {
@@ -208,7 +206,7 @@ describe('useBackgroundJobsStore', () => {
 
       // Should throw for invalid status
       expect(() =>
-        updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da86', {
+        updateJob('resp_6880e725623081a1af3dc14ba0d562620d62da8', {
           status: 'invalid' as any,
         }),
       ).toThrow()
@@ -220,7 +218,7 @@ describe('useBackgroundJobsStore', () => {
       const { addJob } = useBackgroundJobsStore.getState()
       addJob(mockJob)
       addJob({
-        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2',
+        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7',
         status: 'completed',
         createdAt: '2023-01-01T01:00:00.000Z',
       })
@@ -240,9 +238,9 @@ describe('useBackgroundJobsStore', () => {
     it('should initialize store with provided jobs', () => {
       const { initializeJobs } = useBackgroundJobsStore.getState()
       const initialJobs = {
-        resp_6880e725623081a1af3dc14ba0d562620d62da86: mockJob,
-        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2: {
-          id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2',
+        resp_6880e725623081a1af3dc14ba0d562620d62da8: mockJob,
+        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7: {
+          id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7',
           status: 'completed' as const,
           createdAt: '2023-01-01T01:00:00.000Z',
         },
@@ -261,8 +259,8 @@ describe('useBackgroundJobsStore', () => {
 
       // Initialize with different jobs
       const newJobs = {
-        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2: {
-          id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2',
+        resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7: {
+          id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7',
           status: 'completed' as const,
           createdAt: '2023-01-01T01:00:00.000Z',
         },
@@ -273,15 +271,15 @@ describe('useBackgroundJobsStore', () => {
       const { jobs } = useBackgroundJobsStore.getState()
       expect(jobs).toEqual(newJobs)
       expect(
-        jobs['resp_6880e725623081a1af3dc14ba0d562620d62da86'],
+        jobs['resp_6880e725623081a1af3dc14ba0d562620d62da8'],
       ).toBeUndefined()
     })
 
     it('should validate all jobs when initializing', () => {
       const { initializeJobs } = useBackgroundJobsStore.getState()
       const invalidJobs = {
-        resp_6880e725623081a1af3dc14ba0d562620d62da86: {
-          id: 'resp_6880e725623081a1af3dc14ba0d562620d62da86',
+        resp_6880e725623081a1af3dc14ba0d562620d62da8: {
+          id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8',
           status: 'invalid' as any,
           createdAt: '2023-01-01T00:00:00.000Z',
         },

@@ -74,7 +74,12 @@ export const chatRequestSchema = z.object({
   store: z.boolean().optional().default(false),
 })
 
-const id = z.string().min(1, 'Background job ID is required')
+const id = z
+  .string()
+  .regex(
+    /^resp_[a-f0-9]+$/,
+    'Background job ID must be in the format resp_<40-char lowercase hex>',
+  )
 
 export const jobStatusRequestSchema = z.object({
   id,

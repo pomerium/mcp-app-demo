@@ -35,8 +35,14 @@ describe('handleJobStatusRequest', () => {
       try {
         await handleJobStatusRequest({})
       } catch (error) {
-        expect(error).toBeInstanceOf(BackgroundJobError)
-        expect(error.statusCode).toBe(400)
+        if (error instanceof BackgroundJobError) {
+          expect(error.statusCode).toBe(400)
+        } else {
+          throw new Error(
+            'Expected BackgroundJobError, got ' +
+              (error?.constructor?.name ?? typeof error),
+          )
+        }
       }
     })
 
@@ -48,8 +54,14 @@ describe('handleJobStatusRequest', () => {
       try {
         await handleJobStatusRequest({ id: '' })
       } catch (error) {
-        expect(error).toBeInstanceOf(BackgroundJobError)
-        expect(error.statusCode).toBe(400)
+        if (error instanceof BackgroundJobError) {
+          expect(error.statusCode).toBe(400)
+        } else {
+          throw new Error(
+            'Expected BackgroundJobError, got ' +
+              (error?.constructor?.name ?? typeof error),
+          )
+        }
       }
     })
 
@@ -58,10 +70,14 @@ describe('handleJobStatusRequest', () => {
         status: 'running',
       })
 
-      const result = await handleJobStatusRequest({ id: 'valid-job-id' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_1234567890abcdef1234567890abcdef12345678',
+      })
 
       expect(result.status).toBe('running')
-      expect(mockOpenAI.responses.retrieve).toHaveBeenCalledWith('valid-job-id')
+      expect(mockOpenAI.responses.retrieve).toHaveBeenCalledWith(
+        'resp_1234567890abcdef1234567890abcdef12345678',
+      )
     })
   })
 
@@ -71,7 +87,9 @@ describe('handleJobStatusRequest', () => {
         status: 'completed',
       })
 
-      const result = await handleJobStatusRequest({ id: 'completed-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef12',
+      })
 
       expect(result.status).toBe('completed')
       expect(result).toHaveProperty('completedAt')
@@ -83,7 +101,9 @@ describe('handleJobStatusRequest', () => {
         status: 'failed',
       })
 
-      const result = await handleJobStatusRequest({ id: 'failed-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_fedcba0987654321fedcba0987654321fedcba09',
+      })
 
       expect(result.status).toBe('failed')
       expect(result.error).toBe('Background job failed')
@@ -94,7 +114,9 @@ describe('handleJobStatusRequest', () => {
         status: 'in_progress',
       })
 
-      const result = await handleJobStatusRequest({ id: 'running-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('running')
     })
@@ -104,7 +126,9 @@ describe('handleJobStatusRequest', () => {
         status: 'queued',
       })
 
-      const result = await handleJobStatusRequest({ id: 'queued-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('running')
     })
@@ -121,7 +145,9 @@ describe('handleJobStatusRequest', () => {
       apiError.status = 404
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
 
-      const result = await handleJobStatusRequest({ id: 'missing-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('failed')
       expect(result.error).toBe('Background job not found')
@@ -137,7 +163,9 @@ describe('handleJobStatusRequest', () => {
       apiError.status = 401
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
 
-      const result = await handleJobStatusRequest({ id: 'unauthorized-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('failed')
       expect(result.error).toBe('Authentication failed')
@@ -153,7 +181,9 @@ describe('handleJobStatusRequest', () => {
       apiError.status = 403
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
 
-      const result = await handleJobStatusRequest({ id: 'forbidden-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('failed')
       expect(result.error).toBe('Access denied')
@@ -169,7 +199,9 @@ describe('handleJobStatusRequest', () => {
       apiError.status = 429
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
 
-      const result = await handleJobStatusRequest({ id: 'rate-limited-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('failed')
       expect(result.error).toBe('Rate limit exceeded')
@@ -184,7 +216,9 @@ describe('handleJobStatusRequest', () => {
       )
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
 
-      const result = await handleJobStatusRequest({ id: 'server-error-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('failed')
       expect(result.error).toBe('Failed to check background job status')
@@ -200,7 +234,9 @@ describe('handleJobStatusRequest', () => {
       apiError.status = undefined
       mockOpenAI.responses.retrieve.mockRejectedValue(apiError)
 
-      const result = await handleJobStatusRequest({ id: 'unknown-error-job' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result.status).toBe('failed')
       expect(result.error).toBe('Failed to check background job status')
@@ -213,15 +249,25 @@ describe('handleJobStatusRequest', () => {
       mockOpenAI.responses.retrieve.mockRejectedValue(networkError)
 
       await expect(
-        handleJobStatusRequest({ id: 'network-error-job' }),
+        handleJobStatusRequest({
+          id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+        }),
       ).rejects.toThrow(BackgroundJobError)
 
       try {
-        await handleJobStatusRequest({ id: 'network-error-job' })
+        await handleJobStatusRequest({
+          id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+        })
       } catch (error) {
-        expect(error).toBeInstanceOf(BackgroundJobError)
-        expect(error.statusCode).toBe(500)
-        expect(error.message).toBe('Internal server error')
+        if (error instanceof BackgroundJobError) {
+          expect(error.statusCode).toBe(500)
+          expect(error.message).toBe('Internal server error')
+        } else {
+          throw new Error(
+            'Expected BackgroundJobError, got ' +
+              (error?.constructor?.name ?? typeof error),
+          )
+        }
       }
     })
 
@@ -234,8 +280,14 @@ describe('handleJobStatusRequest', () => {
       try {
         await handleJobStatusRequest('{ invalid json')
       } catch (error) {
-        expect(error).toBeInstanceOf(BackgroundJobError)
-        expect(error.statusCode).toBe(400)
+        if (error instanceof BackgroundJobError) {
+          expect(error.statusCode).toBe(400)
+        } else {
+          throw new Error(
+            'Expected BackgroundJobError, got ' +
+              (error?.constructor?.name ?? typeof error),
+          )
+        }
       }
     })
   })
@@ -247,7 +299,9 @@ describe('handleJobStatusRequest', () => {
       })
 
       const beforeTime = new Date().toISOString()
-      const result = await handleJobStatusRequest({ id: 'timestamp-test' })
+      const result = await handleJobStatusRequest({
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+      })
 
       expect(result).toHaveProperty('completedAt')
       expect(new Date(result.completedAt!).getTime()).toBeGreaterThanOrEqual(

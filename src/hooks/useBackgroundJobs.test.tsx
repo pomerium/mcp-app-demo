@@ -18,7 +18,7 @@ describe('useBackgroundJobs', () => {
   const createMockJob = (
     overrides: Partial<BackgroundJob> = {},
   ): BackgroundJob => ({
-    id: 'test-job-1',
+    id: 'resp_1234567890abcdef1234567890abcdef12345678',
     status: 'running',
     createdAt: '2025-01-01T00:00:00Z',
     title: 'Test Job',
@@ -28,7 +28,9 @@ describe('useBackgroundJobs', () => {
   describe('initialization and persistence', () => {
     it('should reset jobs using resetJobs()', () => {
       const { result } = renderHook(() => useBackgroundJobs())
-      const job = createMockJob({ id: 'reset-job' })
+      const job = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef12',
+      })
       act(() => {
         result.current.addJob(job)
       })
@@ -47,8 +49,13 @@ describe('useBackgroundJobs', () => {
     })
 
     it('should load existing jobs from localStorage', () => {
-      const job1 = createMockJob({ id: 'job1' })
-      const job2 = createMockJob({ id: 'job2', status: 'completed' })
+      const job1 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef11',
+      })
+      const job2 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef22',
+        status: 'completed',
+      })
       const storedData = { job1, job2 }
 
       // Initialize store with existing data using proper API
@@ -96,8 +103,14 @@ describe('useBackgroundJobs', () => {
 
     it('should add multiple jobs', () => {
       const { result } = renderHook(() => useBackgroundJobs())
-      const job1 = createMockJob({ id: 'job1', title: 'Job 1' })
-      const job2 = createMockJob({ id: 'job2', title: 'Job 2' })
+      const job1 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef11',
+        title: 'Job 1',
+      })
+      const job2 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef22',
+        title: 'Job 2',
+      })
 
       expect(result.current.jobs).toHaveLength(0)
 
@@ -134,8 +147,12 @@ describe('useBackgroundJobs', () => {
 
     it('should remove a job by id', () => {
       const { result } = renderHook(() => useBackgroundJobs())
-      const job1 = createMockJob({ id: 'job1' })
-      const job2 = createMockJob({ id: 'job2' })
+      const job1 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef11',
+      })
+      const job2 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef22',
+      })
 
       act(() => {
         result.current.addJob(job1)
@@ -143,13 +160,23 @@ describe('useBackgroundJobs', () => {
       })
 
       act(() => {
-        result.current.removeJob('job1')
+        result.current.removeJob(
+          'resp_abcdef1234567890abcdef1234567890abcdef11',
+        )
       })
 
       expect(result.current.jobs).toHaveLength(1)
       expect(result.current.jobs).toContainEqual(job2)
-      expect(result.current.getJobById('job1')).toBeUndefined()
-      expect(result.current.getJobById('job2')).toEqual(job2)
+      expect(
+        result.current.getJobById(
+          'resp_abcdef1234567890abcdef1234567890abcdef11',
+        ),
+      ).toBeUndefined()
+      expect(
+        result.current.getJobById(
+          'resp_abcdef1234567890abcdef1234567890abcdef22',
+        ),
+      ).toEqual(job2)
     })
 
     it('should handle removing non-existent job gracefully', () => {
@@ -191,7 +218,9 @@ describe('useBackgroundJobs', () => {
 
     it('should handle updating non-existent job gracefully', () => {
       const { result } = renderHook(() => useBackgroundJobs())
-      const existingJob = createMockJob({ id: 'existing' })
+      const existingJob = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef99',
+      })
 
       act(() => {
         result.current.addJob(existingJob)
@@ -209,8 +238,12 @@ describe('useBackgroundJobs', () => {
 
     it('should clear all jobs', () => {
       const { result } = renderHook(() => useBackgroundJobs())
-      const job1 = createMockJob({ id: 'job1' })
-      const job2 = createMockJob({ id: 'job2' })
+      const job1 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef11',
+      })
+      const job2 = createMockJob({
+        id: 'resp_abcdef1234567890abcdef1234567890abcdef22',
+      })
 
       act(() => {
         result.current.addJob(job1)
@@ -257,17 +290,17 @@ describe('useBackgroundJobs', () => {
     it('should handle concurrent job operations', () => {
       const { result } = renderHook(() => useBackgroundJobs())
       const runningJob = createMockJob({
-        id: 'concurrent-running-xyz',
+        id: 'resp_1111111111111111111111111111111111111111',
         status: 'running',
         title: 'Running Job',
       })
       const completedJob = createMockJob({
-        id: 'concurrent-completed-abc',
+        id: 'resp_2222222222222222222222222222222222222222',
         status: 'completed',
         title: 'Completed Job',
       })
       const failedJob = createMockJob({
-        id: 'concurrent-failed-def',
+        id: 'resp_3333333333333333333333333333333333333333',
         status: 'failed',
         title: 'Failed Job',
       })
@@ -296,34 +329,45 @@ describe('useBackgroundJobs', () => {
       expect(result.current.jobs).toHaveLength(3)
 
       act(() => {
-        result.current.removeJob('concurrent-completed-abc')
+        result.current.removeJob(
+          'resp_2222222222222222222222222222222222222222',
+        )
       })
 
       act(() => {
-        result.current.updateJob('concurrent-running-xyz', {
-          status: 'completed',
-        })
+        result.current.updateJob(
+          'resp_1111111111111111111111111111111111111111',
+          {
+            status: 'completed',
+          },
+        )
       })
 
       expect(result.current.jobs).toHaveLength(2)
-      expect(result.current.getJobById('concurrent-running-xyz')?.status).toBe(
-        'completed',
-      )
       expect(
-        result.current.getJobById('concurrent-completed-abc'),
+        result.current.getJobById(
+          'resp_1111111111111111111111111111111111111111',
+        )?.status,
+      ).toBe('completed')
+      expect(
+        result.current.getJobById(
+          'resp_2222222222222222222222222222222222222222',
+        ),
       ).toBeUndefined()
-      expect(result.current.getJobById('concurrent-failed-def')).toEqual(
-        failedJob,
-      )
+      expect(
+        result.current.getJobById(
+          'resp_3333333333333333333333333333333333333333',
+        ),
+      ).toEqual(failedJob)
     })
 
     it('should maintain data integrity across browser sessions', () => {
       const job1 = createMockJob({
-        id: 'browser-session-alpha',
+        id: 'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
         title: 'Session 1 Job',
       })
       const job2 = createMockJob({
-        id: 'browser-session-beta',
+        id: 'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2b3e1f4a6c8d',
         title: 'Session 2 Job',
       })
 
@@ -351,30 +395,42 @@ describe('useBackgroundJobs', () => {
       const secondSessionResult = renderHook(() => useBackgroundJobs())
       expect(secondSessionResult.result.current.jobs).toHaveLength(2)
       expect(
-        secondSessionResult.result.current.getJobById('browser-session-alpha'),
+        secondSessionResult.result.current.getJobById(
+          'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+        ),
       ).toEqual(job1)
       expect(
-        secondSessionResult.result.current.getJobById('browser-session-beta'),
+        secondSessionResult.result.current.getJobById(
+          'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2b3e1f4a6c8d',
+        ),
       ).toEqual(job2)
 
       act(() => {
-        secondSessionResult.result.current.updateJob('browser-session-alpha', {
-          status: 'completed',
-        })
+        secondSessionResult.result.current.updateJob(
+          'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+          {
+            status: 'completed',
+          },
+        )
       })
 
       expect(
-        secondSessionResult.result.current.getJobById('browser-session-alpha')
-          ?.status,
+        secondSessionResult.result.current.getJobById(
+          'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
+        )?.status,
       ).toBe('completed')
 
       act(() => {
-        secondSessionResult.result.current.removeJob('browser-session-beta')
+        secondSessionResult.result.current.removeJob(
+          'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2b3e1f4a6c8d',
+        )
       })
 
       expect(secondSessionResult.result.current.jobs).toHaveLength(1)
       expect(
-        secondSessionResult.result.current.getJobById('browser-session-beta'),
+        secondSessionResult.result.current.getJobById(
+          'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2b3e1f4a6c8d',
+        ),
       ).toBeUndefined()
 
       secondSessionResult.unmount()
@@ -383,13 +439,15 @@ describe('useBackgroundJobs', () => {
       expect(thirdSessionResult.result.current.jobs).toHaveLength(1)
 
       const persistedJob = thirdSessionResult.result.current.getJobById(
-        'browser-session-alpha',
+        'resp_6880e725623081a1af3dc14ba0d562620d62da8686c56bdd',
       )
       expect(persistedJob).toBeDefined()
       expect(persistedJob?.status).toBe('completed')
       expect(persistedJob?.title).toBe('Session 1 Job') // Should preserve other fields
       expect(
-        thirdSessionResult.result.current.getJobById('browser-session-beta'),
+        thirdSessionResult.result.current.getJobById(
+          'resp_7e2b1c8e9f4a3d2b6c1e8f7a9d4c3b2e1f6a8d7c2b3e1f4a6c8d',
+        ),
       ).toBeUndefined()
       thirdSessionResult.unmount()
     })

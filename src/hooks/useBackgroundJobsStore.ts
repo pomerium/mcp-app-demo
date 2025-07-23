@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { backgroundJobSchema, type BackgroundJob } from '@/lib/schemas'
+import type {BackgroundJob} from '@/lib/schemas';
+import {  backgroundJobSchema } from '@/lib/schemas'
 
 interface BackgroundJobsState {
   jobs: Record<string, BackgroundJob>
