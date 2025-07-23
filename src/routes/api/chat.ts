@@ -123,22 +123,10 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           : undefined,
       )
 
-      // Format the conversation history into a single input string with proper message parts
-      const conversationHistory = messages
-        .map((msg) => ({
-          role: msg.role,
-          parts: [
-            {
-              type: 'text',
-              text: msg.content,
-            },
-          ],
-        }))
-        .map(
-          (msg) =>
-            `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.parts[0].text}`,
-        )
-        .join('\n\n')
+      const conversationHistory = messages.map(({ role, content }) => ({
+        role,
+        content,
+      }))
 
       const client = new OpenAI()
 
