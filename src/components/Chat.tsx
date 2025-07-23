@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
-import { MessageSquarePlus } from 'lucide-react'
+import { MessageSquarePlus, Clock } from 'lucide-react'
 import { useModel } from '../contexts/ModelContext'
 import { useUser } from '../contexts/UserContext'
 import { generateMessageId } from '../mcp/client'
@@ -14,6 +14,8 @@ import { BotMessage } from './BotMessage'
 import { UserMessage } from './UserMessage'
 import { CodeInterpreterToggle } from './CodeInterpreterToggle'
 import { WebSearchToggle } from './WebSearchToggle'
+import { BackgroundToggle } from './BackgroundToggle'
+import { BackgroundJobsSidebar } from './BackgroundJobsSidebar'
 import { ModelSelect } from './ModelSelect'
 import { BotThinking } from './BotThinking'
 import { BotError } from './BotError'
@@ -26,6 +28,7 @@ import { useStreamingChat } from '@/hooks/useStreamingChat'
 import { getTimestamp } from '@/lib/utils/date'
 import { isCodeInterpreterSupported } from '@/lib/utils/prompting'
 import { useHasMounted } from '@/hooks/useHasMounted'
+import { useBackgroundJobs } from '@/hooks/useBackgroundJobs'
 
 const getEventKey = (event: StreamEvent | Message, idx: number): string => {
   if ('type' in event) {
@@ -61,14 +64,19 @@ const TIMEOUT_ERROR_MESSAGE =
 export function Chat() {
   const hasMounted = useHasMounted()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastPromptRef = useRef<string>('')
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
   const [selectedServers, setSelectedServers] = useState<Array<string>>([])
   const [useCodeInterpreter, setUseCodeInterpreter] = useState(false)
   const [useWebSearch, setUseWebSearch] = useState(false)
+  const [useBackground, setUseBackground] = useState(false)
+  const [backgroundJobsSidebarOpen, setBackgroundJobsSidebarOpen] =
+    useState(false)
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
+  const { jobs: backgroundJobs } = useBackgroundJobs()
 
   const {
     streamBuffer,
@@ -110,6 +118,7 @@ export function Chat() {
       userId: user?.id,
       codeInterpreter: useCodeInterpreter,
       webSearch: useWebSearch,
+      background: useBackground,
     }),
     [
       selectedServers,
@@ -118,13 +127,28 @@ export function Chat() {
       user?.id,
       useCodeInterpreter,
       useWebSearch,
+      useBackground,
     ],
+  )
+
+  const handleResponseWithBackground = useCallback(
+    (response: Response) => {
+      if (useBackground) {
+        // The background job title is the last user prompt
+        const title = lastPromptRef.current
+
+        handleResponse(response, { background: true, title })
+      } else {
+        handleResponse(response, { background: false })
+      }
+    },
+    [handleResponse, useBackground],
   )
 
   const { messages, isLoading, setMessages, append, stop } = useChat({
     body: chatBody,
     onError: handleError,
-    onResponse: handleResponse,
+    onResponse: handleResponseWithBackground,
   })
 
   const renderEvents = useMemo<Array<StreamEvent | Message>>(() => {
@@ -143,6 +167,7 @@ export function Chat() {
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
+      lastPromptRef.current = prompt // Store the prompt for background job title
       addUserMessage(prompt)
       append({ role: 'user', content: prompt })
     },
@@ -167,7 +192,65 @@ export function Chat() {
     setFocusTimestamp(Date.now())
     setUseCodeInterpreter(false)
     setUseWebSearch(false)
+    setUseBackground(false)
   }, [setMessages, stop, cancelStream, clearBuffer])
+
+  // Check if max concurrent background jobs limit is reached
+  const maxJobsReached = useMemo(() => {
+    if (!hasMounted) return false
+    const runningJobs = backgroundJobs.filter((job) => job.status === 'running')
+    return runningJobs.length >= 5 // Default limit from PRD
+  }, [hasMounted, backgroundJobs])
+
+  // Update chat messages when background jobs update (for streaming loaded responses)
+  useEffect(() => {
+    setMessages((prevMessages) =>
+      prevMessages.map((message) => {
+        if (message) {
+          const job = backgroundJobs.find(
+            (j) => j.id === message.backgroundJobId,
+          )
+          if (job && job.response && job.response !== message.content) {
+            // Update message content with latest job response
+            return { ...message, content: job.response }
+          }
+        }
+        return message
+      }),
+    )
+  }, [backgroundJobs])
+
+  const handleLoadJobResponse = useCallback(
+    async (jobId: string) => {
+      const job = backgroundJobs.find((j) => j.id === jobId)
+
+      if (!job || job.status === 'failed') {
+        console.warn('Job failed, cannot load response', job)
+        return
+      }
+
+      try {
+        const url = new URL('/api/background-jobs', window.location.origin)
+        url.searchParams.set('id', job.id)
+        const streamResponse = await fetch(url.toString(), {
+          method: 'GET',
+        })
+
+        setBackgroundJobsSidebarOpen(false)
+        handleResponse(streamResponse, { background: false })
+        return
+      } catch (error) {
+        console.error('Failed to stream background job response:', error)
+        handleError(new Error('Failed to load background job'))
+      }
+    },
+    [backgroundJobs],
+  )
+
+  const handleCancelJob = useCallback((jobId: string) => {
+    // TODO: Implement actual job cancellation via OpenAI API
+    console.log('Cancelling job:', jobId)
+  }, [])
 
   const handleScrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -200,19 +283,46 @@ export function Chat() {
         />
       ),
     },
+    {
+      key: 'background',
+      isActive: useBackground,
+      component: (
+        <BackgroundToggle
+          key="background"
+          useBackground={useBackground}
+          onToggle={setUseBackground}
+          selectedModel={selectedModel}
+          disabled={hasStartedChat}
+          maxJobsReached={maxJobsReached}
+        />
+      ),
+    },
   ]
 
   return (
     <div className="flex flex-col min-h-full relative">
       <div className="sticky top-0 z-10 bg-background border-b px-4 py-2 flex justify-between items-center">
-        <Button
-          variant="outline"
-          onClick={handleNewChat}
-          className="flex items-center gap-2"
-        >
-          <MessageSquarePlus className="size-4" />
-          <span className="sr-only sm:not-sr-only">New Chat</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleNewChat}
+            className="flex items-center gap-2"
+          >
+            <MessageSquarePlus className="size-4" />
+            <span className="sr-only sm:not-sr-only">New Chat</span>
+          </Button>
+          {hasMounted && (
+            <Button
+              variant="outline"
+              onClick={() => setBackgroundJobsSidebarOpen(true)}
+              className="flex items-center gap-2"
+              title="Background Jobs"
+            >
+              <Clock className="size-4" />
+              <span className="sr-only sm:not-sr-only">Jobs</span>
+            </Button>
+          )}
+        </div>
         <ModelSelect value={selectedModel} onValueChange={handleModelChange} />
       </div>
       <div className="flex-1">
@@ -313,6 +423,12 @@ export function Chat() {
                 // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
               } else if ('type' in event && event.type === 'web_search') {
                 return <WebSearchMessage key={key} event={event} />
+              } else if (
+                'type' in event &&
+                event.type === 'background_job_created'
+              ) {
+                // Background job handled by streaming hook - no UI rendering needed
+                return null
               } else {
                 // Fallback for Message type (from useChat)
                 const message = event
@@ -439,6 +555,12 @@ export function Chat() {
           focusTimestamp={focusTimestamp}
         />
       </div>
+      <BackgroundJobsSidebar
+        isOpen={backgroundJobsSidebarOpen}
+        onClose={() => setBackgroundJobsSidebarOpen(false)}
+        onLoadResponse={handleLoadJobResponse}
+        onCancelJob={handleCancelJob}
+      />
     </div>
   )
 }
