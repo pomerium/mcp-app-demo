@@ -106,11 +106,12 @@ describe('useBackgroundJobStatus', () => {
   })
 
   describe('when job is failed', () => {
-    it('does not fetch job status', () => {
+    it('does not fetch job status when completedAt is present', () => {
       const job = {
         id: 'job-4',
         status: 'failed' as const,
         createdAt: getTimestamp(),
+        completedAt: getTimestamp(),
       }
 
       const { result } = renderHook(() => useBackgroundJobStatus(job), {
@@ -120,6 +121,37 @@ describe('useBackgroundJobStatus', () => {
       expect(result.current.isLoading).toBe(false)
       expect(result.current.data).toBeUndefined()
       expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('fetches job status when completedAt is missing', async () => {
+      const job = {
+        id: 'job-5',
+        status: 'failed' as const,
+        createdAt: getTimestamp(),
+      }
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 'failed', error: 'Job failed', completedAt: getTimestamp() }),
+      })
+
+      const { result } = renderHook(() => useBackgroundJobStatus(job), {
+        wrapper: createWrapper(),
+      })
+
+      await waitFor(() => {
+        expect(result.current.data).toEqual({
+          status: 'failed',
+          error: 'Job failed',
+          completedAt: expect.any(String),
+        })
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/background-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: 'job-5' }),
+      })
     })
   })
 
@@ -154,7 +186,7 @@ describe('useBackgroundJobStatus', () => {
 
     it('handles HTTP 404 errors without retrying', async () => {
       const job = {
-        id: 'job-5',
+        id: 'job-6',
         status: 'running' as const,
         createdAt: getTimestamp(),
       }
@@ -180,7 +212,7 @@ describe('useBackgroundJobStatus', () => {
 
     it('calls fetch with correct parameters for error scenarios', async () => {
       const job = {
-        id: 'job-6',
+        id: 'job-7',
         status: 'running' as const,
         createdAt: getTimestamp(),
       }
@@ -195,14 +227,14 @@ describe('useBackgroundJobStatus', () => {
         expect(mockFetch).toHaveBeenCalledWith('/api/background-jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: 'job-6' }),
+          body: JSON.stringify({ id: 'job-7' }),
         })
       })
     })
 
     it('calls fetch for HTTP error responses', async () => {
       const job = {
-        id: 'job-7',
+        id: 'job-8',
         status: 'running' as const,
         createdAt: getTimestamp(),
       }
@@ -220,7 +252,7 @@ describe('useBackgroundJobStatus', () => {
         expect(mockFetch).toHaveBeenCalledWith('/api/background-jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: 'job-7' }),
+          body: JSON.stringify({ id: 'job-8' }),
         })
       })
     })

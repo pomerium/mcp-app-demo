@@ -49,7 +49,7 @@ export const useBackgroundJobStatus = (
       }
       return fetchJobStatus(job.id)
     },
-    enabled: !!job?.id && job.status === 'running',
+    enabled: !!job?.id && (job.status === 'running' || (job.status === 'failed' && !job.completedAt)),
     refetchInterval,
     refetchIntervalInBackground: true,
     retry: (failureCount, error) => {
