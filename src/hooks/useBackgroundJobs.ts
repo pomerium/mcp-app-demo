@@ -45,6 +45,9 @@ export const useBackgroundJobs = (): UseBackgroundJobsReturn => {
   const updateJob = useCallback(
     (id: string, updates: Partial<BackgroundJob>) => {
       setJobsMap((prev) => {
+        if (!(id in prev)) {
+          return prev
+        }
         return {
           ...prev,
           [id]: { ...prev[id], ...updates },
