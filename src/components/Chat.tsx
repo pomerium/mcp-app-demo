@@ -214,7 +214,7 @@ export function Chat() {
   useEffect(() => {
     setMessages((prevMessages) =>
       prevMessages.map((message) => {
-        if (message.backgroundJobId) {
+        if (message) {
           const job = backgroundJobs.find(
             (j) => j.id === message.backgroundJobId,
           )
@@ -226,16 +226,14 @@ export function Chat() {
         return message
       }),
     )
-  }, [backgroundJobs, setMessages])
+  }, [backgroundJobs])
 
   const handleLoadJobResponse = useCallback(
-    async (jobId: string, response: string) => {
+    async (jobId: string) => {
       const job = backgroundJobs.find((j) => j.id === jobId)
 
-      if (job?.status === 'failed') {
-        console.warn(
-          `Job ${jobId} is not failed, cannot load response: ${job?.status}`,
-        )
+      if (!job || job.status === 'failed') {
+        console.warn('Job failed, cannot load response', job)
         return
       }
 
@@ -246,78 +244,15 @@ export function Chat() {
           method: 'GET',
         })
 
-        if (streamResponse.ok && streamResponse.body) {
-          // Create message and start streaming
-          const messageId = generateMessageId()
-          const assistantMessage: Message = {
-            id: messageId,
-            content: '',
-            role: 'assistant',
-            backgroundJobId: jobId,
-          }
-
-          setMessages((prev) => [...prev, assistantMessage])
-          setBackgroundJobsSidebarOpen(false)
-
-          // Handle streaming response similar to regular chat
-          const reader = streamResponse.body.getReader()
-          const decoder = new TextDecoder()
-
-          try {
-            while (true) {
-              const { done, value } = await reader.read()
-              if (done) break
-
-              const chunk = decoder.decode(value, { stream: true })
-              const lines = chunk.split('\n')
-
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  const data = line.slice(6).trim()
-                  if (data && data !== '[DONE]') {
-                    try {
-                      const parsed = JSON.parse(data)
-                      if (parsed.content) {
-                        setMessages((prev) =>
-                          prev.map((msg) =>
-                            msg.id === messageId
-                              ? {
-                                  ...msg,
-                                  content: msg.content + parsed.content,
-                                }
-                              : msg,
-                          ),
-                        )
-                      }
-                    } catch (e) {
-                      // Skip invalid JSON
-                    }
-                  }
-                }
-              }
-            }
-          } finally {
-            reader.releaseLock()
-          }
-          return
-        }
+        setBackgroundJobsSidebarOpen(false)
+        handleResponse(streamResponse, { background: false })
+        return
       } catch (error) {
         console.error('Failed to stream background job response:', error)
-        // Fall back to loading static response
+        handleError(new Error('Failed to load background job'))
       }
-
-      // Fallback: Load static response (for running jobs or if streaming fails)
-      const messageId = generateMessageId()
-      const assistantMessage: Message = {
-        id: messageId,
-        content: response,
-        role: 'assistant',
-        backgroundJobId: jobId,
-      }
-      setMessages((prev) => [...prev, assistantMessage])
-      setBackgroundJobsSidebarOpen(false)
     },
-    [backgroundJobs, setMessages],
+    [backgroundJobs],
   )
 
   const handleCancelJob = useCallback((jobId: string) => {
