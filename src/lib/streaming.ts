@@ -325,6 +325,19 @@ export function streamText(
               // Skip - text output is already handled by delta events
               break
 
+            case 'response.content_part.done':
+              // Send complete message content for conversation history
+              controller.enqueue(
+                encoder.encode(
+                  `0:${JSON.stringify({
+                    type: 'response.content_part.done',
+                    item_id: chunk.item_id,
+                    part: chunk.part,
+                  })}\n`,
+                ),
+              )
+              break
+
             case 'response.completed':
               // Optionally emit a tool call completed event
               controller.enqueue(
