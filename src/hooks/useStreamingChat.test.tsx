@@ -72,108 +72,6 @@ describe('useStreamingChat', () => {
     })
   })
 
-  describe('addUserMessage', () => {
-    it('should add a user message to the stream buffer', () => {
-      const { result } = renderHook(() => useStreamingChat())
-
-      act(() => {
-        result.current.addUserMessage('Hello, world!')
-      })
-
-      expect(result.current.streamBuffer).toHaveLength(1)
-      expect(result.current.streamBuffer[0]).toEqual({
-        type: 'user',
-        id: MOCK_MESSAGE_ID,
-        content: 'Hello, world!',
-        timestamp: expect.any(String),
-      })
-      if (result.current.streamBuffer[0].type === 'user') {
-        expectTimestamp(result.current.streamBuffer[0].timestamp)
-      }
-    })
-
-    it('should add multiple user messages', () => {
-      const { result } = renderHook(() => useStreamingChat())
-
-      act(() => {
-        result.current.addUserMessage('First message')
-        result.current.addUserMessage('Second message')
-      })
-
-      expect(result.current.streamBuffer).toHaveLength(2)
-      expect(result.current.streamBuffer[0]).toEqual({
-        type: 'user',
-        id: MOCK_MESSAGE_ID,
-        content: 'First message',
-        timestamp: expect.any(String),
-      })
-      if (result.current.streamBuffer[0].type === 'user') {
-        expectTimestamp(result.current.streamBuffer[0].timestamp)
-      }
-      expect(result.current.streamBuffer[1]).toEqual({
-        type: 'user',
-        id: MOCK_MESSAGE_ID,
-        content: 'Second message',
-        timestamp: expect.any(String),
-      })
-      if (result.current.streamBuffer[1].type === 'user') {
-        expectTimestamp(result.current.streamBuffer[1].timestamp)
-      }
-    })
-
-    it('should handle empty string input', () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => {})
-      const { result } = renderHook(() => useStreamingChat())
-
-      act(() => {
-        result.current.addUserMessage('')
-      })
-
-      expect(result.current.streamBuffer).toHaveLength(0)
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'addUserMessage: Invalid content provided',
-        '',
-      )
-    })
-
-    it('should handle whitespace-only input', () => {
-      const consoleWarnSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => {})
-      const { result } = renderHook(() => useStreamingChat())
-
-      act(() => {
-        result.current.addUserMessage('   ')
-      })
-
-      expect(result.current.streamBuffer).toHaveLength(0)
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'addUserMessage: Empty content after trimming',
-      )
-    })
-
-    it('should trim whitespace from input', () => {
-      const { result } = renderHook(() => useStreamingChat())
-
-      act(() => {
-        result.current.addUserMessage('  Hello, world!  ')
-      })
-
-      expect(result.current.streamBuffer).toHaveLength(1)
-      expect(result.current.streamBuffer[0]).toEqual({
-        type: 'user',
-        id: MOCK_MESSAGE_ID,
-        content: 'Hello, world!',
-        timestamp: expect.any(String),
-      })
-      if (result.current.streamBuffer[0].type === 'user') {
-        expectTimestamp(result.current.streamBuffer[0].timestamp)
-      }
-    })
-  })
-
   describe('handleError', () => {
     it('should add error message to stream buffer', () => {
       const consoleErrorSpy = vi
@@ -513,10 +411,6 @@ describe('useStreamingChat', () => {
 
     it('should handle code interpreter file annotations', async () => {
       const { result } = renderHook(() => useStreamingChat())
-
-      act(() => {
-        result.current.addUserMessage('Test message')
-      })
 
       const fileAnnotationEvent = JSON.stringify({
         type: 'code_interpreter_file_annotation',
@@ -1026,10 +920,6 @@ describe('useStreamingChat', () => {
   describe('clearBuffer', () => {
     it('should clear stream buffer and reset state', () => {
       const { result } = renderHook(() => useStreamingChat())
-
-      act(() => {
-        result.current.addUserMessage('Test message')
-      })
 
       expect(result.current.streamBuffer).toHaveLength(1)
 

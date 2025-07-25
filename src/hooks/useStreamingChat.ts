@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { generateMessageId } from '../mcp/client'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
-import { getTimestamp } from '@/lib/utils/date'
 
 export type AssistantStreamEvent = {
   type: 'assistant'
@@ -141,12 +140,13 @@ interface UseStreamingChatReturn {
   requestId: string | null
   handleResponse: (response: Response) => void
   handleError: (error: Error) => void
-  addUserMessage: (content: string) => void
   cancelStream: () => void
   clearBuffer: () => void
 }
 
-export function useStreamingChat(): UseStreamingChatReturn {
+export function useStreamingChat(
+  append: (message: any) => void,
+): UseStreamingChatReturn {
   const [streamBuffer, setStreamBuffer] = useState<Array<StreamEvent>>([])
   const [streaming, setStreaming] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
@@ -672,29 +672,6 @@ export function useStreamingChat(): UseStreamingChatReturn {
           }
         }
 
-        try {
-          const chunkObj = JSON.parse(line)
-          if (chunkObj.type === 'response.content_part.done' && chunkObj.part) {
-            flushTextBuffer()
-            const { item_id, part } = chunkObj
-            setStreamBuffer((prev: Array<StreamEvent>) => [
-              ...prev.filter(
-                (event: StreamEvent) =>
-                  !(event.type === 'assistant' && event.id === item_id),
-              ),
-              {
-                type: 'assistant',
-                id: item_id,
-                content: part.text,
-                fileAnnotations: part.annotations || [],
-              },
-            ])
-            return
-          }
-        } catch {
-          // Not a JSON chunk, fall through to legacy 0: handler
-        }
-
         if (line.startsWith('0:')) {
           try {
             const textChunk = line.slice(2)
@@ -705,7 +682,12 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
             const text = JSON.parse(textChunk)
             if (typeof text !== 'string') {
-              console.warn('Text chunk is not a string:', text)
+              if (text.type === 'response.content_part.done') {
+                flushTextBuffer()
+                append({ role: 'assistant', content: text.part.text })
+              } else {
+                console.warn('Text chunk is not a string:', text)
+              }
               return
             }
 
@@ -778,29 +760,6 @@ export function useStreamingChat(): UseStreamingChatReturn {
     [updateAssistantText, flushTextBuffer],
   )
 
-  const addUserMessage = useCallback((content: string) => {
-    if (!content || typeof content !== 'string') {
-      console.warn('addUserMessage: Invalid content provided', content)
-      return
-    }
-
-    const trimmedContent = content.trim()
-    if (!trimmedContent) {
-      console.warn('addUserMessage: Empty content after trimming')
-      return
-    }
-
-    setStreamBuffer((prev: Array<StreamEvent>) => [
-      ...prev,
-      {
-        type: 'user',
-        id: generateMessageId(),
-        content: trimmedContent,
-        timestamp: getTimestamp(),
-      },
-    ])
-  }, [])
-
   const cancelStream = useCallback(() => {
     if (streamUpdateTimeoutRef.current) {
       clearTimeout(streamUpdateTimeoutRef.current)
@@ -835,7 +794,6 @@ export function useStreamingChat(): UseStreamingChatReturn {
     requestId,
     handleResponse,
     handleError,
-    addUserMessage,
     cancelStream,
     clearBuffer,
   }

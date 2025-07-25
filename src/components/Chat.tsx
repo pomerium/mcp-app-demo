@@ -70,18 +70,6 @@ export function Chat() {
   const { selectedModel, setSelectedModel } = useModel()
   const { user } = useUser()
 
-  const {
-    streamBuffer,
-    streaming,
-    timedOut,
-    requestId,
-    handleResponse,
-    handleError,
-    addUserMessage,
-    cancelStream,
-    clearBuffer,
-  } = useStreamingChat()
-
   const handleModelChange = (newModel: string) => {
     setSelectedModel(newModel)
 
@@ -121,11 +109,45 @@ export function Chat() {
     ],
   )
 
+  // Declare refs for the handlers to avoid circular dependencies
+  const handleResponseRef = useRef<(response: Response) => void>()
+  const handleErrorRef = useRef<(error: Error) => void>()
+
   const { messages, isLoading, setMessages, append, stop } = useChat({
     body: chatBody,
-    onError: handleError,
-    onResponse: handleResponse,
+    onError: (error) => handleErrorRef.current?.(error),
+    onResponse: (response) => handleResponseRef.current?.(response),
   })
+
+  // Callback to sync completed assistant messages to useChat messages
+  const handleAssistantMessage = useCallback(
+    (id: string, content: string) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id,
+          role: 'assistant' as const,
+          content,
+        },
+      ])
+    },
+    [setMessages],
+  )
+
+  const {
+    streamBuffer,
+    streaming,
+    timedOut,
+    requestId,
+    handleResponse,
+    handleError,
+    cancelStream,
+    clearBuffer,
+  } = useStreamingChat(append)
+
+  // Connect the handlers
+  handleResponseRef.current = handleResponse
+  handleErrorRef.current = handleError
 
   const renderEvents = useMemo<Array<StreamEvent | Message>>(() => {
     if (streaming || streamBuffer.length > 0) {
@@ -143,10 +165,10 @@ export function Chat() {
       if (!hasStartedChat) {
         setHasStartedChat(true)
       }
-      addUserMessage(prompt)
+
       append({ role: 'user', content: prompt })
     },
-    [hasStartedChat, append, addUserMessage],
+    [hasStartedChat, append],
   )
 
   const handleServerToggle = useCallback((serverId: string) => {
