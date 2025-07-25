@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { ServerRoute as ApiModelsServerRouteImport } from './routes/api/models'
 import { ServerRoute as ApiContainerFileServerRouteImport } from './routes/api/container-file'
 import { ServerRoute as ApiChatServerRouteImport } from './routes/api/chat'
+import { ServerRoute as ApiBackgroundJobsServerRouteImport } from './routes/api/background-jobs'
 
 const rootServerRouteImport = createServerRootRoute()
 
@@ -36,6 +37,11 @@ const ApiContainerFileServerRoute = ApiContainerFileServerRouteImport.update({
 const ApiChatServerRoute = ApiChatServerRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootServerRouteImport,
+} as any)
+const ApiBackgroundJobsServerRoute = ApiBackgroundJobsServerRouteImport.update({
+  id: '/api/background-jobs',
+  path: '/api/background-jobs',
   getParentRoute: () => rootServerRouteImport,
 } as any)
 
@@ -61,30 +67,47 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
 }
 export interface FileServerRoutesByFullPath {
+  '/api/background-jobs': typeof ApiBackgroundJobsServerRoute
   '/api/chat': typeof ApiChatServerRoute
   '/api/container-file': typeof ApiContainerFileServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRoutesByTo {
+  '/api/background-jobs': typeof ApiBackgroundJobsServerRoute
   '/api/chat': typeof ApiChatServerRoute
   '/api/container-file': typeof ApiContainerFileServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRoutesById {
   __root__: typeof rootServerRouteImport
+  '/api/background-jobs': typeof ApiBackgroundJobsServerRoute
   '/api/chat': typeof ApiChatServerRoute
   '/api/container-file': typeof ApiContainerFileServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRouteTypes {
   fileServerRoutesByFullPath: FileServerRoutesByFullPath
-  fullPaths: '/api/chat' | '/api/container-file' | '/api/models'
+  fullPaths:
+    | '/api/background-jobs'
+    | '/api/chat'
+    | '/api/container-file'
+    | '/api/models'
   fileServerRoutesByTo: FileServerRoutesByTo
-  to: '/api/chat' | '/api/container-file' | '/api/models'
-  id: '__root__' | '/api/chat' | '/api/container-file' | '/api/models'
+  to:
+    | '/api/background-jobs'
+    | '/api/chat'
+    | '/api/container-file'
+    | '/api/models'
+  id:
+    | '__root__'
+    | '/api/background-jobs'
+    | '/api/chat'
+    | '/api/container-file'
+    | '/api/models'
   fileServerRoutesById: FileServerRoutesById
 }
 export interface RootServerRouteChildren {
+  ApiBackgroundJobsServerRoute: typeof ApiBackgroundJobsServerRoute
   ApiChatServerRoute: typeof ApiChatServerRoute
   ApiContainerFileServerRoute: typeof ApiContainerFileServerRoute
   ApiModelsServerRoute: typeof ApiModelsServerRoute
@@ -124,6 +147,13 @@ declare module '@tanstack/react-start/server' {
       preLoaderRoute: typeof ApiChatServerRouteImport
       parentRoute: typeof rootServerRouteImport
     }
+    '/api/background-jobs': {
+      id: '/api/background-jobs'
+      path: '/api/background-jobs'
+      fullPath: '/api/background-jobs'
+      preLoaderRoute: typeof ApiBackgroundJobsServerRouteImport
+      parentRoute: typeof rootServerRouteImport
+    }
   }
 }
 
@@ -134,6 +164,7 @@ export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 const rootServerRouteChildren: RootServerRouteChildren = {
+  ApiBackgroundJobsServerRoute: ApiBackgroundJobsServerRoute,
   ApiChatServerRoute: ApiChatServerRoute,
   ApiContainerFileServerRoute: ApiContainerFileServerRoute,
   ApiModelsServerRoute: ApiModelsServerRoute,
