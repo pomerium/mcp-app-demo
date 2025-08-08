@@ -39,6 +39,7 @@ Only use the code interpreter tool when it's actually needed for calculations or
  */
 export const CODE_INTERPRETER_SUPPORTED_MODELS = Object.freeze(
   new Set([
+    'gpt-5',
     'gpt-4o',
     'gpt-4.1',
     'gpt-4',
@@ -64,6 +65,7 @@ export function isCodeInterpreterSupported(model: string): boolean {
  */
 export const WEB_SEARCH_SUPPORTED_MODELS = Object.freeze(
   new Set([
+    'gpt-5',
     'gpt-4o',
     'gpt-4.1',
     'gpt-4',
