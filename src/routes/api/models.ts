@@ -2,6 +2,7 @@ import { createServerFileRoute } from '@tanstack/react-start/server'
 import OpenAI from 'openai'
 
 const SUPPORTED_MODEL_PREFIXES = [
+  'gpt-5',
   'gpt-4o',
   'chatgpt-4o',
   'gpt-4.1',

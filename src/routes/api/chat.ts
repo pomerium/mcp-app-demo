@@ -53,7 +53,7 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
       if (codeInterpreter && !isCodeInterpreterSupported(model)) {
         return new Response(
           JSON.stringify({
-            error: `Code interpreter is not supported for model: ${model}. Please use a supported model like GPT-4o or o3-series.`,
+            error: `Code interpreter is not supported for model: ${model}. Please use a supported model like GPT-5, GPT-4o, or the o3-series.`,
           }),
           {
             status: 400,
