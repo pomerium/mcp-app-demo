@@ -1,4 +1,5 @@
 import { APIError } from 'openai'
+import { getMessageId } from './utils/streaming'
 
 // Event chunk for stream completion
 const STREAM_DONE_CHUNK = new TextEncoder().encode(
@@ -10,7 +11,7 @@ export function streamText(
   onMessageId?: (messageId: string) => void,
 ): Response {
   const encoder = new TextEncoder()
-  const messageId = `msg-${Math.random().toString(36).slice(2)}`
+  const messageId = getMessageId()
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -336,8 +337,14 @@ export function streamText(
                 ),
               )
               break
-            // Web search tool events
+
+            case 'response.created':
+              // Pass through response.created events so background jobs can extract response ID
+              controller.enqueue(encoder.encode(`t:${JSON.stringify(chunk)}\n`))
+              break
+
             default:
+              // Web search tool events
               if (
                 chunk.type &&
                 chunk.type.startsWith('response.web_search_call.')

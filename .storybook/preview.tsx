@@ -1,5 +1,15 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Preview } from '@storybook/react-vite'
 import '../src/styles.css'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      staleTime: Infinity,
+    },
+  },
+})
 
 const preview: Preview = {
   parameters: {
@@ -21,9 +31,11 @@ const preview: Preview = {
   },
   decorators: [
     (Story) => (
-      <div className="p-4">
-        <Story />
-      </div>
+      <QueryClientProvider client={queryClient}>
+        <div className="p-4">
+          <Story />
+        </div>
+      </QueryClientProvider>
     ),
   ],
 }

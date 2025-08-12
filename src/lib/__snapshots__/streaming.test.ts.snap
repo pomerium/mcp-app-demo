@@ -1,0 +1,37 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`streamText > emits stream_done when an error occurs 1`] = `
+"f:{"messageId":"msg-2"}
+e:{"type":"error","message":"An unexpected error occurred."}
+t:{"type":"stream_done"}
+"
+`;
+
+exports[`streamText > emits stream_done when the stream ends 1`] = `
+"f:{"messageId":"msg-1"}
+0:"I'm glad you asked!"
+0:" Here are a few universally nice things that"
+0:" could have happened today:\\n\\n"
+0:"- Someone smiled at a stranger, brightening"
+0:" their day\\n"
+0:"- A teacher helped a student understand a"
+0:" difficult concept\\n"
+0:"- A kind person paid for someone’s coffee"
+0:" in line\\n"
+0:"- A pet reunited with its owner at a local"
+0:" animal shelter\\n"
+0:"- A friend reached out just to say hello\\n\\n"
+0:"Would you like to hear some real, uplifting"
+0:" news from today?"
+0:" Just let me know!"
+t:{"type":"tool_call_completed","response":{}}
+t:{"type":"stream_done"}
+"
+`;
+
+exports[`streamText > passes through response.created events 1`] = `
+"f:{"messageId":"msg-3"}
+t:{"type":"response.created","response":{"id":"resp_123","model":"gpt-4","created":1234567890}}
+t:{"type":"stream_done"}
+"
+`;
