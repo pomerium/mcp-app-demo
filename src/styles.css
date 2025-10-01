@@ -135,3 +135,26 @@ code {
     @apply bg-background text-foreground;
   }
 }
+
+/* MCP-UI Resource Styles */
+.mcp-ui-resource {
+  border-radius: var(--radius);
+  border: 1px solid oklch(var(--border));
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.mcp-ui-resource iframe {
+  border: none;
+  display: block;
+}
+
+/* Responsive sizing based on preferred-frame-size metadata */
+.mcp-ui-resource[data-preferred-width] {
+  max-width: 100%;
+  width: var(--preferred-width);
+}
+
+.mcp-ui-resource[data-preferred-height] {
+  height: var(--preferred-height);
+}

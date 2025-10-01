@@ -16,6 +16,7 @@
     "build-storybook": "npm ci && storybook build"
   },
   "dependencies": {
+    "@mcp-ui/client": "^5.12.0",
     "@pomerium/js-sdk": "^1.1.0",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-dialog": "^1.0.5",

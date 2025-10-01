@@ -236,6 +236,11 @@ export function Chat() {
                       key={key}
                       name={event.serverLabel || ''}
                       args={event}
+                      onUIAction={async (action) => {
+                        // Handle UI actions by sending them as new messages
+                        const prompt = `Use tool ${action.payload.toolName} with params: ${JSON.stringify(action.payload.params)}`
+                        handleSendMessage(prompt)
+                      }}
                     />
                   )
                 }

@@ -2,6 +2,8 @@ import { ArrowRight, Wrench } from 'lucide-react'
 import { CollapsibleSection } from './ui/collapsible-section'
 import { MessageAvatar } from './MessageAvatar'
 import { getStatusIcon } from '@/lib/toolStatus'
+import { ContentRenderer } from './ContentRenderer'
+import type { Content, UIAction } from '@/types/mcp'
 
 type ToolCallMessageProps<T = Record<string, unknown>> = {
   name: string
@@ -18,7 +20,9 @@ type ToolCallMessageProps<T = Record<string, unknown>> = {
     arguments?: unknown
     delta?: unknown
     error?: string
+    content?: Array<any> // MCP tool response content
   }
+  onUIAction?: (action: UIAction) => void
 }
 
 const getStatusText = (status?: string, error?: string) => {
@@ -67,13 +71,19 @@ const getTitle = (name: string, args: ToolCallMessageProps['args']) => {
   return `Tool Call: ${name}`
 }
 
-export function ToolCallMessage({ name, args }: ToolCallMessageProps) {
+export function ToolCallMessage({ name, args, onUIAction }: ToolCallMessageProps) {
   const variant = getVariant(args.status, args.error)
   const summaryContent = (
     <>
       {getStatusIcon(args.status, args.error)}
       <span className="sr-only">{getStatusText(args.status, args.error)}</span>
     </>
+  )
+
+  // Check if the tool response contains UI resources
+  const hasUIResources = args.content?.some(
+    (item: any) =>
+      item.type === 'resource' && item.resource?.uri?.startsWith('ui://'),
   )
 
   return (
@@ -87,6 +97,27 @@ export function ToolCallMessage({ name, args }: ToolCallMessageProps) {
           additionalSummaryContent={summaryContent}
         >
           {args.error && <span>Error: {args.error}</span>}
+
+          {/* Render UI resources if present */}
+          {hasUIResources && args.content && (
+            <div className="space-y-2 mb-4">
+              {args.content.map((item: any, index: number) => {
+                // Only render if it's a valid Content type
+                if (item && typeof item === 'object' && 'type' in item) {
+                  const content = item as Content
+                  return (
+                    <ContentRenderer
+                      key={index}
+                      content={content}
+                      onUIAction={onUIAction}
+                    />
+                  )
+                }
+                return null
+              })}
+            </div>
+          )}
+
           <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-words break-all">
             {JSON.stringify(args, null, 2)}
           </pre>

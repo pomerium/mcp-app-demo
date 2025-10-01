@@ -21,6 +21,7 @@ export type ToolStreamEvent = {
   arguments?: unknown
   delta?: unknown
   error?: string
+  content?: Array<any> // MCP tool response content (can include UI resources)
   status?:
     | 'in_progress'
     | 'completed'
@@ -628,6 +629,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
               arguments: toolState.arguments,
               toolName: toolState.toolName,
               error: toolState.error,
+              content: toolState.content, // Pass through content from tool response
               status: getToolStatus(toolState.type),
             }
 
@@ -656,6 +658,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
                     arguments: toolEvent.arguments || existingEvent.arguments,
                     toolName: toolEvent.toolName || existingEvent.toolName,
                     error: toolEvent.error || existingEvent.error,
+                    content: toolEvent.content || existingEvent.content,
                     status: toolEvent.status,
                   }
                   return [
