@@ -9,6 +9,8 @@ export type AssistantStreamEvent = {
   id: string
   content: string
   fileAnnotations?: Array<AnnotatedFile>
+  // optional mcp-ui content items (text, resource, image)
+  mcpContent?: Array<unknown>
 }
 
 export type ToolStreamEvent = {
@@ -589,6 +591,31 @@ export function useStreamingChat(): UseStreamingChatReturn {
                 }
               })
               return
+            }
+
+            // Handle MCP call completed with UI resources
+            if (toolState.type === 'mcp_call_completed' && toolState.content) {
+              // Check if content includes UI resources
+              const hasUIResources =
+                Array.isArray(toolState.content) &&
+                toolState.content.some(
+                  (item: any) =>
+                    item.type === 'resource' &&
+                    item.resource?.uri?.startsWith('ui://'),
+                )
+
+              if (hasUIResources) {
+                const assistantId = generateMessageId()
+                setStreamBuffer((prev: Array<StreamEvent>) => [
+                  ...prev,
+                  {
+                    type: 'assistant' as const,
+                    id: assistantId,
+                    content: '', // No text content for UI-only messages
+                    mcpContent: toolState.content, // Pass through the full content array
+                  },
+                ])
+              }
             }
 
             if ('delta' in toolState) {

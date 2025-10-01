@@ -12,6 +12,8 @@ import {
   isImageFile,
   replaceSandboxUrls,
 } from '@/lib/utils/code-interpreter'
+import { ContentRenderer } from './ContentRenderer'
+import type { Content } from '@/types/mcp'
 
 export interface Message extends Omit<AssistantStreamEvent, 'type'> {
   timestamp: string
@@ -68,12 +70,34 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
             'rounded-2xl px-4 py-2 text-sm w-full bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100',
           )}
         >
-          <div data-raw-markdown={processedContent}>
-            <MarkdownContent
-              content={processedContent}
-              fileAnnotations={fileAnnotations}
-            />
-          </div>
+          {/* Render MCP content items if present */}
+          {message.mcpContent && message.mcpContent.length > 0 && (
+            <div className="space-y-2 mb-2">
+              {message.mcpContent.map((item: any, index: number) => {
+                if (item && typeof item === 'object' && 'type' in item) {
+                  const content = item as Content
+                  return (
+                    <ContentRenderer
+                      key={index}
+                      content={content}
+                      fileAnnotations={fileAnnotations}
+                    />
+                  )
+                }
+                return null
+              })}
+            </div>
+          )}
+
+          {/* Render markdown content if present */}
+          {processedContent && (
+            <div data-raw-markdown={processedContent}>
+              <MarkdownContent
+                content={processedContent}
+                fileAnnotations={fileAnnotations}
+              />
+            </div>
+          )}
 
           {imageFiles.length > 0 && (
             <div className="mt-4 space-y-3">

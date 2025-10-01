@@ -4,7 +4,16 @@
       "Bash(npm install:*)",
       "Bash(mkdir:*)",
       "Bash(npm run test:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Read(//Users/nicktaylor/dev/oss/chess/**)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Read(//private/tmp/**)",
+      "Read(//tmp/nanobot-temp/pkg/agents/**)",
+      "Read(//tmp/nanobot-temp/pkg/types/**)",
+      "Bash(find:*)",
+      "Read(//tmp/nanobot-temp/pkg/llm/responses/**)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

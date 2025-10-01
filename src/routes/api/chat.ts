@@ -9,6 +9,45 @@ import {
 } from '../../lib/utils/prompting'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
 
+/**
+ * Intercepts MCP tool calls and emits events for client to fetch UI resources
+ * Since Pomerium auth is session-based, only the browser can fetch from MCP servers
+ */
+async function* interceptMCPToolCalls(
+  stream: AsyncIterable<any>,
+  mcpServersMap: Map<string, { url: string; name: string }>,
+) {
+  for await (const chunk of stream) {
+    // Pass through all chunks
+    yield chunk
+
+    // When MCP call is added, emit event for client to fetch UI resources
+    if (
+      chunk.type === 'response.output_item.added' &&
+      chunk.item?.type === 'mcp_call'
+    ) {
+      const serverInfo = mcpServersMap.get(chunk.item.server_label)
+
+      if (serverInfo) {
+        console.log(
+          `[MCP-UI] MCP call detected: ${chunk.item.name} on ${chunk.item.server_label}`,
+        )
+
+        // Emit event for client to fetch UI resources
+        // The client has the Pomerium session and can call the MCP server
+        yield {
+          type: 'response.mcp_call.fetch_ui',
+          item_id: chunk.item.id,
+          server_label: chunk.item.server_label,
+          server_url: serverInfo.url,
+          tool_name: chunk.item.name,
+          arguments: chunk.item.arguments,
+        }
+      }
+    }
+  }
+}
+
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
     const bearerToken = request.headers.get('Authorization')?.split(' ')[1]
@@ -82,21 +121,37 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           .replace(/_{2,}/g, '_') // Replace multiple underscores with single one
       }
 
+      // Use OpenAI's native MCP integration (handles auth properly)
+      // We'll emit events for client to fetch UI resources (Pomerium auth is session-based)
+      const mcpServersMap = new Map<string, { url: string; name: string }>()
+
       const tools: Array<Tool> = [
         ...Object.entries(servers)
           .filter(([_, server]) => server.status === 'connected')
-          .map(
-            ([_id, server]) =>
-              ({
-                type: 'mcp',
-                server_label: sanitizeServerLabel(server.name),
-                server_url: server.url,
-                require_approval: 'never',
-                headers: {
-                  Authorization: `Bearer ${bearerToken}`,
-                },
-              }) as Tool,
-          ),
+          .map(([_id, server]) => {
+            // Store server info for later UI resource fetching
+            mcpServersMap.set(sanitizeServerLabel(server.name), {
+              url: server.url,
+              name: server.name,
+            })
+
+            console.log('[MCP Server Config]', {
+              name: server.name,
+              label: sanitizeServerLabel(server.name),
+              url: server.url,
+              bearerToken: bearerToken ? `${bearerToken.substring(0, 20)}...` : 'MISSING'
+            })
+
+            return {
+              type: 'mcp',
+              server_label: sanitizeServerLabel(server.name),
+              server_url: server.url,
+              require_approval: 'never',
+              headers: {
+                Authorization: `Bearer ${bearerToken}`,
+              },
+            } as Tool
+          }),
       ]
 
       // Add code interpreter tool if enabled and supported by model
@@ -159,6 +214,9 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
               }
             : {}),
         })
+
+        // Wrap the stream to intercept MCP tool calls and emit fetch UI events
+        answer = interceptMCPToolCalls(answer, mcpServersMap)
       } catch (error) {
         console.error('Error creating OpenAI response:', error)
 

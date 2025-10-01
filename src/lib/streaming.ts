@@ -103,7 +103,7 @@ export function streamText(
               break
 
             case 'response.mcp_list_tools.failed':
-              console.error('[MCP LIST TOOLS FAILED]', chunk)
+              console.error('[MCP LIST TOOLS FAILED]', JSON.stringify(chunk, null, 2))
 
               if (!('error' in chunk)) {
                 // return a tool call but with a status of failed.
@@ -190,16 +190,42 @@ export function streamText(
               )
               break
 
-            case 'response.mcp_call.completed':
+            case 'response.mcp_call.completed': {
+              // Extract MCP call details from the chunk or find it in response
+              const mcpOutput = chunk.output
+
+              // Send the full content array which may include UI resources
               controller.enqueue(
                 encoder.encode(
                   `t:${JSON.stringify({
                     type: 'mcp_call_completed',
                     itemId: chunk.item_id,
+                    serverLabel: chunk.server_label,
+                    toolName: chunk.name,
+                    content: mcpOutput, // Full content array with UI resources
+                    isError: chunk.isError,
                   })}\n`,
                 ),
               )
               break
+            }
+
+            case 'response.mcp_call.fetch_ui': {
+              // Tell client to fetch UI resources (has Pomerium session)
+              controller.enqueue(
+                encoder.encode(
+                  `t:${JSON.stringify({
+                    type: 'mcp_call_fetch_ui',
+                    itemId: chunk.item_id,
+                    serverLabel: chunk.server_label,
+                    serverUrl: chunk.server_url,
+                    toolName: chunk.tool_name,
+                    arguments: chunk.arguments,
+                  })}\n`,
+                ),
+              )
+              break
+            }
 
             case 'response.output_item.added':
               if (chunk.item.type === 'mcp_call') {

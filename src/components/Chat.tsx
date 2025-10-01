@@ -299,6 +299,7 @@ export function Chat() {
                       content: event.content,
                       timestamp: getTimestamp(),
                       status: 'sent',
+                      mcpContent: event.mcpContent, // Pass through MCP content
                     }}
                     fileAnnotations={event.fileAnnotations || []}
                   />
