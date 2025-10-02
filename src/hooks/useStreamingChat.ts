@@ -593,6 +593,78 @@ export function useStreamingChat(): UseStreamingChatReturn {
               return
             }
 
+            // Handle MCP call fetch UI request (proxy through backend to avoid CORS)
+            if (toolState.type === 'mcp_call_fetch_ui') {
+              // Make MCP JSON-RPC call to get full tool response with UI resources
+              console.log('[MCP-UI] Fetching UI resources from MCP server:', {
+                itemId: toolState.itemId,
+                serverLabel: toolState.serverLabel,
+                serverUrl: toolState.serverUrl,
+                toolName: toolState.toolName,
+                arguments: toolState.arguments,
+              })
+
+              // Arguments are already an object from mcp_call_arguments.done event
+              const callArguments = toolState.arguments || {}
+
+              // Proxy through backend to avoid CORS issues
+              // The backend has the bearer token from Pomerium headers
+              fetch('/api/mcp-call', {
+                method: 'POST',
+                credentials: 'include', // Send cookies for Pomerium session
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  serverUrl: toolState.serverUrl,
+                  toolName: toolState.toolName,
+                  arguments: callArguments,
+                  itemId: toolState.itemId,
+                }),
+              })
+                .then((res) => {
+                  console.log('[MCP-UI] Response status:', res.status)
+                  console.log('[MCP-UI] Response headers:', Array.from(res.headers.entries()))
+                  return res.json()
+                })
+                .then((data) => {
+                  console.log('[MCP-UI] Received MCP JSON-RPC response:', JSON.stringify(data, null, 2))
+
+                  // Check if response contains content with UI resources
+                  if (data.result?.content && Array.isArray(data.result.content)) {
+                    console.log('[MCP-UI] Content array:', data.result.content)
+                    const hasUIResources = data.result.content.some(
+                      (item: any) =>
+                        item.type === 'resource' &&
+                        item.resource?.uri?.startsWith('ui://'),
+                    )
+
+                    if (hasUIResources) {
+                      console.log('[MCP-UI] Found UI resources, adding to stream buffer')
+                      const assistantId = generateMessageId()
+                      setStreamBuffer((prev: Array<StreamEvent>) => [
+                        ...prev,
+                        {
+                          type: 'assistant' as const,
+                          id: assistantId,
+                          content: '', // No text content for UI-only messages
+                          mcpContent: data.result.content, // Full content array with UI resources
+                        },
+                      ])
+                    } else {
+                      console.log('[MCP-UI] No UI resources found. Content items:', data.result.content.map((c: any) => ({ type: c.type, hasResource: !!c.resource, uri: c.resource?.uri })))
+                    }
+                  } else {
+                    console.log('[MCP-UI] No result.content array. Response structure:', Object.keys(data))
+                  }
+                })
+                .catch((error) => {
+                  console.error('[MCP-UI] Failed to fetch UI resources:', error)
+                })
+
+              return
+            }
+
             // Handle MCP call completed with UI resources
             if (toolState.type === 'mcp_call_completed' && toolState.content) {
               // Check if content includes UI resources

@@ -286,6 +286,11 @@ export function Chat() {
                       status: 'sent',
                     }}
                     fileAnnotations={[event.annotation]}
+                    onUIAction={async (action) => {
+                      // Handle UI actions by sending them as new messages
+                      const prompt = `Use tool ${action.payload.toolName} with params: ${JSON.stringify(action.payload.params)}`
+                      handleSendMessage(prompt)
+                    }}
                   />
                 )
               } else if ('type' in event && event.type === 'error') {
@@ -302,6 +307,11 @@ export function Chat() {
                       mcpContent: event.mcpContent, // Pass through MCP content
                     }}
                     fileAnnotations={event.fileAnnotations || []}
+                    onUIAction={async (action) => {
+                      // Handle UI actions by sending them as new messages
+                      const prompt = `Use tool ${action.payload.toolName} with params: ${JSON.stringify(action.payload.params)}`
+                      handleSendMessage(prompt)
+                    }}
                   />
                 )
               } else if ('type' in event && event.type === 'user') {
@@ -338,6 +348,11 @@ export function Chat() {
                           content: message.content,
                           timestamp: getTimestamp(),
                           status: 'sent',
+                        }}
+                        onUIAction={async (action) => {
+                          // Handle UI actions by sending them as new messages
+                          const prompt = `Use tool ${action.payload.toolName} with params: ${JSON.stringify(action.payload.params)}`
+                          handleSendMessage(prompt)
                         }}
                       />
                     )

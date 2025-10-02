@@ -13,7 +13,10 @@
       "Read(//tmp/nanobot-temp/pkg/types/**)",
       "Bash(find:*)",
       "Read(//tmp/nanobot-temp/pkg/llm/responses/**)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Read(//Users/nicktaylor/dev/oss/chess-mcp/**)",
+      "WebFetch(domain:simplescraper.io)",
+      "WebFetch(domain:docs.pomerium.com)"
     ],
     "deny": [],
     "ask": []

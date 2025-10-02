@@ -13,6 +13,7 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { ServerRoute as ApiModelsServerRouteImport } from './routes/api/models'
+import { ServerRoute as ApiMcpCallServerRouteImport } from './routes/api/mcp-call'
 import { ServerRoute as ApiContainerFileServerRouteImport } from './routes/api/container-file'
 import { ServerRoute as ApiChatServerRouteImport } from './routes/api/chat'
 
@@ -26,6 +27,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiModelsServerRoute = ApiModelsServerRouteImport.update({
   id: '/api/models',
   path: '/api/models',
+  getParentRoute: () => rootServerRouteImport,
+} as any)
+const ApiMcpCallServerRoute = ApiMcpCallServerRouteImport.update({
+  id: '/api/mcp-call',
+  path: '/api/mcp-call',
   getParentRoute: () => rootServerRouteImport,
 } as any)
 const ApiContainerFileServerRoute = ApiContainerFileServerRouteImport.update({
@@ -63,30 +69,43 @@ export interface RootRouteChildren {
 export interface FileServerRoutesByFullPath {
   '/api/chat': typeof ApiChatServerRoute
   '/api/container-file': typeof ApiContainerFileServerRoute
+  '/api/mcp-call': typeof ApiMcpCallServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRoutesByTo {
   '/api/chat': typeof ApiChatServerRoute
   '/api/container-file': typeof ApiContainerFileServerRoute
+  '/api/mcp-call': typeof ApiMcpCallServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRoutesById {
   __root__: typeof rootServerRouteImport
   '/api/chat': typeof ApiChatServerRoute
   '/api/container-file': typeof ApiContainerFileServerRoute
+  '/api/mcp-call': typeof ApiMcpCallServerRoute
   '/api/models': typeof ApiModelsServerRoute
 }
 export interface FileServerRouteTypes {
   fileServerRoutesByFullPath: FileServerRoutesByFullPath
-  fullPaths: '/api/chat' | '/api/container-file' | '/api/models'
+  fullPaths:
+    | '/api/chat'
+    | '/api/container-file'
+    | '/api/mcp-call'
+    | '/api/models'
   fileServerRoutesByTo: FileServerRoutesByTo
-  to: '/api/chat' | '/api/container-file' | '/api/models'
-  id: '__root__' | '/api/chat' | '/api/container-file' | '/api/models'
+  to: '/api/chat' | '/api/container-file' | '/api/mcp-call' | '/api/models'
+  id:
+    | '__root__'
+    | '/api/chat'
+    | '/api/container-file'
+    | '/api/mcp-call'
+    | '/api/models'
   fileServerRoutesById: FileServerRoutesById
 }
 export interface RootServerRouteChildren {
   ApiChatServerRoute: typeof ApiChatServerRoute
   ApiContainerFileServerRoute: typeof ApiContainerFileServerRoute
+  ApiMcpCallServerRoute: typeof ApiMcpCallServerRoute
   ApiModelsServerRoute: typeof ApiModelsServerRoute
 }
 
@@ -108,6 +127,13 @@ declare module '@tanstack/react-start/server' {
       path: '/api/models'
       fullPath: '/api/models'
       preLoaderRoute: typeof ApiModelsServerRouteImport
+      parentRoute: typeof rootServerRouteImport
+    }
+    '/api/mcp-call': {
+      id: '/api/mcp-call'
+      path: '/api/mcp-call'
+      fullPath: '/api/mcp-call'
+      preLoaderRoute: typeof ApiMcpCallServerRouteImport
       parentRoute: typeof rootServerRouteImport
     }
     '/api/container-file': {
@@ -136,6 +162,7 @@ export const routeTree = rootRouteImport
 const rootServerRouteChildren: RootServerRouteChildren = {
   ApiChatServerRoute: ApiChatServerRoute,
   ApiContainerFileServerRoute: ApiContainerFileServerRoute,
+  ApiMcpCallServerRoute: ApiMcpCallServerRoute,
   ApiModelsServerRoute: ApiModelsServerRoute,
 }
 export const serverRouteTree = rootServerRouteImport

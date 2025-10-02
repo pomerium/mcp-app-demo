@@ -13,7 +13,7 @@ import {
   replaceSandboxUrls,
 } from '@/lib/utils/code-interpreter'
 import { ContentRenderer } from './ContentRenderer'
-import type { Content } from '@/types/mcp'
+import type { Content, UIAction } from '@/types/mcp'
 
 export interface Message extends Omit<AssistantStreamEvent, 'type'> {
   timestamp: string
@@ -23,9 +23,14 @@ export interface Message extends Omit<AssistantStreamEvent, 'type'> {
 export interface BotMessageProps {
   message: Message
   fileAnnotations?: Array<AnnotatedFile>
+  onUIAction?: (action: UIAction) => void
 }
 
-export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
+export function BotMessage({
+  message,
+  fileAnnotations = [],
+  onUIAction,
+}: BotMessageProps) {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
   const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
 
@@ -81,6 +86,7 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
                       key={index}
                       content={content}
                       fileAnnotations={fileAnnotations}
+                      onUIAction={onUIAction}
                     />
                   )
                 }

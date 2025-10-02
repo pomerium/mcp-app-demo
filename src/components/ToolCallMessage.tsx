@@ -2,8 +2,7 @@ import { ArrowRight, Wrench } from 'lucide-react'
 import { CollapsibleSection } from './ui/collapsible-section'
 import { MessageAvatar } from './MessageAvatar'
 import { getStatusIcon } from '@/lib/toolStatus'
-import { ContentRenderer } from './ContentRenderer'
-import type { Content, UIAction } from '@/types/mcp'
+import type { UIAction } from '@/types/mcp'
 
 type ToolCallMessageProps<T = Record<string, unknown>> = {
   name: string
@@ -80,12 +79,6 @@ export function ToolCallMessage({ name, args, onUIAction }: ToolCallMessageProps
     </>
   )
 
-  // Check if the tool response contains UI resources
-  const hasUIResources = args.content?.some(
-    (item: any) =>
-      item.type === 'resource' && item.resource?.uri?.startsWith('ui://'),
-  )
-
   return (
     <div className="flex w-full max-w-full gap-2 py-2 animate-in fade-in justify-start">
       <MessageAvatar icon={<Wrench className="h-5 w-5" />} variant={variant} />
@@ -97,26 +90,6 @@ export function ToolCallMessage({ name, args, onUIAction }: ToolCallMessageProps
           additionalSummaryContent={summaryContent}
         >
           {args.error && <span>Error: {args.error}</span>}
-
-          {/* Render UI resources if present */}
-          {hasUIResources && args.content && (
-            <div className="space-y-2 mb-4">
-              {args.content.map((item: any, index: number) => {
-                // Only render if it's a valid Content type
-                if (item && typeof item === 'object' && 'type' in item) {
-                  const content = item as Content
-                  return (
-                    <ContentRenderer
-                      key={index}
-                      content={content}
-                      onUIAction={onUIAction}
-                    />
-                  )
-                }
-                return null
-              })}
-            </div>
-          )}
 
           <pre className="text-xs overflow-x-auto whitespace-pre-wrap break-words break-all">
             {JSON.stringify(args, null, 2)}

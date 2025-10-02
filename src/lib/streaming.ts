@@ -71,6 +71,27 @@ export function streamText(
                     })}\n`,
                   ),
                 )
+              } else if (chunk.item.type === 'mcp_call' && chunk.item.output) {
+                // Handle MCP call completion with output (including UI resources)
+                console.log('[MCP-UI] MCP call done with output:', {
+                  itemId: chunk.item.id,
+                  serverLabel: chunk.item.server_label,
+                  toolName: chunk.item.name,
+                  output: chunk.item.output,
+                })
+
+                controller.enqueue(
+                  encoder.encode(
+                    `t:${JSON.stringify({
+                      type: 'mcp_call_completed',
+                      itemId: chunk.item.id,
+                      serverLabel: chunk.item.server_label,
+                      toolName: chunk.item.name,
+                      content: chunk.item.output,
+                      isError: chunk.item.status === 'failed',
+                    })}\n`,
+                  ),
+                )
               }
               break
             // Only emit output text for delta events, ignore content_part events for output_text
@@ -191,8 +212,23 @@ export function streamText(
               break
 
             case 'response.mcp_call.completed': {
-              // Extract MCP call details from the chunk or find it in response
-              const mcpOutput = chunk.output
+              // Log the full chunk to see all available fields
+              console.log('[MCP-UI] MCP call completed - FULL CHUNK:', JSON.stringify(chunk, null, 2))
+
+              // Extract MCP call details from the chunk
+              // OpenAI API sends output in different structures depending on the response
+              const mcpOutput = chunk.output || chunk.content || []
+
+              console.log('[MCP-UI] MCP call completed:', {
+                itemId: chunk.item_id,
+                serverLabel: chunk.server_label,
+                toolName: chunk.name,
+                hasOutput: !!mcpOutput,
+                outputLength: Array.isArray(mcpOutput) ? mcpOutput.length : 0,
+                output: mcpOutput,
+                hasContent: !!chunk.content,
+                contentType: typeof chunk.content,
+              })
 
               // Send the full content array which may include UI resources
               controller.enqueue(
@@ -352,7 +388,54 @@ export function streamText(
               break
 
             case 'response.completed':
-              // Optionally emit a tool call completed event
+              // Log the full response to debug MCP content structure
+              console.log('[MCP-UI] Response completed, checking for MCP calls:', {
+                hasOutput: !!chunk.response?.output,
+                outputLength: chunk.response?.output?.length,
+                outputTypes: chunk.response?.output?.map((item: any) => item.type),
+              })
+
+              // Extract MCP call results with UI content from the completed response
+              if (chunk.response?.output) {
+                for (const outputItem of chunk.response.output) {
+                  console.log('[MCP-UI] Checking output item:', {
+                    type: outputItem.type,
+                    id: outputItem.id,
+                    hasOutput: !!outputItem.output,
+                  })
+
+                  if (outputItem.type === 'mcp_call' && outputItem.output) {
+                    // Log the full outputItem to see all available fields
+                    console.log('[MCP-UI] Found MCP call in completed response - FULL ITEM:', JSON.stringify(outputItem, null, 2))
+
+                    console.log('[MCP-UI] Found MCP call in completed response:', {
+                      itemId: outputItem.id,
+                      serverLabel: outputItem.server_label,
+                      toolName: outputItem.name,
+                      output: outputItem.output,
+                      hasContent: !!outputItem.content,
+                      contentType: typeof outputItem.content,
+                      isOutputArray: Array.isArray(outputItem.output),
+                    })
+
+                    // Send MCP content as separate event for rendering in BotMessage
+                    controller.enqueue(
+                      encoder.encode(
+                        `t:${JSON.stringify({
+                          type: 'mcp_call_completed',
+                          itemId: outputItem.id,
+                          serverLabel: outputItem.server_label,
+                          toolName: outputItem.name,
+                          content: outputItem.output,
+                          isError: outputItem.status === 'failed',
+                        })}\n`,
+                      ),
+                    )
+                  }
+                }
+              }
+
+              // Emit tool call completed event with full response
               controller.enqueue(
                 encoder.encode(
                   `t:${JSON.stringify({

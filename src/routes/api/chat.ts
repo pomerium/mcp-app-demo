@@ -17,31 +17,64 @@ async function* interceptMCPToolCalls(
   stream: AsyncIterable<any>,
   mcpServersMap: Map<string, { url: string; name: string }>,
 ) {
+  // Track MCP calls and their metadata
+  const mcpCallsMap = new Map<
+    string,
+    { server_label: string; tool_name: string }
+  >()
+
   for await (const chunk of stream) {
     // Pass through all chunks
     yield chunk
 
-    // When MCP call is added, emit event for client to fetch UI resources
+    // Track MCP call when added
     if (
       chunk.type === 'response.output_item.added' &&
       chunk.item?.type === 'mcp_call'
     ) {
-      const serverInfo = mcpServersMap.get(chunk.item.server_label)
+      mcpCallsMap.set(chunk.item.id, {
+        server_label: chunk.item.server_label,
+        tool_name: chunk.item.name,
+      })
+    }
 
-      if (serverInfo) {
-        console.log(
-          `[MCP-UI] MCP call detected: ${chunk.item.name} on ${chunk.item.server_label}`,
-        )
+    // When arguments are complete, emit event for client to fetch UI resources
+    if (chunk.type === 'response.mcp_call_arguments.done') {
+      const mcpCall = mcpCallsMap.get(chunk.item_id)
 
-        // Emit event for client to fetch UI resources
-        // The client has the Pomerium session and can call the MCP server
-        yield {
-          type: 'response.mcp_call.fetch_ui',
-          item_id: chunk.item.id,
-          server_label: chunk.item.server_label,
-          server_url: serverInfo.url,
-          tool_name: chunk.item.name,
-          arguments: chunk.item.arguments,
+      if (mcpCall) {
+        const serverInfo = mcpServersMap.get(mcpCall.server_label)
+
+        if (serverInfo) {
+          // Parse arguments string to object (OpenAI returns it as JSON string)
+          let parsedArguments = {}
+          try {
+            parsedArguments =
+              typeof chunk.arguments === 'string'
+                ? JSON.parse(chunk.arguments)
+                : chunk.arguments
+          } catch (e) {
+            console.error('[MCP-UI] Failed to parse arguments:', e)
+          }
+
+          console.log(
+            `[MCP-UI] MCP call arguments ready: ${mcpCall.tool_name} on ${mcpCall.server_label}`,
+            {
+              rawArguments: chunk.arguments,
+              parsedArguments,
+            },
+          )
+
+          // Emit event for client to fetch UI resources
+          // The client has the Pomerium session and can call the MCP server
+          yield {
+            type: 'response.mcp_call.fetch_ui',
+            item_id: chunk.item_id,
+            server_label: mcpCall.server_label,
+            server_url: serverInfo.url,
+            tool_name: mcpCall.tool_name,
+            arguments: parsedArguments, // Now parsed!
+          }
         }
       }
     }
