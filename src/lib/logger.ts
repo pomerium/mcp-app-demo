@@ -95,7 +95,9 @@ const createServerLogger = () => {
 }
 
 // Create appropriate logger based on environment
-export const logger = isBrowser ? createBrowserLogger('app') : createServerLogger()
+export const logger = isBrowser
+  ? createBrowserLogger('app')
+  : createServerLogger()
 
 // Create child loggers for different modules
 export const createLogger = (module: string) => {

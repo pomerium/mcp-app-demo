@@ -10,10 +10,7 @@ const STREAM_DONE_CHUNK = new TextEncoder().encode(
   `t:${JSON.stringify({ type: 'stream_done' })}\n`,
 )
 
-export function streamText(
-  answer: AsyncIterable<any>,
-  log?: Logger,
-): Response {
+export function streamText(answer: AsyncIterable<any>, log?: Logger): Response {
   // Use provided logger or default
   const logger = log || defaultLog
   const encoder = new TextEncoder()
