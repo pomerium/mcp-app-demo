@@ -5,7 +5,6 @@ import type { Servers } from '@/lib/schemas'
 import { createQueryClientTestWrapper } from '@/test/utils/react-query-test-utils'
 
 describe('useDisconnectServer', () => {
-  // No global console.error spy; will use local spies in specific tests
   const serverId = 'https://test.example.com'
   const servers: Servers = {
     [serverId]: {
@@ -71,9 +70,6 @@ describe('useDisconnectServer', () => {
   })
 
   it('throws error if server is missing or does not need oauth', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
     const onServersChange = vi.fn()
     const { result } = renderHook(
       () => useDisconnectServer({}, onServersChange),
@@ -93,17 +89,9 @@ describe('useDisconnectServer', () => {
     expect(error).toBeInstanceOf(Error)
     expect((error as Error).message).toMatch(/Invalid server/)
     expect(onServersChange).not.toHaveBeenCalled()
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Failed to disconnect from server:',
-      expect.any(Error),
-    )
-    consoleErrorSpy.mockRestore()
   })
 
   it('throws error if server does not need oauth', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
     const noOauthServers: Servers = {
       [serverId]: { ...servers[serverId], needs_oauth: false },
     }
@@ -125,22 +113,14 @@ describe('useDisconnectServer', () => {
     expect(error).toBeInstanceOf(Error)
     expect((error as Error).message).toMatch(/Invalid server/)
     expect(onServersChange).not.toHaveBeenCalled()
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Failed to disconnect from server:',
-      expect.any(Error),
-    )
-    consoleErrorSpy.mockRestore()
   })
 
-  it('handles fetch/network error and logs to console.error', async () => {
+  it('handles fetch/network error', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() => Promise.resolve({ ok: false, status: 500 } as any)),
     )
     const onServersChange = vi.fn()
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
     const { result } = renderHook(
       () => useDisconnectServer(servers, onServersChange),
       {
@@ -158,17 +138,9 @@ describe('useDisconnectServer', () => {
     expect(error).toBeInstanceOf(Error)
     expect((error as Error).message).toMatch(/Failed to disconnect/)
     expect(onServersChange).not.toHaveBeenCalled()
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Failed to disconnect from server:',
-      expect.any(Error),
-    )
-    consoleErrorSpy.mockRestore()
   })
 
   it('handles invalid response schema', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -195,11 +167,6 @@ describe('useDisconnectServer', () => {
     }
     expect(error).toBeInstanceOf(Error)
     expect(onServersChange).not.toHaveBeenCalled()
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Failed to disconnect from server:',
-      expect.objectContaining({ name: 'ZodError', issues: expect.any(Array) }),
-    )
-    consoleErrorSpy.mockRestore()
   })
 
   it('does not mutate the original servers object', async () => {

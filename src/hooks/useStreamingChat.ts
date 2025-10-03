@@ -3,6 +3,9 @@ import { generateMessageId } from '../mcp/client'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { stopStreamProcessing } from '@/lib/utils/streaming'
 import { getTimestamp } from '@/lib/utils/date'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('use-streaming-chat')
 
 export type AssistantStreamEvent = {
   type: 'assistant'
@@ -249,7 +252,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
   }, [])
 
   const handleError = useCallback((error: Error) => {
-    console.error('Chat error:', error)
+    log.error({ err: error }, 'Chat error')
     setStreamBuffer((prev: Array<StreamEvent>) => [
       ...prev,
       {
@@ -268,10 +271,13 @@ export function useStreamingChat(): UseStreamingChatReturn {
       setRequestId(xRequestId)
 
       if (!response.ok) {
-        console.error(
-          'Chat response error:',
-          response.status,
-          response.statusText,
+        log.error(
+          {
+            requestId: xRequestId,
+            status: response.status,
+            statusText: response.statusText,
+          },
+          'Chat response error',
         )
         setStreamBuffer((prev: Array<StreamEvent>) => [
           ...prev,
@@ -333,7 +339,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
               },
             ])
           } catch (e) {
-            console.error('Failed to parse error data:', e)
+            log.error({ err: e }, 'Failed to parse error data')
             setStreamBuffer((prev: Array<StreamEvent>) => [
               ...prev,
               {
@@ -349,13 +355,13 @@ export function useStreamingChat(): UseStreamingChatReturn {
           try {
             const toolStateStr = line.slice(2)
             if (!toolStateStr || !toolStateStr.trim()) {
-              console.warn('Empty tool state string')
+              log.warn('Empty tool state string')
               return
             }
 
             const toolState = JSON.parse(toolStateStr)
             if (!toolState || typeof toolState !== 'object') {
-              console.warn('Invalid tool state object')
+              log.warn('Invalid tool state object')
               return
             }
             if (toolState.type === 'tool_call_completed') {
@@ -597,10 +603,13 @@ export function useStreamingChat(): UseStreamingChatReturn {
                     ? JSON.parse(toolState.delta)
                     : {}
               } catch (e) {
-                console.error('Failed to parse delta:', {
-                  delta: toolState.delta,
-                  e,
-                })
+                log.error(
+                  {
+                    delta: toolState.delta,
+                    err: e,
+                  },
+                  'Failed to parse delta',
+                )
                 toolState.delta = {}
               }
             }
@@ -611,10 +620,13 @@ export function useStreamingChat(): UseStreamingChatReturn {
                   ? JSON.parse(toolState.arguments)
                   : {}
             } catch (e) {
-              console.error('Failed to parse arguments:', {
-                arguments: toolState.arguments,
-                e,
-              })
+              log.error(
+                {
+                  arguments: toolState.arguments,
+                  err: e,
+                },
+                'Failed to parse arguments',
+              )
               toolState.arguments = {}
             }
 
@@ -668,7 +680,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
               return [...prev, toolEvent]
             })
           } catch (e) {
-            console.error('Failed to parse tool state:', e)
+            log.error({ err: e }, 'Failed to parse tool state')
           }
         }
 
@@ -699,13 +711,13 @@ export function useStreamingChat(): UseStreamingChatReturn {
           try {
             const textChunk = line.slice(2)
             if (!textChunk || !textChunk.trim()) {
-              console.warn('Empty text chunk')
+              log.warn('Empty text chunk')
               return
             }
 
             const text = JSON.parse(textChunk)
             if (typeof text !== 'string') {
-              console.warn('Text chunk is not a string:', text)
+              log.warn({ text }, 'Text chunk is not a string')
               return
             }
 
@@ -714,7 +726,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
             }
             updateAssistantText(text, assistantId)
           } catch (e) {
-            console.error('Failed to parse text chunk:', e)
+            log.error({ err: e }, 'Failed to parse text chunk')
           }
         }
       }
@@ -758,7 +770,7 @@ export function useStreamingChat(): UseStreamingChatReturn {
             return
           }
 
-          console.error('Error reading stream chunk:', error)
+          log.error({ err: error }, 'Error reading stream chunk')
           setStreamBuffer((prev: Array<StreamEvent>) => [
             ...prev,
             {
@@ -780,13 +792,13 @@ export function useStreamingChat(): UseStreamingChatReturn {
 
   const addUserMessage = useCallback((content: string) => {
     if (!content || typeof content !== 'string') {
-      console.warn('addUserMessage: Invalid content provided', content)
+      log.warn({ content }, 'addUserMessage: Invalid content provided')
       return
     }
 
     const trimmedContent = content.trim()
     if (!trimmedContent) {
-      console.warn('addUserMessage: Empty content after trimming')
+      log.warn('addUserMessage: Empty content after trimming')
       return
     }
 

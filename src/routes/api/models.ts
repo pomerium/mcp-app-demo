@@ -1,5 +1,8 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
 import OpenAI from 'openai'
+import { createLogger } from '../../lib/logger'
+
+const log = createLogger('api-models')
 
 const SUPPORTED_MODEL_PREFIXES = [
   'gpt-5',
@@ -27,7 +30,13 @@ export const ServerRoute = createServerFileRoute('/api/models').methods({
         headers: { 'Content-Type': 'application/json' },
       })
     } catch (error) {
-      console.error('Error fetching models:', error)
+      log.error(
+        {
+          err: error,
+          operation: 'fetch-models',
+        },
+        'Error fetching models',
+      )
       return new Response(JSON.stringify({ error: 'Failed to fetch models' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },

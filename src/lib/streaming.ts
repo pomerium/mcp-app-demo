@@ -1,4 +1,9 @@
 import { APIError } from 'openai'
+import { createLogger } from './logger'
+import type { Logger } from 'pino'
+
+// Default logger for streaming module
+const defaultLog = createLogger('streaming')
 
 // Event chunk for stream completion
 const STREAM_DONE_CHUNK = new TextEncoder().encode(
@@ -7,8 +12,10 @@ const STREAM_DONE_CHUNK = new TextEncoder().encode(
 
 export function streamText(
   answer: AsyncIterable<any>,
-  onMessageId?: (messageId: string) => void,
+  log?: Logger,
 ): Response {
+  // Use provided logger or default
+  const logger = log || defaultLog
   const encoder = new TextEncoder()
   const messageId = `msg-${Math.random().toString(36).slice(2)}`
 
@@ -24,9 +31,7 @@ export function streamText(
           ),
         )
 
-        if (onMessageId) {
-          onMessageId(messageId)
-        }
+        logger.debug({ messageId }, 'Stream started')
 
         let buffer = ''
 
@@ -103,7 +108,13 @@ export function streamText(
               break
 
             case 'response.mcp_list_tools.failed':
-              console.error('[MCP LIST TOOLS FAILED]', chunk)
+              logger.error(
+                {
+                  itemId: chunk.item_id,
+                  error: 'error' in chunk ? chunk.error : undefined,
+                },
+                'MCP list tools failed',
+              )
 
               if (!('error' in chunk)) {
                 // return a tool call but with a status of failed.
@@ -119,7 +130,13 @@ export function streamText(
               break
 
             case 'response.mcp_call.failed': {
-              console.error('[TOOL CALL FAILED]', chunk)
+              logger.error(
+                {
+                  itemId: chunk.item_id,
+                  error: chunk.error,
+                },
+                'MCP tool call failed',
+              )
 
               // Create a generic error message without HTTP status details
               const callErrorMessage =
@@ -352,10 +369,11 @@ export function streamText(
                 break
               }
               // Skip unknown chunk types, but log them for debugging
-              console.warn(
-                '[streamText] Skipping unknown chunk type:',
-                chunk.type,
-                chunk,
+              logger.warn(
+                {
+                  chunkType: chunk.type,
+                },
+                'Skipping unknown chunk type',
               )
               break
           }
@@ -365,9 +383,16 @@ export function streamText(
         flush()
         // Emit a final done event to signal successful completion
         controller.enqueue(STREAM_DONE_CHUNK)
+        logger.debug({ messageId }, 'Stream completed successfully')
         controller.close()
       } catch (error: unknown) {
-        console.error('Error during streamed response:', error)
+        logger.error(
+          {
+            err: error,
+            messageId,
+          },
+          'Error during streamed response',
+        )
         let genericListToolsMessage = 'An unexpected error occurred.'
 
         if (error instanceof APIError) {
@@ -396,7 +421,13 @@ export function streamText(
         try {
           controller.close()
         } catch (closeError) {
-          console.error('Failed to close stream controller:', closeError)
+          logger.error(
+            {
+              err: closeError,
+              messageId,
+            },
+            'Failed to close stream controller',
+          )
         }
       }
     },

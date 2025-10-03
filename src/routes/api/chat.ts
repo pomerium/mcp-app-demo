@@ -7,7 +7,10 @@ import {
   isCodeInterpreterSupported,
   isWebSearchSupported, // NEW
 } from '../../lib/utils/prompting'
+import { createLogger } from '../../lib/logger'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
+
+const log = createLogger('api-chat')
 
 export const ServerRoute = createServerFileRoute('/api/chat').methods({
   async POST({ request }) {
@@ -33,7 +36,13 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
       const result = chatRequestSchema.safeParse(formattedBody)
 
       if (!result.success) {
-        console.error('Validation error:', result.error.errors)
+        log.error(
+          {
+            validationErrors: result.error.errors,
+            operation: 'chat-validation',
+          },
+          'Chat request validation failed',
+        )
         return new Response(JSON.stringify({ error: result.error.errors }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
@@ -42,6 +51,9 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
 
       const { messages, servers, model, userId, codeInterpreter, webSearch } =
         result.data
+
+      // Create contextual logger with userId for tracing
+      const contextLog = log.child({ userId, model, operation: 'chat-request' })
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
@@ -144,6 +156,15 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
 
       let answer
       try {
+        contextLog.info(
+          {
+            messageCount: messages.length,
+            toolCount: tools.length,
+            codeInterpreter,
+            webSearch,
+          },
+          'Creating OpenAI response',
+        )
         answer = await client.responses.create({
           instructions: systemPrompt,
           model,
@@ -160,7 +181,13 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
             : {}),
         })
       } catch (error) {
-        console.error('Error creating OpenAI response:', error)
+        contextLog.error(
+          {
+            err: error,
+            operation: 'openai-create-response',
+          },
+          'Error creating OpenAI response',
+        )
 
         // Handle specific OpenAI API errors
         if (error instanceof OpenAI.APIError) {
@@ -210,9 +237,15 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         )
       }
 
-      return streamText(answer)
+      return streamText(answer, contextLog)
     } catch (error) {
-      console.error('Error in chat route:', error)
+      log.error(
+        {
+          err: error,
+          operation: 'chat-route',
+        },
+        'Error in chat route',
+      )
       return new Response(JSON.stringify({ error: 'Internal server error' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },

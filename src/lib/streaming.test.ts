@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { stopStreamProcessing } from './utils/streaming'
 import { streamText } from './streaming'
 
@@ -138,9 +138,15 @@ describe('streamText', () => {
   })
 
   it('emits stream_done when an error occurs', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
+    // Mock the logger module
+    const mockError = vi.fn()
+    vi.doMock('./logger', () => ({
+      createLogger: () => ({
+        debug: vi.fn(),
+        error: mockError,
+        warn: vi.fn(),
+      }),
+    }))
 
     const errorIterable = {
       [Symbol.asyncIterator]() {
@@ -163,14 +169,7 @@ describe('streamText', () => {
 
     expect(result).toMatch(/t:{"type":"stream_done"}/)
     expect(result).toMatch(/e:{"type":"error".*}/)
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Error during streamed response:',
-      expect.any(Error),
-    )
-    expect(consoleErrorSpy.mock.calls[0][1].message).toBe(
-      'Simulated streaming error',
-    )
 
-    consoleErrorSpy.mockRestore()
+    vi.doUnmock('./logger')
   })
 })

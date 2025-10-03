@@ -3,6 +3,9 @@ import { OpenAI } from 'openai'
 import mime from 'mime'
 import { createEtag } from '@/lib/utils/net'
 import { containerFileQuerySchema } from '@/lib/schemas'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api-container-file')
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -14,7 +17,13 @@ async function getFilenameFromMetadata(fileId: string): Promise<string> {
     const filename = fileInfo.filename || fileId
     return filename
   } catch (error) {
-    console.warn('Could not retrieve file metadata:', error)
+    log.warn(
+      {
+        fileId,
+        err: error,
+      },
+      'Could not retrieve file metadata',
+    )
     return fileId
   }
 }
@@ -98,7 +107,15 @@ export const ServerRoute = createServerFileRoute('/api/container-file').methods(
           },
         })
       } catch (error) {
-        console.error('Error downloading file:', error)
+        log.error(
+          {
+            err: error,
+            containerId,
+            fileId,
+            operation: 'download-container-file',
+          },
+          'Error downloading file',
+        )
 
         if (error instanceof OpenAI.APIError) {
           return Response.json(
