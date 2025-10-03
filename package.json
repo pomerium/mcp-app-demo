@@ -36,7 +36,7 @@
     "@tanstack/router-plugin": "^1.121.4",
     "@tanstack/store": "^0.7.0",
     "@vitest/coverage-v8": "^3.2.4",
-    "ai": "^4.3.16",
+    "ai": "^5.0.60",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.476.0",
@@ -83,7 +83,7 @@
     "prettier": "^3.5.3",
     "storybook": "^9.0.16",
     "typescript": "^5.7.2",
-    "vite": "^6.3.3",
+    "vite": "^6.3.6",
     "vitest": "^3.0.5",
     "web-vitals": "^4.2.4"
   },
