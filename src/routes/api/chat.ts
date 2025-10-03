@@ -5,7 +5,7 @@ import { streamText } from '../../lib/streaming'
 import {
   getSystemPrompt,
   isCodeInterpreterSupported,
-  isWebSearchSupported, // NEW
+  isWebSearchSupported,
 } from '../../lib/utils/prompting'
 import type { Tool } from 'openai/resources/responses/responses.mjs'
 
@@ -40,8 +40,15 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
         })
       }
 
-      const { messages, servers, model, userId, codeInterpreter, webSearch } =
-        result.data
+      const {
+        messages,
+        servers,
+        model,
+        userId,
+        codeInterpreter,
+        webSearch,
+        background,
+      } = result.data
 
       if (messages.length === 0) {
         return new Response(JSON.stringify({ error: 'No messages provided' }), {
@@ -150,6 +157,9 @@ export const ServerRoute = createServerFileRoute('/api/chat').methods({
           tools,
           input: conversationHistory,
           stream: true,
+          background,
+          // Store if background or explicitly requested
+          store: background,
           user: userId,
           ...(model.startsWith('o3') || model.startsWith('o4')
             ? {

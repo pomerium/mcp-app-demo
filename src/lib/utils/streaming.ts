@@ -15,3 +15,12 @@ export function stopStreamProcessing(response: Response) {
     value: emptyStream,
   })
 }
+
+/**
+ * Generates a unique message ID for use in streaming contexts.
+ *
+ * @returns A unique message ID string.
+ */
+export function getMessageId(): string {
+  return `msg-${crypto.randomUUID()}`
+}

@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest'
-import { stopStreamProcessing } from './utils/streaming'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { getMessageId, stopStreamProcessing } from './utils/streaming'
 import { streamText } from './streaming'
+
+vi.mock('./utils/streaming', async () => {
+  const actual = await vi.importActual('./utils/streaming')
+  return {
+    ...actual,
+    getMessageId: vi.fn(),
+  }
+})
 
 function iterableFromArray<T>(arr: Array<T>): AsyncIterable<T> {
   return {
@@ -15,6 +23,19 @@ function iterableFromArray<T>(arr: Array<T>): AsyncIterable<T> {
       }
     },
   }
+}
+
+async function readStreamToString(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+): Promise<string> {
+  let result = ''
+  let done = false
+  while (!done) {
+    const { value, done: d } = await reader.read()
+    if (value) result += new TextDecoder().decode(value)
+    done = d
+  }
+  return result
 }
 
 describe('stopStreamProcessing', () => {
@@ -70,7 +91,35 @@ describe('stopStreamProcessing', () => {
   })
 })
 
+describe('getMessageId', () => {
+  it('returns a unique message ID with msg prefix', async () => {
+    const actual = await vi.importActual('./utils/streaming')
+    const id1 = actual.getMessageId()
+    const id2 = actual.getMessageId()
+
+    expect(id1).toMatch(
+      /^msg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    )
+    expect(id2).toMatch(
+      /^msg-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    )
+    expect(id1).not.toBe(id2)
+  })
+})
+
 describe('streamText', () => {
+  let messageCounter = 0
+
+  beforeEach(() => {
+    vi.mocked(getMessageId).mockImplementation(() => {
+      messageCounter++
+      return `msg-${messageCounter}`
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
   it('emits stream_done when the stream ends', async () => {
     const chunks = [
       { type: 'response.output_text.delta', delta: "I'm glad you asked!" },
@@ -127,14 +176,8 @@ describe('streamText', () => {
     ]
     const response = streamText(iterableFromArray(chunks))
     const reader = response.body!.getReader()
-    let result = ''
-    let done = false
-    while (!done) {
-      const { value, done: d } = await reader.read()
-      if (value) result += new TextDecoder().decode(value)
-      done = d
-    }
-    expect(result).toMatch(/t:{"type":"stream_done"}/)
+    const result = await readStreamToString(reader)
+    expect(result).toMatchSnapshot()
   })
 
   it('emits stream_done when an error occurs', async () => {
@@ -153,16 +196,9 @@ describe('streamText', () => {
     }
     const response = streamText(errorIterable)
     const reader = response.body!.getReader()
-    let result = ''
-    let done = false
-    while (!done) {
-      const { value, done: d } = await reader.read()
-      if (value) result += new TextDecoder().decode(value)
-      done = d
-    }
+    const result = await readStreamToString(reader)
 
-    expect(result).toMatch(/t:{"type":"stream_done"}/)
-    expect(result).toMatch(/e:{"type":"error".*}/)
+    expect(result).toMatchSnapshot()
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Error during streamed response:',
       expect.any(Error),
@@ -172,5 +208,23 @@ describe('streamText', () => {
     )
 
     consoleErrorSpy.mockRestore()
+  })
+
+  it('passes through response.created events', async () => {
+    const chunks = [
+      {
+        type: 'response.created',
+        response: {
+          id: 'resp_123',
+          model: 'gpt-4',
+          created: 1234567890,
+        },
+      },
+    ]
+    const response = streamText(iterableFromArray(chunks))
+    const reader = response.body!.getReader()
+    const result = await readStreamToString(reader)
+
+    expect(result).toMatchSnapshot()
   })
 })
