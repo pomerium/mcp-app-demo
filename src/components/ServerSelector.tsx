@@ -15,9 +15,6 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { ServerToggle } from './ServerToggle'
 import type { Server, Servers } from '../lib/schemas'
 import { useDisconnectServer } from '@/hooks/useDisconnectServer'
-import { createLogger } from '@/lib/logger'
-
-const log = createLogger('server-selector')
 
 const POMERIUM_ROUTES_ENDPOINT = '/.pomerium/mcp/routes'
 const POMERIUM_CONNECT_PATH = '/.pomerium/mcp/connect'
@@ -151,13 +148,7 @@ const ServerSelectionContent = ({
     try {
       await disconnectMutation.mutateAsync(serverId)
     } catch (err) {
-      log.error(
-        {
-          serverId,
-          err,
-        },
-        'Failed to disconnect from server',
-      )
+      console.error('Failed to disconnect from server:', err)
     }
   }
   const handleServerClick = (serverId: string) => {
@@ -300,7 +291,7 @@ export function ServerSelector({
       onServersChange(newServers)
       setIsLoading(false)
     } catch (err) {
-      log.error({ err }, 'Failed to fetch servers')
+      console.error('Failed to fetch servers:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch servers')
       setIsLoading(false)
     }

@@ -15,9 +15,6 @@ import {
   createAnnotatedFileUrl,
   isImageFile,
 } from '@/lib/utils/code-interpreter'
-import { createLogger } from '@/lib/logger'
-
-const log = createLogger('code-interpreter-message')
 
 type CodeInterpreterStatus = 'writing' | 'executing' | 'completed' | 'failed'
 
@@ -212,14 +209,7 @@ export function CodeInterpreterMessage({ args }: CodeInterpreterMessageProps) {
                             className="max-w-full h-auto rounded-lg shadow-sm"
                             style={{ maxHeight: '400px' }}
                             onError={(e) => {
-                              log.error(
-                                {
-                                  filename: file.filename,
-                                  fileId: file.file_id,
-                                  err: e,
-                                },
-                                'Failed to load image',
-                              )
+                              console.error('Failed to load image:', e)
                               // Hide the image if it fails to load
                               ;(e.target as HTMLImageElement).style.display =
                                 'none'

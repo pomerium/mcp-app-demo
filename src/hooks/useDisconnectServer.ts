@@ -4,9 +4,6 @@ import {
   disconnectRequestSchema,
   disconnectResponseSchema,
 } from '@/lib/schemas'
-import { createLogger } from '@/lib/logger'
-
-const log = createLogger('use-disconnect-server')
 
 const POMERIUM_DISCONNECT_ENDPOINT = '/.pomerium/mcp/routes/disconnect'
 
@@ -61,7 +58,7 @@ export function useDisconnectServer(
       onServersChange(updatedServers)
     },
     onError: (error) => {
-      log.error({ err: error }, 'Failed to disconnect from server')
+      console.error('Failed to disconnect from server:', error)
     },
   })
 }
