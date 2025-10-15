@@ -130,7 +130,8 @@ export function Chat() {
 
   useEffect(() => {
     if (!streaming && streamBuffer.length > 0) {
-      // Extract only assistant messages from streamBuffer (user messages are already in messages via append)
+      // Extract only assistant messages from streamBuffer to sync with useChat messages
+      // (user messages are already in messages via append)
       const assistantEvents = streamBuffer.filter(
         (event): event is Extract<StreamEvent, { type: 'assistant' }> =>
           event.type === 'assistant',
@@ -154,21 +155,23 @@ export function Chat() {
         })
       }
 
-      // Clear the buffer after syncing to prevent old messages from accumulating
-      clearBuffer()
+      // DO NOT clear the buffer here - we need to preserve all events for rendering
+      // The buffer contains tool calls, code interpreter events, etc. that need to be displayed
     }
-  }, [streaming, streamBuffer, setMessages, clearBuffer])
+  }, [streaming, streamBuffer, setMessages])
 
   const renderEvents = useMemo<Array<StreamEvent | Message>>(() => {
-    if (streaming || streamBuffer.length > 0) {
-      return [...messages, ...streamBuffer]
+    // If we have streamBuffer content, render it directly (contains all events in order)
+    if (streamBuffer.length > 0) {
+      return streamBuffer
     }
     // Show initial message only when there are no real messages and no streaming
     if (messages.length === 0 && !hasStartedChat) {
       return [initialMessage]
     }
+    // After buffer is cleared (new chat), render from messages
     return messages
-  }, [streaming, streamBuffer, messages, hasStartedChat, initialMessage])
+  }, [streamBuffer, messages, hasStartedChat, initialMessage])
 
   const handleSendMessage = useCallback(
     (prompt: string) => {
