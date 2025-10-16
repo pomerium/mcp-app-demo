@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from 'ai/react'
 import { MessageSquarePlus } from 'lucide-react'
 import { useModel } from '../contexts/ModelContext'
@@ -61,6 +61,7 @@ const TIMEOUT_ERROR_MESSAGE =
 export function Chat() {
   const hasMounted = useHasMounted()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const seenMessageIds = useRef(new Set<string>())
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [focusTimestamp, setFocusTimestamp] = useState(Date.now())
   const [servers, setServers] = useState<Servers>({})
@@ -127,16 +128,50 @@ export function Chat() {
     onResponse: handleResponse,
   })
 
+  useEffect(() => {
+    if (!streaming && streamBuffer.length > 0) {
+      // Extract only assistant messages from streamBuffer to sync with useChat messages
+      // (user messages are already in messages via append)
+      const assistantEvents = streamBuffer.filter(
+        (event): event is Extract<StreamEvent, { type: 'assistant' }> =>
+          event.type === 'assistant',
+      )
+
+      if (assistantEvents.length > 0) {
+        setMessages((prevMessages) => {
+          // Convert assistant stream events to Message objects, filtering duplicates using ref
+          const newMessages = assistantEvents
+            .filter((event) => !seenMessageIds.current.has(event.id))
+            .map((event) => ({
+              id: event.id,
+              role: 'assistant' as const,
+              content: event.content,
+            }))
+
+          // Track newly added message IDs
+          newMessages.forEach((msg) => seenMessageIds.current.add(msg.id))
+
+          return [...prevMessages, ...newMessages]
+        })
+      }
+
+      // DO NOT clear the buffer here - we need to preserve all events for rendering
+      // The buffer contains tool calls, code interpreter events, etc. that need to be displayed
+    }
+  }, [streaming, streamBuffer, setMessages])
+
   const renderEvents = useMemo<Array<StreamEvent | Message>>(() => {
-    if (streaming || streamBuffer.length > 0) {
-      return [...streamBuffer]
+    // If we have streamBuffer content, render it directly (contains all events in order)
+    if (streamBuffer.length > 0) {
+      return streamBuffer
     }
     // Show initial message only when there are no real messages and no streaming
     if (messages.length === 0 && !hasStartedChat) {
       return [initialMessage]
     }
+    // After buffer is cleared (new chat), render from messages
     return messages
-  }, [streaming, streamBuffer, messages, hasStartedChat, initialMessage])
+  }, [streamBuffer, messages, hasStartedChat, initialMessage])
 
   const handleSendMessage = useCallback(
     (prompt: string) => {
@@ -164,6 +199,7 @@ export function Chat() {
     setHasStartedChat(false)
     clearBuffer()
     setMessages([])
+    seenMessageIds.current.clear()
     setFocusTimestamp(Date.now())
     setUseCodeInterpreter(false)
     setUseWebSearch(false)
