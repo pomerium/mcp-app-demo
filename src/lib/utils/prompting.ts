@@ -53,6 +53,9 @@ export const CODE_INTERPRETER_SUPPORTED_MODELS = Object.freeze(
     'o3',
     'o3-pro',
     'o3-deep-research-2025-06-26',
+    'gpt-5.2',
+    'gpt-5.2-2025-12-11',
+    'gpt-5.2-chat-latest',
   ]),
 )
 
@@ -85,6 +88,9 @@ export const WEB_SEARCH_SUPPORTED_MODELS = Object.freeze(
     'o3',
     'o3-pro',
     'o3-deep-research-2025-06-26',
+    'gpt-5.2',
+    'gpt-5.2-2025-12-11',
+    'gpt-5.2-chat-latest',
   ]),
 )
 
