@@ -1,12 +1,10 @@
 import { Streamdown } from 'streamdown'
 import { toast } from 'sonner'
 import type { ComponentProps } from 'react'
-import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { CodeBlock } from '@/components/CodeBlock'
 
 type MarkdownContentProps = {
   content: string
-  fileAnnotations?: Array<AnnotatedFile>
   isAnimating?: boolean
 }
 
