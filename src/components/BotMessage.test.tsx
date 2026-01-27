@@ -466,4 +466,23 @@ describe('BotMessage', () => {
       expect(mockExecCommand).toHaveBeenCalledWith('copy')
     }
   })
+
+  it('passes isStreaming prop to MarkdownContent for animation control', () => {
+    const message: Message = {
+      id: 'msg-1',
+      content: 'Streaming message content...',
+      timestamp: '2025-07-06T12:00:00Z',
+      status: 'sent',
+    }
+
+    const { container } = render(
+      <BotMessage message={message} isStreaming={true} />,
+    )
+
+    const markdownContainer = container.querySelector('[data-raw-markdown]')
+    expect(markdownContainer).toBeInTheDocument()
+    expect(markdownContainer?.getAttribute('data-raw-markdown')).toBe(
+      'Streaming message content...',
+    )
+  })
 })

@@ -317,6 +317,7 @@ export function Chat() {
                       status: 'sent',
                     }}
                     fileAnnotations={[event.annotation]}
+                    isStreaming={false}
                   />
                 )
               } else if ('type' in event && event.type === 'error') {
@@ -332,6 +333,7 @@ export function Chat() {
                       status: 'sent',
                     }}
                     fileAnnotations={event.fileAnnotations || []}
+                    isStreaming={streaming && idx === renderEvents.length - 1}
                   />
                 )
               } else if ('type' in event && event.type === 'user') {
@@ -369,6 +371,9 @@ export function Chat() {
                           timestamp: getTimestamp(),
                           status: 'sent',
                         }}
+                        isStreaming={
+                          streaming && idx === renderEvents.length - 1
+                        }
                       />
                     )
                   } else {
