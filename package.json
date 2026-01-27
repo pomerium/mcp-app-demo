@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:ci": "vitest run --coverage",
     "lint": "eslint --fix",
-    "format": "prettier --write",
+    "format": "prettier --write .",
     "format:check": "prettier --check . && eslint .",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "npm ci && storybook build"

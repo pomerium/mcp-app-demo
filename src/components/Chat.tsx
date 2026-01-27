@@ -371,7 +371,9 @@ export function Chat() {
                           timestamp: getTimestamp(),
                           status: 'sent',
                         }}
-                        isStreaming={streaming && idx === renderEvents.length - 1}
+                        isStreaming={
+                          streaming && idx === renderEvents.length - 1
+                        }
                       />
                     )
                   } else {
