@@ -1,15 +1,19 @@
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { Streamdown } from 'streamdown'
 import { toast } from 'sonner'
+import type { ComponentProps } from 'react'
 import type { AnnotatedFile } from '@/lib/utils/code-interpreter'
 import { CodeBlock } from '@/components/CodeBlock'
 
 type MarkdownContentProps = {
   content: string
   fileAnnotations?: Array<AnnotatedFile>
+  isAnimating?: boolean
 }
 
-export function MarkdownContent({ content }: MarkdownContentProps) {
+export function MarkdownContent({
+  content,
+  isAnimating = false,
+}: MarkdownContentProps) {
   const handleCopySuccess = () => {
     toast.success('Copied code snippet to clipboard')
   }
@@ -20,10 +24,10 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
 
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none break-words">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+      <Streamdown
+        isAnimating={isAnimating}
         components={{
-          pre: ({ children, ...props }) => (
+          pre: ({ children, ...props }: ComponentProps<'pre'>) => (
             <CodeBlock
               onCopySuccess={handleCopySuccess}
               onCopyError={handleCopyError}
@@ -32,15 +36,15 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
               {children}
             </CodeBlock>
           ),
-          code: ({ ...props }) => (
+          code: ({ ...props }: ComponentProps<'code'>) => (
             <code className="break-words whitespace-pre-wrap" {...props} />
           ),
-          table: ({ ...props }) => (
+          table: ({ ...props }: ComponentProps<'table'>) => (
             <div className="overflow-x-auto my-4">
               <table {...props} />
             </div>
           ),
-          a: ({ href, children, ...props }) => (
+          a: ({ href, children, ...props }: ComponentProps<'a'>) => (
             <a
               href={href}
               className="break-words"
@@ -54,7 +58,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
         }}
       >
         {content}
-      </ReactMarkdown>
+      </Streamdown>
     </div>
   )
 }

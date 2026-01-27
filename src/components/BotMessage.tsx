@@ -21,9 +21,14 @@ export interface Message extends Omit<AssistantStreamEvent, 'type'> {
 export interface BotMessageProps {
   message: Message
   fileAnnotations?: Array<AnnotatedFile>
+  isStreaming?: boolean
 }
 
-export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
+export function BotMessage({
+  message,
+  fileAnnotations = [],
+  isStreaming = false,
+}: BotMessageProps) {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
   const processedContent = replaceSandboxUrls(message.content, fileAnnotations)
 
@@ -71,7 +76,7 @@ export function BotMessage({ message, fileAnnotations = [] }: BotMessageProps) {
           <div data-raw-markdown={processedContent}>
             <MarkdownContent
               content={processedContent}
-              fileAnnotations={fileAnnotations}
+              isAnimating={isStreaming}
             />
           </div>
 
